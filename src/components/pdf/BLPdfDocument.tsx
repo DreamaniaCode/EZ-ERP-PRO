@@ -38,46 +38,54 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo, onClose
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
         onclone: (clonedDoc) => {
-          // Clean up style tags that contain oklch color functions unsupported by html2canvas
-          const styleTags = clonedDoc.querySelectorAll('style');
-          styleTags.forEach((style) => {
-            if (style.textContent && style.textContent.includes('oklch')) {
-              style.textContent = style.textContent.replace(/oklch\([^)]+\)/g, '#000000');
+          // Remove or replace oklch/oklab/lab CSS expressions that break html2canvas
+          const styleElements = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
+          styleElements.forEach((el) => {
+            try {
+              if (el.textContent && (el.textContent.includes('oklch') || el.textContent.includes('oklab'))) {
+                el.textContent = el.textContent.replace(/oklch\([^)]+\)/g, '#000000').replace(/oklab\([^)]+\)/g, '#000000');
+              }
+            } catch (e) {
+              // Ignore style reading errors
             }
           });
 
-          // Clean up inline or element styles
           const pdfElement = clonedDoc.querySelector('[data-pdf-element="true"]') || clonedDoc.body;
           if (pdfElement) {
             const allElements = pdfElement.querySelectorAll('*');
             allElements.forEach((el) => {
               const htmlEl = el as HTMLElement;
               if (htmlEl.style) {
-                for (let i = 0; i < htmlEl.style.length; i++) {
-                  const prop = htmlEl.style[i];
-                  const val = htmlEl.style.getPropertyValue(prop);
-                  if (val && val.includes('oklch')) {
-                    htmlEl.style.setProperty(prop, '#000000');
+                try {
+                  for (let i = 0; i < htmlEl.style.length; i++) {
+                    const prop = htmlEl.style[i];
+                    const val = htmlEl.style.getPropertyValue(prop);
+                    if (val && (val.includes('oklch') || val.includes('oklab'))) {
+                      htmlEl.style.setProperty(prop, '#000000');
+                    }
                   }
-                }
+                } catch (e) {}
               }
             });
           }
         },
       });
+
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`${bl.blNumber}_BL_${bl.clientName.replace(/\s+/g, '_')}.pdf`);
+      pdf.save(`${bl.blNumber}_BL_${(bl.clientName || 'Client').replace(/\s+/g, '_')}.pdf`);
     } catch (err) {
-      console.error('Erreur génération PDF:', err);
-      alert('Une erreur est survenue lors de la génération du PDF. Utilisez l\'option Imprimer.');
+      console.error('Erreur génération PDF via html2canvas:', err);
+      // Fallback: Use browser native print dialog
+      window.print();
     }
   };
 
