@@ -79,8 +79,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
   }, 0);
 
   // Sales calculations
-  const totalSalesHT = orders.reduce((acc, o) => acc + o.totalHT, 0);
-  const totalCostHT = orders.reduce((acc, o) => acc + o.totalCostHT, 0);
+  const totalSalesHT = (orders || []).reduce((acc, o) => acc + (o?.totalHT || 0), 0);
+  const totalCostHT = (orders || []).reduce((acc, o) => acc + (o?.totalCostHT || 0), 0);
   const grossMarginHT = totalSalesHT - totalCostHT;
   const globalMarginPct = totalSalesHT > 0 ? (grossMarginHT / totalSalesHT) * 100 : 0;
 
@@ -231,7 +231,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
             <span className="text-gray-500">{t('dashboard.grossMargin', 'Marge Brute')}:</span>
             <span className="font-mono font-bold text-emerald-600 flex items-center gap-1">
               <ArrowUpRight className="w-3.5 h-3.5" />
-              {grossMarginHT.toLocaleString()} DH ({globalMarginPct.toFixed(1)}%)
+              {grossMarginHT.toLocaleString()} DH ({(globalMarginPct || 0).toFixed(1)}%)
             </span>
           </div>
         </div>
@@ -318,7 +318,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
                     <div className="flex justify-between items-center text-xs mb-1.5">
                       <span className="font-bold text-gray-800">{category}</span>
                       <span className="font-mono text-emerald-700 font-bold">
-                        {t('products.margin', 'Marge')}: {stats.marginHT.toLocaleString()} DH ({catMarginPct.toFixed(1)}%)
+                        {t('products.margin', 'Marge')}: {stats.marginHT.toLocaleString()} DH ({(catMarginPct || 0).toFixed(1)}%)
                       </span>
                     </div>
 
@@ -436,7 +436,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
                       <td className="font-mono text-gray-600">{prd.unitCostHT} DH/kg</td>
                       <td>
                         <span className="font-mono text-xs font-bold text-emerald-600">
-                          +{unitMargin} DH ({marginPct.toFixed(0)}%)
+                          +{unitMargin} DH ({(marginPct || 0).toFixed(0)}%)
                         </span>
                       </td>
                       <td className="font-mono">

@@ -60,9 +60,9 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
     onBack();
   };
 
-  const kgPerPallet = formData.kgPerCarton * formData.cartonsPerPallet;
-  const margin = formData.sellingPriceHT - formData.unitCostHT;
-  const marginPercent = formData.unitCostHT > 0 ? (margin / formData.unitCostHT) * 100 : 0;
+  const kgPerPallet = (formData.kgPerCarton || 0) * (formData.cartonsPerPallet || 0);
+  const margin = (formData.sellingPriceHT || 0) - (formData.unitCostHT || 0);
+  const marginPercent = (formData.unitCostHT || 0) > 0 ? (margin / formData.unitCostHT) * 100 : 0;
 
   return (
     <div className="flex flex-col h-full bg-[#f4f4f4] text-[#161616]">
