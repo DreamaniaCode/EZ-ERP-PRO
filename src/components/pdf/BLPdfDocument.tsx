@@ -90,35 +90,35 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo, onClose
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto p-4 flex justify-center items-start">
-      <div className="bg-white w-full max-w-4xl my-8 rounded shadow-2xl overflow-hidden border border-gray-300">
-        
-        {/* Action Bar */}
-        <div className="bg-[#161616] text-white px-6 py-3 flex justify-between items-center print:hidden border-b border-[#393939]">
-          <div className="font-mono text-sm font-bold flex items-center gap-2">
-            <span className="text-[#0f62fe]">PDF</span> PREVIEW - BON DE LIVRAISON {bl.blNumber}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePrint}
-              className="px-3 py-1.5 bg-[#262626] hover:bg-[#393939] text-white text-xs font-semibold rounded flex items-center gap-1.5 border border-[#525252]"
-            >
-              <Printer className="w-4 h-4 text-emerald-400" /> Imprimer / Imprimer PDF
-            </button>
-            <button
-              onClick={handleDownloadPdf}
-              className="carbon-btn-primary text-xs flex items-center gap-1.5 rounded"
-            >
-              <Download className="w-4 h-4" /> Télécharger (.PDF)
-            </button>
-            <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+    <div className="bg-white w-full rounded-lg shadow-sm overflow-hidden border border-gray-200">
+      
+      {/* Action Bar */}
+      <div className="bg-[#161616] text-white px-4 py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 print:hidden border-b border-[#393939]">
+        <div className="font-mono text-xs sm:text-sm font-bold flex items-center gap-2">
+          <span className="text-[#0f62fe]">PDF</span> PREVIEW - BON DE LIVRAISON {bl.blNumber}
         </div>
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+          <button
+            onClick={handlePrint}
+            className="flex-1 sm:flex-initial px-3 py-1.5 bg-[#262626] hover:bg-[#393939] text-white text-xs font-semibold rounded flex items-center justify-center gap-1.5 border border-[#525252]"
+          >
+            <Printer className="w-4 h-4 text-emerald-400" /> Imprimer / Imprimer PDF
+          </button>
+          <button
+            onClick={handleDownloadPdf}
+            className="flex-1 sm:flex-initial carbon-btn-primary text-xs flex items-center justify-center gap-1.5 rounded"
+          >
+            <Download className="w-4 h-4" /> Télécharger (.PDF)
+          </button>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white shrink-0">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
 
-        {/* Printable Document Sheet */}
-        <div ref={printRef} data-pdf-element="true" className="p-8 bg-white text-gray-900 font-sans space-y-6" style={{ backgroundColor: '#ffffff', color: '#111827' }}>
+      {/* Printable Document Sheet Container */}
+      <div className="overflow-x-auto p-2 sm:p-6 bg-gray-100">
+        <div ref={printRef} data-pdf-element="true" className="min-w-[700px] max-w-4xl mx-auto p-6 bg-white text-gray-900 font-sans space-y-6 shadow-md border border-gray-200" style={{ backgroundColor: '#ffffff', color: '#111827' }}>
 
           {/* Header Row: Company Info, BL Title & QR Code */}
           <div className="flex justify-between items-start border-b-2 border-gray-900 pb-5" style={{ borderColor: '#111827' }}>
@@ -283,7 +283,6 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo, onClose
           </div>
 
         </div>
-
       </div>
     </div>
   );
