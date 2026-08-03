@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128;
+    }
+
+    match /products/{productId} {
+      allow read, write: if isValidId(productId);
+    }
+
+    match /clients/{clientId} {
+      allow read, write: if isValidId(clientId);
+    }
+
+    match /suppliers/{supplierId} {
+      allow read, write: if isValidId(supplierId);
+    }
+
+    match /deliveryNotes/{blId} {
+      allow read, write: if isValidId(blId);
+    }
+
+    match /orders/{orderId} {
+      allow read, write: if isValidId(orderId);
+    }
+
+    match /invoices/{invoiceId} {
+      allow read, write: if isValidId(invoiceId);
+    }
+
+    match /chequesEffets/{chequeId} {
+      allow read, write: if isValidId(chequeId);
+    }
+
+    match /expenses/{expenseId} {
+      allow read, write: if isValidId(expenseId);
+    }
+
+    match /frigoStock/{stockId} {
+      allow read, write: if isValidId(stockId);
+    }
+
+    match /inventoryCounts/{countId} {
+      allow read, write: if isValidId(countId);
+    }
+
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "EasyERP Pro",
+  "description": "ERP pour le négoce de dattes locales et importées et produits alimentaires : gestion de stock multi-frigos (kg/palettes), BLs avec PDF et WhatsApp, suivi chèques/effets et tableaux de bord de marge.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

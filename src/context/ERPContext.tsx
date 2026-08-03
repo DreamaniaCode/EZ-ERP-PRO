@@ -1,0 +1,1751 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { findMatchingProduct } from '../utils/productMatcher';
+import { 
+  Product, 
+  ColdStorageFrigo, 
+  FrigoStockLevel, 
+  Client, 
+  Supplier, 
+  SalesOrder, 
+  DeliveryNoteBL, 
+  Invoice, 
+  ChequeEffet, 
+  TreasuryAccount, 
+  Expense, 
+  UserProfile,
+  MultiSiteInventoryCount,
+  PurchaseImportInvoice,
+  ChequeEffetStatus,
+  OrderStatus,
+  CompanyInfo,
+  RecalculationSummaryReport,
+  RecalculationReportItem
+} from '../types';
+
+import { 
+  INITIAL_USERS, 
+  INITIAL_FRIGOS, 
+  INITIAL_PRODUCTS, 
+  INITIAL_STOCKS, 
+  INITIAL_CLIENTS, 
+  INITIAL_SUPPLIERS, 
+  INITIAL_ORDERS, 
+  INITIAL_DELIVERY_NOTES, 
+  INITIAL_INVOICES, 
+  INITIAL_CHEQUES_EFFETS, 
+  INITIAL_TREASURY_ACCOUNTS, 
+  INITIAL_EXPENSES,
+  INITIAL_COMPANY_INFO
+} from '../data/mockData';
+
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { collection, doc, setDoc, deleteDoc, getDocs, onSnapshot, writeBatch } from 'firebase/firestore';
+
+interface ERPContextType {
+  currentUser: UserProfile;
+  setCurrentUser: (user: UserProfile) => void;
+  users: UserProfile[];
+  
+  products: Product[];
+  frigos: ColdStorageFrigo[];
+  stocks: FrigoStockLevel[];
+  clients: Client[];
+  suppliers: Supplier[];
+  orders: SalesOrder[];
+  deliveryNotes: DeliveryNoteBL[];
+  invoices: Invoice[];
+  chequesEffets: ChequeEffet[];
+  treasuryAccounts: TreasuryAccount[];
+  expenses: Expense[];
+  inventoryCounts: MultiSiteInventoryCount[];
+  purchaseInvoices: PurchaseImportInvoice[];
+  companyInfo: CompanyInfo;
+  updateCompanyInfo: (info: Partial<CompanyInfo>) => void;
+
+  // Product Actions
+  addProduct: (product: Omit<Product, 'id' | 'code' | 'kgPerPallet'>) => Product;
+  updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => void;
+  syncBLPricesWithProducts: () => void;
+  recalculateAllBLPrices: () => Promise<RecalculationSummaryReport>;
+
+  // Frigo Actions
+  addFrigo: (frigo: Omit<ColdStorageFrigo, 'id' | 'code'>) => ColdStorageFrigo;
+  updateFrigo: (id: string, frigoData: Partial<ColdStorageFrigo>) => void;
+  deleteFrigo: (id: string) => void;
+
+  // Stock Actions
+  adjustStock: (frigoId: string, productId: string, newKg: number, newPallets: number) => void;
+  transferStock: (sourceFrigoId: string, targetFrigoId: string, productId: string, kg: number, pallets: number) => void;
+
+  // Purchase Actions
+  createPurchaseInvoice: (purchaseData: Omit<PurchaseImportInvoice, 'id'>) => PurchaseImportInvoice;
+
+  // Order & BL Actions
+  createOrder: (orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'status' | 'totalHT' | 'totalVAT' | 'totalTTC' | 'totalCostHT' | 'grossMarginHT' | 'marginPercentage'>) => SalesOrder;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  addBL: (blData: DeliveryNoteBL) => void;
+  updateBL: (id: string, updatedData: Partial<DeliveryNoteBL>) => void;
+  deleteBL: (id: string) => void;
+  approveFrigoBL: (blId: string, employeeName: string) => void;
+  signBL: (blId: string, signatureUrl: string, clientName: string) => void;
+  sendWhatsAppBL: (blId: string) => void;
+  sendEmailBL: (blId: string, recipient: string) => void;
+
+  // Finance Actions
+  createInvoiceFromBL: (blId: string) => Invoice;
+  updateInvoiceStatus: (invoiceId: string, status: Invoice['status'], amountPaid?: number) => void;
+  addChequeEffet: (cheque: Omit<ChequeEffet, 'id'>) => void;
+  updateChequeEffet: (id: string, chequeData: Partial<ChequeEffet>) => void;
+  deleteChequeEffet: (id: string) => void;
+  updateChequeStatus: (chequeId: string, status: ChequeEffetStatus) => void;
+  resetAllData: () => void;
+  addExpense: (expense: Omit<Expense, 'id' | 'expenseNumber'>) => void;
+  addClient: (client: Omit<Client, 'id' | 'code' | 'currentBalance'>) => void;
+  updateClient: (id: string, clientData: Partial<Client>) => void;
+  deleteClient: (id: string) => void;
+  addSupplier: (supplier: Omit<Supplier, 'id' | 'code' | 'currentBalance'>) => void;
+  updateSupplier: (id: string, supplierData: Partial<Supplier>) => void;
+  deleteSupplier: (id: string) => void;
+  saveInventoryCount: (count: Omit<MultiSiteInventoryCount, 'id' | 'countNumber'>, applyStockAdjust: boolean) => void;
+  importExcelBLs: (newBLs: DeliveryNoteBL[]) => void;
+  deduplicateClients: () => number;
+  mergeClients: (targetClientId: string, clientIdsToMerge: string[]) => void;
+  mergeProducts: (targetProductId: string, productIdsToMerge: string[]) => void;
+}
+
+const ERPContext = createContext<ERPContextType | undefined>(undefined);
+
+export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Load from localStorage or default
+  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
+    const saved = localStorage.getItem('erp_current_user');
+    return saved ? JSON.parse(saved) : INITIAL_USERS[0]; // Default Admin
+  });
+
+  const isWiped = typeof window !== 'undefined' && localStorage.getItem('erp_system_wiped') === 'true';
+
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('erp_products');
+    if (saved) return JSON.parse(saved);
+    if (isWiped) return [];
+    return INITIAL_PRODUCTS;
+  });
+
+  const [frigos, setFrigos] = useState<ColdStorageFrigo[]>(() => {
+    const saved = localStorage.getItem('erp_frigos');
+    if (saved) return JSON.parse(saved);
+    return INITIAL_FRIGOS;
+  });
+
+  const [stocks, setStocks] = useState<FrigoStockLevel[]>(() => {
+    const saved = localStorage.getItem('erp_stocks');
+    if (saved) return JSON.parse(saved);
+    if (isWiped) return [];
+    return INITIAL_STOCKS;
+  });
+
+  const [clients, setClients] = useState<Client[]>(() => {
+    const saved = localStorage.getItem('erp_clients');
+    if (saved) return JSON.parse(saved);
+    if (isWiped) return [];
+    return INITIAL_CLIENTS;
+  });
+
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+    const saved = localStorage.getItem('erp_suppliers');
+    if (saved) return JSON.parse(saved);
+    if (isWiped) return [];
+    return INITIAL_SUPPLIERS;
+  });
+
+  const [orders, setOrders] = useState<SalesOrder[]>(() => {
+    const saved = localStorage.getItem('erp_orders');
+    if (saved) return JSON.parse(saved);
+    return [];
+  });
+
+  const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteBL[]>(() => {
+    const saved = localStorage.getItem('erp_deliveryNotes') || localStorage.getItem('erp_delivery_notes');
+    if (saved) return JSON.parse(saved);
+    if (isWiped) return [];
+    return INITIAL_DELIVERY_NOTES;
+  });
+
+  const [invoices, setInvoices] = useState<Invoice[]>(() => {
+    const saved = localStorage.getItem('erp_invoices');
+    if (saved) return JSON.parse(saved);
+    return [];
+  });
+
+  const [chequesEffets, setChequesEffets] = useState<ChequeEffet[]>(() => {
+    const saved = localStorage.getItem('erp_cheques') || localStorage.getItem('erp_cheques_effets');
+    if (saved) return JSON.parse(saved);
+    return [];
+  });
+
+  const [treasuryAccounts, setTreasuryAccounts] = useState<TreasuryAccount[]>(() => {
+    const saved = localStorage.getItem('erp_treasury');
+    if (saved) return JSON.parse(saved);
+    return INITIAL_TREASURY_ACCOUNTS;
+  });
+
+  const [expenses, setExpenses] = useState<Expense[]>(() => {
+    const saved = localStorage.getItem('erp_expenses');
+    if (saved) return JSON.parse(saved);
+    return [];
+  });
+
+  const [inventoryCounts, setInventoryCounts] = useState<MultiSiteInventoryCount[]>(() => {
+    const saved = localStorage.getItem('erp_inventories');
+    if (saved) return JSON.parse(saved);
+    return [];
+  });
+
+  const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseImportInvoice[]>(() => {
+    const saved = localStorage.getItem('erp_purchase_invoices');
+    if (saved) return JSON.parse(saved);
+    return [];
+  });
+
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(() => {
+    const saved = localStorage.getItem('erp_company_info');
+    if (saved) return JSON.parse(saved);
+    return INITIAL_COMPANY_INFO;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('erp_company_info', JSON.stringify(companyInfo));
+  }, [companyInfo]);
+
+  const updateCompanyInfo = (info: Partial<CompanyInfo>) => {
+    setCompanyInfo(prev => {
+      const updated = { ...prev, ...info };
+      setDoc(doc(db, 'settings', 'companyInfo'), updated).catch(err => {
+        handleFirestoreError(err, OperationType.WRITE, 'settings/companyInfo');
+      });
+      return updated;
+    });
+  };
+
+  // Save changes to localStorage & Firebase Firestore
+  useEffect(() => {
+    localStorage.setItem('erp_current_user', JSON.stringify(currentUser));
+  }, [currentUser]);
+
+  // Firestore Real-Time Listeners
+  // Firestore Real-Time Syncing (allowing real deletions)
+  useEffect(() => {
+    if (isWiped) return;
+
+    const unsubClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
+      const docs = snapshot.docs.map(docSnap => docSnap.data() as Client);
+      if (docs.length > 0) setClients(docs);
+      else if (localStorage.getItem('erp_system_wiped') === 'true') setClients([]);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
+
+    const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
+      const docs = snapshot.docs.map(docSnap => docSnap.data() as Product);
+      if (docs.length > 0) setProducts(docs);
+      else if (localStorage.getItem('erp_system_wiped') === 'true') setProducts([]);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'products'));
+
+    const unsubFrigos = onSnapshot(collection(db, 'frigos'), (snapshot) => {
+      const docs = snapshot.docs.map(docSnap => docSnap.data() as ColdStorageFrigo);
+      if (docs.length > 0) setFrigos(docs);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'frigos'));
+
+    const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
+      const docs = snapshot.docs.map(docSnap => docSnap.data() as DeliveryNoteBL);
+      if (docs.length > 0) setDeliveryNotes(docs);
+      else if (localStorage.getItem('erp_system_wiped') === 'true') setDeliveryNotes([]);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'deliveryNotes'));
+
+    return () => {
+      unsubClients();
+      unsubProducts();
+      unsubFrigos();
+      unsubDeliveryNotes();
+    };
+  }, [isWiped]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_products', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_frigos', JSON.stringify(frigos));
+  }, [frigos]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_stocks', JSON.stringify(stocks));
+  }, [stocks]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_orders', JSON.stringify(orders));
+  }, [orders]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_deliveryNotes', JSON.stringify(deliveryNotes));
+  }, [deliveryNotes]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_invoices', JSON.stringify(invoices));
+  }, [invoices]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_cheques', JSON.stringify(chequesEffets));
+  }, [chequesEffets]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_expenses', JSON.stringify(expenses));
+  }, [expenses]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_clients', JSON.stringify(clients));
+  }, [clients]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_suppliers', JSON.stringify(suppliers));
+  }, [suppliers]);
+
+  // Product helper
+  const addProduct = (productData: Omit<Product, 'id' | 'code' | 'kgPerPallet'>): Product => {
+    const nextCodeNum = products.length + 1;
+    const code = `PRD-DAT-${String(nextCodeNum).padStart(3, '0')}`;
+    const kgPerPallet = productData.kgPerCarton * productData.cartonsPerPallet;
+    const newPrd: Product = {
+      ...productData,
+      id: `prd-${Date.now()}`,
+      code,
+      kgPerPallet,
+    };
+    setProducts(prev => [newPrd, ...prev]);
+
+    // Initialize stock at 0 for each frigo
+    const newStockLevels: FrigoStockLevel[] = frigos.map(f => ({
+      productId: newPrd.id,
+      frigoId: f.id,
+      quantityKg: 0,
+      quantityPallets: 0,
+      lastUpdated: new Date().toLocaleString('fr-FR'),
+    }));
+    setStocks(prev => [...prev, ...newStockLevels]);
+
+    return newPrd;
+  };
+
+  const updateProduct = async (id: string, updatedFields: Partial<Product>) => {
+    const targetProduct = products.find(p => p.id === id);
+    if (!targetProduct) return;
+
+    const updatedProduct = { ...targetProduct, ...updatedFields };
+    if (updatedFields.kgPerCarton || updatedFields.cartonsPerPallet) {
+      updatedProduct.kgPerPallet = updatedProduct.kgPerCarton * updatedProduct.cartonsPerPallet;
+    }
+
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'products', id), updatedProduct);
+
+    const affectedBLs = deliveryNotes.filter(bl => bl.items.some(item => item.productId === id));
+    const newPrice = updatedProduct.sellingPriceHT;
+
+    for (const bl of affectedBLs) {
+      const newItems = bl.items.map(item => {
+        if (item.productId === id) {
+          return {
+            ...item,
+            unitPriceHT: newPrice,
+            totalHT: item.quantityKg * newPrice,
+          };
+        }
+        return item;
+      });
+
+      const totalHT = newItems.reduce((sum, it) => sum + it.totalHT, 0);
+      const updatedBL = {
+        ...bl,
+        items: newItems,
+        totalHT,
+        totalTTC: totalHT,
+      };
+      batch.set(doc(db, 'deliveryNotes', bl.id), updatedBL);
+    }
+
+    try {
+      await batch.commit();
+      setProducts(prev => prev.map(p => p.id === id ? updatedProduct : p));
+      setDeliveryNotes(prev => prev.map(bl => {
+        const found = affectedBLs.find(a => a.id === bl.id);
+        return found ? { ...bl, items: bl.items.map(item => item.productId === id ? { ...item, unitPriceHT: newPrice, totalHT: item.quantityKg * newPrice } : item), totalHT: bl.items.reduce((sum, it) => sum + (it.productId === id ? it.quantityKg * newPrice : it.totalHT), 0), totalTTC: bl.items.reduce((sum, it) => sum + (it.productId === id ? it.quantityKg * newPrice : it.totalHT), 0) } : bl;
+      }));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `atomic_product_update/${id}`);
+    }
+  };
+
+  const syncBLPricesWithProducts = () => {
+    console.log('Syncing BL prices with products...');
+    setDeliveryNotes(prevBLs => prevBLs.map(bl => {
+      let isModified = false;
+      
+      // Check frigoName sync
+      const matchedFrigo = frigos.find(f => f.id === bl.frigoId) || frigos.find(f => f.id === 'frigo-1') || frigos[0];
+      const correctFrigoName = matchedFrigo ? matchedFrigo.name : 'Frigo MFADEL';
+      let currentFrigoName = bl.frigoName;
+
+      if (bl.frigoName.includes('Port Casablanca') || bl.frigoName.includes('Frigo A') || bl.frigoName.includes('Frigo B') || bl.frigoName.includes('Frigo C') || bl.frigoName !== correctFrigoName) {
+        currentFrigoName = correctFrigoName;
+        isModified = true;
+      }
+
+      const newItems = bl.items.map(item => {
+        const prd = findMatchingProduct(item, products);
+
+        if (prd) {
+          if (item.unitPriceHT !== prd.sellingPriceHT || item.productId !== prd.id || item.productCode !== prd.code) {
+            console.log(`Updating price for BL ${bl.blNumber}: ${item.productName} ${item.unitPriceHT} -> ${prd.sellingPriceHT}`);
+            isModified = true;
+            return {
+              ...item,
+              productId: prd.id,
+              productCode: prd.code,
+              unitPriceHT: prd.sellingPriceHT,
+              totalHT: item.quantityKg * prd.sellingPriceHT,
+            };
+          }
+        }
+        return item;
+      });
+
+      const totalHT = newItems.reduce((sum, it) => sum + it.totalHT, 0);
+      if (!isModified && bl.totalHT === totalHT && bl.totalTTC === totalHT && bl.frigoName === currentFrigoName) return bl;
+      
+      console.log(`BL ${bl.blNumber} modified. New totalHT: ${totalHT}`);
+
+      const updatedBL = {
+        ...bl,
+        frigoName: currentFrigoName,
+        frigoId: matchedFrigo ? matchedFrigo.id : 'frigo-1',
+        items: newItems,
+        totalHT: totalHT,
+        totalTTC: totalHT, // Don't add TVA price unless asked
+      };
+
+      setDoc(doc(db, 'deliveryNotes', bl.id), updatedBL).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `deliveryNotes/${bl.id}`);
+      });
+
+      return updatedBL;
+    }));
+  };
+
+  const recalculateAllBLPrices = async (): Promise<RecalculationSummaryReport> => {
+    const reportDetails: RecalculationReportItem[] = [];
+    let updatedBLsCount = 0;
+    let unchangedBLsCount = 0;
+    let failedBLsCount = 0;
+    let totalItemsUpdated = 0;
+    let totalFinancialImpactHT = 0;
+
+    const newBLsList: DeliveryNoteBL[] = [];
+
+    for (const bl of deliveryNotes) {
+      try {
+        let isModified = false;
+        const itemDetails: RecalculationReportItem['updatedDetails'] = [];
+
+        // Check frigoName sync
+        const matchedFrigo = frigos.find(f => f.id === bl.frigoId) || frigos.find(f => f.id === 'frigo-1') || frigos[0];
+        const correctFrigoName = matchedFrigo ? matchedFrigo.name : 'Frigo MFADEL';
+        let currentFrigoName = bl.frigoName;
+
+        if (bl.frigoName.includes('Port Casablanca') || bl.frigoName.includes('Frigo A') || bl.frigoName.includes('Frigo B') || bl.frigoName.includes('Frigo C') || bl.frigoName !== correctFrigoName) {
+          currentFrigoName = correctFrigoName;
+          isModified = true;
+        }
+
+        const newItems = bl.items.map(item => {
+          const prd = findMatchingProduct(item, products);
+
+          if (prd) {
+            if (item.unitPriceHT !== prd.sellingPriceHT || item.productId !== prd.id || item.productCode !== prd.code) {
+              isModified = true;
+              itemDetails.push({
+                productName: prd.name,
+                productCode: prd.code,
+                oldPrice: item.unitPriceHT,
+                newPrice: prd.sellingPriceHT,
+                quantityKg: item.quantityKg,
+              });
+              return {
+                ...item,
+                productId: prd.id,
+                productCode: prd.code,
+                unitPriceHT: prd.sellingPriceHT,
+                totalHT: item.quantityKg * prd.sellingPriceHT,
+              };
+            }
+          }
+          return item;
+        });
+
+        const newTotalHT = newItems.reduce((sum, it) => sum + it.totalHT, 0);
+
+        if (!isModified && bl.totalHT === newTotalHT && bl.totalTTC === newTotalHT && bl.frigoName === currentFrigoName) {
+          unchangedBLsCount++;
+          reportDetails.push({
+            blId: bl.id,
+            blNumber: bl.blNumber,
+            clientName: bl.clientName,
+            date: bl.date,
+            status: 'NO_CHANGE',
+            oldTotalHT: bl.totalHT,
+            newTotalHT: bl.totalHT,
+            itemsUpdatedCount: 0,
+            updatedDetails: [],
+          });
+          newBLsList.push(bl);
+          continue;
+        }
+
+        const updatedBL: DeliveryNoteBL = {
+          ...bl,
+          frigoName: currentFrigoName,
+          frigoId: matchedFrigo ? matchedFrigo.id : 'frigo-1',
+          items: newItems,
+          totalHT: newTotalHT,
+          totalTTC: newTotalHT,
+        };
+
+        // Write to Firestore
+        await setDoc(doc(db, 'deliveryNotes', bl.id), updatedBL);
+
+        const diffHT = newTotalHT - bl.totalHT;
+        totalFinancialImpactHT += diffHT;
+        updatedBLsCount++;
+        totalItemsUpdated += itemDetails.length;
+
+        reportDetails.push({
+          blId: bl.id,
+          blNumber: bl.blNumber,
+          clientName: bl.clientName,
+          date: bl.date,
+          status: 'UPDATED',
+          oldTotalHT: bl.totalHT,
+          newTotalHT: newTotalHT,
+          itemsUpdatedCount: itemDetails.length,
+          updatedDetails: itemDetails,
+        });
+
+        newBLsList.push(updatedBL);
+      } catch (err: any) {
+        failedBLsCount++;
+        reportDetails.push({
+          blId: bl.id,
+          blNumber: bl.blNumber,
+          clientName: bl.clientName,
+          date: bl.date,
+          status: 'FAILED',
+          errorMessage: err?.message || 'Erreur lors de la mise à jour dans la base de données',
+          oldTotalHT: bl.totalHT,
+          newTotalHT: bl.totalHT,
+          itemsUpdatedCount: 0,
+          updatedDetails: [],
+        });
+        newBLsList.push(bl);
+      }
+    }
+
+    setDeliveryNotes(newBLsList);
+
+    return {
+      totalBLsScanned: deliveryNotes.length,
+      updatedBLsCount,
+      unchangedBLsCount,
+      failedBLsCount,
+      totalItemsUpdated,
+      totalFinancialImpactHT,
+      timestamp: new Date().toLocaleString('fr-FR'),
+      details: reportDetails,
+    };
+  };
+
+  const deleteProduct = (id: string) => {
+    setProducts(prev => prev.filter(p => p.id !== id));
+    setStocks(prev => prev.filter(s => s.productId !== id));
+    deleteDoc(doc(db, 'products', id)).catch(err => {
+      handleFirestoreError(err, OperationType.DELETE, `products/${id}`);
+    });
+  };
+
+  const addFrigo = (frigoData: Omit<ColdStorageFrigo, 'id' | 'code'>): ColdStorageFrigo => {
+    const count = frigos.length + 1;
+    const code = `FRG-SITE-${String(count).padStart(2, '0')}`;
+    const newFrigo: ColdStorageFrigo = {
+      ...frigoData,
+      id: `frigo-${Date.now()}`,
+      code,
+    };
+    setFrigos(prev => [...prev, newFrigo]);
+
+    setDoc(doc(db, 'frigos', newFrigo.id), newFrigo).catch(err => {
+      handleFirestoreError(err, OperationType.CREATE, `frigos/${newFrigo.id}`);
+    });
+
+    // Initialize 0 stock for all existing products in this new frigo
+    const newStockLevels: FrigoStockLevel[] = products.map(p => ({
+      productId: p.id,
+      frigoId: newFrigo.id,
+      quantityKg: 0,
+      quantityPallets: 0,
+      lastUpdated: new Date().toLocaleString('fr-FR'),
+    }));
+    setStocks(prev => [...prev, ...newStockLevels]);
+
+    return newFrigo;
+  };
+
+  const updateFrigo = (id: string, frigoData: Partial<ColdStorageFrigo>) => {
+    setFrigos(prev => prev.map(f => {
+      if (f.id !== id) return f;
+      const updated = { ...f, ...frigoData };
+      setDoc(doc(db, 'frigos', id), updated).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `frigos/${id}`);
+      });
+      return updated;
+    }));
+
+    if (frigoData.name) {
+      const newName = frigoData.name;
+      setDeliveryNotes(prevBLs => prevBLs.map(bl => {
+        if (bl.frigoId === id) {
+          const updated = { ...bl, frigoName: newName };
+          setDoc(doc(db, 'deliveryNotes', bl.id), updated).catch(err => {
+            handleFirestoreError(err, OperationType.UPDATE, `deliveryNotes/${bl.id}`);
+          });
+          return updated;
+        }
+        return bl;
+      }));
+    }
+  };
+
+  const deleteFrigo = (id: string) => {
+    setFrigos(prev => prev.filter(f => f.id !== id));
+    setStocks(prev => prev.filter(s => s.frigoId !== id));
+    deleteDoc(doc(db, 'frigos', id)).catch(err => {
+      handleFirestoreError(err, OperationType.DELETE, `frigos/${id}`);
+    });
+  };
+
+  // Stock Actions
+  const adjustStock = (frigoId: string, productId: string, newKg: number, newPallets: number) => {
+    setStocks(prev => {
+      const exists = prev.some(s => s.frigoId === frigoId && s.productId === productId);
+      const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      if (exists) {
+        return prev.map(s => {
+          if (s.frigoId === frigoId && s.productId === productId) {
+            return {
+              ...s,
+              quantityKg: newKg,
+              quantityPallets: newPallets,
+              lastUpdated: timestamp,
+            };
+          }
+          return s;
+        });
+      } else {
+        return [
+          ...prev,
+          {
+            frigoId,
+            productId,
+            quantityKg: newKg,
+            quantityPallets: newPallets,
+            lastUpdated: timestamp,
+          },
+        ];
+      }
+    });
+  };
+
+  const transferStock = (sourceFrigoId: string, targetFrigoId: string, productId: string, kg: number, pallets: number) => {
+    setStocks(prev => {
+      return prev.map(s => {
+        if (s.frigoId === sourceFrigoId && s.productId === productId) {
+          return {
+            ...s,
+            quantityKg: Math.max(0, s.quantityKg - kg),
+            quantityPallets: Math.max(0, s.quantityPallets - pallets),
+            lastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          };
+        }
+        if (s.frigoId === targetFrigoId && s.productId === productId) {
+          return {
+            ...s,
+            quantityKg: s.quantityKg + kg,
+            quantityPallets: s.quantityPallets + pallets,
+            lastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          };
+        }
+        return s;
+      });
+    });
+  };
+
+  // Purchase / Import
+  const createPurchaseInvoice = (purchaseData: Omit<PurchaseImportInvoice, 'id'>): PurchaseImportInvoice => {
+    const id = `pur-${Date.now()}`;
+    const newPur: PurchaseImportInvoice = {
+      ...purchaseData,
+      id,
+    };
+    setPurchaseInvoices(prev => [newPur, ...prev]);
+
+    // Update target frigo stock
+    newPur.items.forEach(item => {
+      const existing = stocks.find(s => s.frigoId === newPur.targetFrigoId && s.productId === item.productId);
+      const currentKg = existing ? existing.quantityKg : 0;
+      const currentPallets = existing ? existing.quantityPallets : 0;
+      adjustStock(
+        newPur.targetFrigoId,
+        item.productId,
+        currentKg + item.quantityKg,
+        currentPallets + item.quantityPallets
+      );
+
+      // Update unit Cost HT on product if landed cost updated
+      if (item.landedCostPerKgHT > 0) {
+        updateProduct(item.productId, { unitCostHT: Math.round(item.landedCostPerKgHT * 100) / 100 });
+      }
+    });
+
+    // Update Supplier balance
+    setSuppliers(prev => prev.map(sup => {
+      if (sup.id === newPur.supplierId) {
+        return {
+          ...sup,
+          currentBalance: sup.currentBalance + newPur.totalLandedCostHT,
+        };
+      }
+      return sup;
+    }));
+
+    return newPur;
+  };
+
+  // Order & BL Creation
+  const createOrder = (orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'status' | 'totalHT' | 'totalVAT' | 'totalTTC' | 'totalCostHT' | 'grossMarginHT' | 'marginPercentage'>): SalesOrder => {
+    const count = orders.length + 1;
+    const orderNumber = `CMD-2026-${String(count).padStart(4, '0')}`;
+
+    let totalHT = 0;
+    let totalVAT = 0;
+    let totalCostHT = 0;
+
+    orderData.items.forEach(item => {
+      totalHT += item.totalHT;
+      totalVAT += item.totalHT * item.vatRate;
+      totalCostHT += item.quantityKg * item.unitCostHT;
+    });
+
+    const totalTTC = totalHT + totalVAT;
+    const grossMarginHT = totalHT - totalCostHT;
+    const marginPercentage = totalHT > 0 ? (grossMarginHT / totalHT) * 100 : 0;
+
+    const newOrder: SalesOrder = {
+      ...orderData,
+      id: `ord-${Date.now()}`,
+      orderNumber,
+      status: 'EN_PRÉPARATION',
+      totalHT,
+      totalVAT,
+      totalTTC,
+      totalCostHT,
+      grossMarginHT,
+      marginPercentage: Math.round(marginPercentage * 100) / 100,
+    };
+
+    setOrders(prev => [newOrder, ...prev]);
+
+    // Group items by Frigo to create split BLs!
+    const itemsByFrigo: { [frigoId: string]: typeof newOrder.items } = {};
+    newOrder.items.forEach(item => {
+      if (!itemsByFrigo[item.frigoId]) {
+        itemsByFrigo[item.frigoId] = [];
+      }
+      itemsByFrigo[item.frigoId].push(item);
+    });
+
+    // Generate BL for each frigo
+    const generatedBLs: DeliveryNoteBL[] = [];
+    let blCount = deliveryNotes.length + 1;
+
+    Object.entries(itemsByFrigo).forEach(([frigoId, items]) => {
+      const frigo = frigos.find(f => f.id === frigoId);
+      const blNumber = `BL-2026-${String(blCount++).padStart(4, '0')}`;
+      
+      const blItems = items.map(it => ({
+        productId: it.productId,
+        productCode: it.productCode,
+        productName: it.productName,
+        quantityKg: it.quantityKg,
+        quantityPallets: it.quantityPallets,
+        unitPriceHT: it.unitPriceHT,
+        totalHT: it.totalHT,
+      }));
+
+      const totalKg = blItems.reduce((acc, i) => acc + i.quantityKg, 0);
+      const totalPallets = blItems.reduce((acc, i) => acc + i.quantityPallets, 0);
+      const blTotalHT = blItems.reduce((acc, i) => acc + i.totalHT, 0);
+      const blTotalTTC = blTotalHT; // Don't add TVA price unless asked
+
+      const bl: DeliveryNoteBL = {
+        id: `bl-${Date.now()}-${blCount}`,
+        blNumber,
+        orderId: newOrder.id,
+        orderNumber: newOrder.orderNumber,
+        clientId: newOrder.clientId,
+        clientName: newOrder.clientName,
+        clientAddress: newOrder.items[0] ? 'Casablanca, Maroc' : '',
+        clientPhone: newOrder.clientPhone,
+        clientEmail: newOrder.clientEmail,
+        frigoId,
+        frigoName: frigo ? frigo.name : 'Frigo Inconnu',
+        date: new Date().toISOString().slice(0, 10),
+        items: blItems,
+        totalKg,
+        totalPallets,
+        totalHT: blTotalHT,
+        totalTTC: blTotalTTC,
+        frigoEmployeeApproved: false,
+        whatsappSent: false,
+        emailSent: false,
+        status: 'EN_ATTENTE_FRIGO',
+        logs: [
+          {
+            id: `log-${Date.now()}`,
+            timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
+            action: `Création du Bon de Livraison (BL) rattaché à la commande ${newOrder.orderNumber}`,
+            author: currentUser.name,
+          },
+        ],
+      };
+
+      generatedBLs.push(bl);
+
+      // Decrement stock from designated frigo
+      items.forEach(it => {
+        const stock = stocks.find(s => s.frigoId === frigoId && s.productId === it.productId);
+        if (stock) {
+          adjustStock(
+            frigoId,
+            it.productId,
+            Math.max(0, stock.quantityKg - it.quantityKg),
+            Math.max(0, stock.quantityPallets - it.quantityPallets)
+          );
+        }
+      });
+    });
+
+    setDeliveryNotes(prev => [...generatedBLs, ...prev]);
+
+    return newOrder;
+  };
+
+  const updateOrderStatus = (orderId: string, status: OrderStatus) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+  };
+
+  const approveFrigoBL = (blId: string, employeeName: string) => {
+    const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    setDeliveryNotes(prev => prev.map(bl => {
+      if (bl.id !== blId) return bl;
+      return {
+        ...bl,
+        frigoEmployeeApproved: true,
+        frigoApprovedBy: employeeName,
+        frigoApprovedAt: timestamp,
+        status: 'APPROUVÉ_FRIGO',
+        logs: [
+          ...bl.logs,
+          {
+            id: `log-${Date.now()}`,
+            timestamp,
+            action: `Chargement et palettes approuvés sur le quai du ${bl.frigoName}`,
+            author: employeeName,
+          },
+        ],
+      };
+    }));
+  };
+
+  const signBL = (blId: string, signatureUrl: string, clientName: string) => {
+    const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    setDeliveryNotes(prev => prev.map(bl => {
+      if (bl.id !== blId) return bl;
+      return {
+        ...bl,
+        clientSignatureUrl: signatureUrl,
+        signedByName: clientName,
+        signedAt: timestamp,
+        status: 'LIVRÉ',
+        logs: [
+          ...bl.logs,
+          {
+            id: `log-${Date.now()}`,
+            timestamp,
+            action: `Signature numérique du client enregistrée (${clientName})`,
+            author: clientName,
+          },
+        ],
+      };
+    }));
+  };
+
+  const sendWhatsAppBL = (blId: string) => {
+    const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    setDeliveryNotes(prev => prev.map(bl => {
+      if (bl.id !== blId) return bl;
+      return {
+        ...bl,
+        whatsappSent: true,
+        whatsappSentAt: timestamp,
+        logs: [
+          ...bl.logs,
+          {
+            id: `log-${Date.now()}`,
+            timestamp,
+            action: `Synthèse BL & Ordre de sortie transmis au groupe WhatsApp du frigo`,
+            author: currentUser.name,
+          },
+        ],
+      };
+    }));
+  };
+
+  const sendEmailBL = (blId: string, recipient: string) => {
+    const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    setDeliveryNotes(prev => prev.map(bl => {
+      if (bl.id !== blId) return bl;
+      return {
+        ...bl,
+        emailSent: true,
+        emailSentAt: timestamp,
+        emailRecipient: recipient,
+        logs: [
+          ...bl.logs,
+          {
+            id: `log-${Date.now()}`,
+            timestamp,
+            action: `Bon de Livraison (PDF) envoyé par Email à ${recipient}`,
+            author: currentUser.name,
+          },
+        ],
+      };
+    }));
+  };
+
+
+  const addBL = (blData: DeliveryNoteBL) => {
+    autoCreateMissingClient(blData.clientName, blData.clientPhone, blData.clientEmail, blData.clientAddress);
+    setDeliveryNotes(prev => [blData, ...prev]);
+    setDoc(doc(db, 'deliveryNotes', blData.id), blData).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `deliveryNotes/${blData.id}`);
+    });
+  };
+
+  const updateBL = (id: string, updatedData: Partial<DeliveryNoteBL>) => {
+    setDeliveryNotes(prev => prev.map(b => {
+      if (b.id !== id) return b;
+      const updated = { ...b, ...updatedData };
+      setDoc(doc(db, 'deliveryNotes', id), updated).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `deliveryNotes/${id}`);
+      });
+      return updated;
+    }));
+  };
+
+  const deleteBL = (id: string) => {
+    setDeliveryNotes(prev => prev.filter(b => b.id !== id));
+    deleteDoc(doc(db, 'deliveryNotes', id)).catch(err => {
+      handleFirestoreError(err, OperationType.DELETE, `deliveryNotes/${id}`);
+    });
+  };
+
+  // Invoicing
+  const createInvoiceFromBL = (blId: string): Invoice => {
+    const bl = deliveryNotes.find(b => b.id === blId);
+    if (!bl) throw new Error('BL non trouvé');
+
+    const count = invoices.length + 1;
+    const invoiceNumber = `FAC-2026-${String(count).padStart(4, '0')}`;
+    const date = new Date().toISOString().slice(0, 10);
+    const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    const client = clients.find(c => c.id === bl.clientId);
+    const clientICE = client ? client.ice : '000000000000000';
+
+    const invoiceItems = bl.items.map(it => ({
+      productId: it.productId,
+      productCode: it.productCode,
+      productName: it.productName,
+      quantityKg: it.quantityKg,
+      quantityPallets: it.quantityPallets,
+      unitPriceHT: it.unitPriceHT,
+      vatRate: 0.20,
+      totalHT: it.totalHT,
+      totalTTC: it.totalHT * 1.20,
+    }));
+
+    const totalHT = bl.totalHT;
+    const totalVAT = totalHT * 0.20;
+    const totalTTC = totalHT + totalVAT;
+
+    const newInvoice: Invoice = {
+      id: `fac-${Date.now()}`,
+      invoiceNumber,
+      orderId: bl.orderId,
+      blId: bl.id,
+      clientId: bl.clientId,
+      clientName: bl.clientName,
+      clientICE,
+      clientAddress: bl.clientAddress,
+      date,
+      dueDate,
+      items: invoiceItems,
+      totalHT,
+      totalVAT,
+      totalTTC,
+      amountPaid: 0,
+      remainingAmount: totalTTC,
+      status: 'EMISE',
+    };
+
+    setInvoices(prev => [newInvoice, ...prev]);
+
+    // Update BL status to FACTURÉ
+    setDeliveryNotes(prev => prev.map(b => b.id === blId ? { ...b, status: 'FACTURÉ' } : b));
+
+    // Update client balance
+    setClients(prev => prev.map(c => c.id === bl.clientId ? { ...c, currentBalance: c.currentBalance + totalTTC } : c));
+
+    return newInvoice;
+  };
+
+  const updateInvoiceStatus = (invoiceId: string, status: Invoice['status'], amountPaid?: number) => {
+    setInvoices(prev => prev.map(inv => {
+      if (inv.id !== invoiceId) return inv;
+      const newPaid = amountPaid !== undefined ? amountPaid : (status === 'PAYEE' ? inv.totalTTC : inv.amountPaid);
+      const remaining = inv.totalTTC - newPaid;
+      return {
+        ...inv,
+        status,
+        amountPaid: newPaid,
+        remainingAmount: remaining,
+      };
+    }));
+  };
+
+  const addChequeEffet = (chequeData: Omit<ChequeEffet, 'id'>) => {
+    const newCheque: ChequeEffet = {
+      ...chequeData,
+      id: `chq-${Date.now()}`,
+    };
+    setChequesEffets(prev => [newCheque, ...prev]);
+  };
+
+  const deleteChequeEffet = (id: string) => {
+    const cheque = chequesEffets.find(c => c.id === id);
+    if (cheque && cheque.partyId) {
+      if (cheque.direction === 'RECETTE_CLIENT') {
+        setClients(prev => prev.map(c => c.id === cheque.partyId ? { ...c, currentBalance: Math.max(0, c.currentBalance + cheque.amount) } : c));
+      }
+    }
+    setChequesEffets(prev => prev.filter(c => c.id !== id));
+  };
+
+  const updateChequeEffet = (id: string, chequeData: Partial<ChequeEffet>) => {
+    const oldCheque = chequesEffets.find(c => c.id === id);
+    setChequesEffets(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      const updated = { ...c, ...chequeData };
+      if (oldCheque && oldCheque.partyId && chequeData.amount !== undefined && oldCheque.direction === 'RECETTE_CLIENT') {
+        const diff = chequeData.amount - oldCheque.amount;
+        setClients(clientsPrev => clientsPrev.map(cl => cl.id === oldCheque.partyId ? { ...cl, currentBalance: Math.max(0, cl.currentBalance - diff) } : cl));
+      }
+      return updated;
+    }));
+  };
+
+  const updateChequeStatus = (chequeId: string, status: ChequeEffetStatus) => {
+    setChequesEffets(prev => prev.map(chq => {
+      if (chq.id !== chequeId) return chq;
+      const updated = { ...chq, status };
+      if (status === 'DEPOSE') updated.depositDate = new Date().toISOString().slice(0, 10);
+      if (status === 'ENCAISSE') updated.clearedDate = new Date().toISOString().slice(0, 10);
+      return updated;
+    }));
+  };
+
+  const resetAllData = async () => {
+    localStorage.clear();
+    localStorage.setItem('erp_system_wiped', 'true');
+
+    try {
+      const collectionsToDelete = ['deliveryNotes', 'orders', 'products', 'clients', 'suppliers', 'invoices', 'expenses', 'chequesEffets', 'inventoryCounts', 'stocks'];
+      for (const colName of collectionsToDelete) {
+        const snapshot = await getDocs(collection(db, colName));
+        snapshot.forEach(docSnap => {
+          deleteDoc(doc(db, colName, docSnap.id)).catch(() => {});
+        });
+      }
+    } catch (err) {
+      console.warn('Firestore bulk delete skipped:', err);
+    }
+
+    setProducts([]);
+    setClients([]);
+    setSuppliers(INITIAL_SUPPLIERS);
+    setOrders([]);
+    setDeliveryNotes([]);
+    setInvoices([]);
+    setChequesEffets([]);
+    setExpenses([]);
+    setStocks([]);
+    setFrigos(INITIAL_FRIGOS);
+
+    window.location.reload();
+  };
+
+  const addExpense = (expenseData: Omit<Expense, 'id' | 'expenseNumber'>) => {
+    const count = expenses.length + 1;
+    const expenseNumber = `DEP-2026-${String(count).padStart(3, '0')}`;
+    const newExp: Expense = {
+      ...expenseData,
+      id: `exp-${Date.now()}`,
+      expenseNumber,
+    };
+    setExpenses(prev => [newExp, ...prev]);
+  };
+
+  const addClient = (clientData: Omit<Client, 'id' | 'code' | 'currentBalance'>) => {
+    const count = clients.length + 1;
+    const code = `CLT-${String(count).padStart(3, '0')}`;
+    const newClient: Client = {
+      ...clientData,
+      id: `clt-${Date.now()}`,
+      code,
+      currentBalance: 0,
+    };
+    setClients(prev => [newClient, ...prev]);
+    setDoc(doc(db, 'clients', newClient.id), newClient).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `clients/${newClient.id}`);
+    });
+  };
+
+  const updateClient = (id: string, clientData: Partial<Client>) => {
+    setClients(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      const updated = { ...c, ...clientData };
+      setDoc(doc(db, 'clients', id), updated).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `clients/${id}`);
+      });
+      return updated;
+    }));
+  };
+
+  const deleteClient = (id: string) => {
+    setClients(prev => prev.filter(c => c.id !== id));
+    deleteDoc(doc(db, 'clients', id)).catch(err => {
+      handleFirestoreError(err, OperationType.DELETE, `clients/${id}`);
+    });
+  };
+
+  const addSupplier = (supplierData: Omit<Supplier, 'id' | 'code' | 'currentBalance'>) => {
+    const count = suppliers.length + 1;
+    const code = `FRS-${String(count).padStart(3, '0')}`;
+    const newSupplier: Supplier = {
+      ...supplierData,
+      id: `frs-${Date.now()}`,
+      code,
+      currentBalance: 0,
+    };
+    setSuppliers(prev => [newSupplier, ...prev]);
+  };
+
+  const updateSupplier = (id: string, supplierData: Partial<Supplier>) => {
+    setSuppliers(prev => prev.map(s => (s.id === id ? { ...s, ...supplierData } : s)));
+  };
+
+  const deleteSupplier = (id: string) => {
+    setSuppliers(prev => prev.filter(s => s.id !== id));
+  };
+
+  const saveInventoryCount = (countData: Omit<MultiSiteInventoryCount, 'id' | 'countNumber'>, applyStockAdjust: boolean) => {
+    const count = inventoryCounts.length + 1;
+    const countNumber = `INV-2026-${String(count).padStart(3, '0')}`;
+    const newCount: MultiSiteInventoryCount = {
+      ...countData,
+      id: `inv-${Date.now()}`,
+      countNumber,
+      status: applyStockAdjust ? 'AJUSTÉ' : 'VALIDÉ',
+    };
+    setInventoryCounts(prev => [newCount, ...prev]);
+
+    if (applyStockAdjust) {
+      countData.items.forEach(item => {
+        adjustStock(countData.frigoId, item.productId, item.physicalKg, item.physicalPallets);
+      });
+    }
+  };
+
+  const cleanDisplayName = (raw: string): string => {
+    if (!raw) return '';
+    return raw
+      .replace(/\b(mlhmd|ain\s*rabat|frigo|site|depot|wh)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toUpperCase();
+  };
+
+  const normalizeName = (name: string): string => {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\b(mlhmd|ain\s*rabat|frigo|site|depot|wh|ste|societe|sarl|sarlau|sa|ets|ets.|s.a.r.l|s.a.r.l.)\b/gi, '')
+      .replace(/\bqessb\b/g, 'qessab')
+      .replace(/\brachide\b/g, 'rachid')
+      .replace(/[^a-z0-9]/gi, '')
+      .trim();
+  };
+
+  const autoCreateMissingClient = (clientName: string, clientPhone?: string, clientEmail?: string, clientAddress?: string) => {
+    if (!clientName || !clientName.trim()) return;
+    const trimmed = clientName.trim();
+    const normalizedNew = normalizeName(trimmed);
+    if (!normalizedNew) return;
+
+    setClients(prev => {
+      const exists = prev.some(c => {
+        const normName = normalizeName(c.name || '');
+        const normCompany = normalizeName(c.companyName || '');
+        return normName === normalizedNew || normCompany === normalizedNew;
+      });
+      if (exists) return prev;
+      const count = prev.length + 1;
+      const newClt: Client = {
+        id: `clt-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        code: `CLT-${String(count).padStart(3, '0')}`,
+        name: trimmed,
+        companyName: trimmed,
+        ice: '',
+        phone: clientPhone || '',
+        email: clientEmail || '',
+        address: clientAddress || 'Casablanca, Maroc',
+        city: 'Casablanca',
+        creditLimit: 300000,
+        currentBalance: 0,
+      };
+      setDoc(doc(db, 'clients', newClt.id), newClt).catch(err => {
+        handleFirestoreError(err, OperationType.WRITE, `clients/${newClt.id}`);
+      });
+      return [newClt, ...prev];
+    });
+  };
+
+  const autoCreateMissingProduct = (productName: string, unitPriceHT?: number): Product | null => {
+    if (!productName || !productName.trim()) return null;
+    const cleaned = cleanDisplayName(productName);
+    const normalizedNew = normalizeName(cleaned);
+    if (!normalizedNew) return null;
+
+    let createdPrd: Product | null = null;
+
+    setProducts(prev => {
+      const existing = prev.find(p => {
+        const normName = normalizeName(p.name || '');
+        const normCode = normalizeName(p.code || '');
+        return normName === normalizedNew || normCode === normalizedNew;
+      });
+
+      if (existing) {
+        createdPrd = existing;
+        return prev;
+      }
+
+      const count = prev.length + 1;
+      const price = unitPriceHT && unitPriceHT > 0 ? unitPriceHT : 50;
+      const cost = Math.round(price * 0.8 * 100) / 100;
+      const is5kg = cleaned.includes('5KG') || cleaned.includes('5 KG');
+      const is3kg = cleaned.includes('3KG') || cleaned.includes('3 KG');
+      const is2kg = cleaned.includes('2KG') || cleaned.includes('2 KG');
+      const is25kg = cleaned.includes('2,5KG') || cleaned.includes('2.5KG');
+      const kgPerCarton = is5kg ? 5 : is3kg ? 3 : is2kg ? 2 : is25kg ? 2.5 : 10;
+      const cartonsPerPallet = 100;
+      const kgPerPallet = Math.round(kgPerCarton * cartonsPerPallet);
+
+      const newPrd: Product = {
+        id: `prd-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        code: `PRD-IMP-${String(count).padStart(3, '0')}`,
+        name: cleaned,
+        category: cleaned.toLowerCase().includes('import') ? 'Dattes Importées' : 'Dattes Locales',
+        origin: 'Maroc / Import',
+        sellingPriceHT: price,
+        unitCostHT: cost,
+        vatRate: 0.20,
+        kgPerCarton,
+        cartonsPerPallet,
+        kgPerPallet,
+        minStockAlertKg: 5000,
+        description: `Produit créé automatiquement lors de l'importation de BL`,
+      };
+
+      createdPrd = newPrd;
+
+      setDoc(doc(db, 'products', newPrd.id), newPrd).catch(err => {
+        handleFirestoreError(err, OperationType.WRITE, `products/${newPrd.id}`);
+      });
+
+      return [newPrd, ...prev];
+    });
+
+    return createdPrd;
+  };
+
+  const importExcelBLs = (newBLs: DeliveryNoteBL[]) => {
+    newBLs.forEach(bl => {
+      // 1. Auto-create missing Client
+      autoCreateMissingClient(bl.clientName, bl.clientPhone, bl.clientEmail, bl.clientAddress);
+
+      // 2. Auto-create missing Products & update stock levels per frigo
+      bl.items.forEach(item => {
+        const prdName = item.productName || item.productCode;
+        if (prdName) {
+          const prd = autoCreateMissingProduct(prdName, item.unitPriceHT);
+          const productIdToUse = prd ? prd.id : item.productId;
+          const targetFrigoId = bl.frigoId || 'frigo-1';
+
+          if (productIdToUse && targetFrigoId) {
+            const addedKg = item.quantityKg || 0;
+            const palletRatio = prd ? prd.kgPerPallet : 500;
+            const addedPallets = item.quantityPallets > 0 ? item.quantityPallets : Math.ceil(addedKg / palletRatio);
+
+            setStocks(prevStocks => {
+              const existingStock = prevStocks.find(s => s.frigoId === targetFrigoId && s.productId === productIdToUse);
+              const currentKg = existingStock ? existingStock.quantityKg : 0;
+              const currentPallets = existingStock ? existingStock.quantityPallets : 0;
+
+              const updatedStock: FrigoStockLevel = {
+                frigoId: targetFrigoId,
+                productId: productIdToUse,
+                quantityKg: currentKg + addedKg,
+                quantityPallets: currentPallets + addedPallets,
+                lastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' '),
+              };
+
+              setDoc(doc(db, 'stocks', `${targetFrigoId}_${productIdToUse}`), updatedStock).catch(err => {
+                handleFirestoreError(err, OperationType.WRITE, `stocks/${targetFrigoId}_${productIdToUse}`);
+              });
+
+              if (existingStock) {
+                return prevStocks.map(s => s.frigoId === targetFrigoId && s.productId === productIdToUse ? updatedStock : s);
+              } else {
+                return [...prevStocks, updatedStock];
+              }
+            });
+          }
+        }
+      });
+    });
+
+    setDeliveryNotes(prev => {
+      const existingNumbers = new Set(prev.map(b => b.blNumber));
+      const filteredNew = newBLs.filter(b => !existingNumbers.has(b.blNumber));
+      const updated = [...filteredNew, ...prev];
+      
+      filteredNew.forEach(bl => {
+        setDoc(doc(db, 'deliveryNotes', bl.id), bl).catch(err => {
+          handleFirestoreError(err, OperationType.WRITE, `deliveryNotes/${bl.id}`);
+        });
+      });
+
+      return updated;
+    });
+  };
+
+  const deduplicateClients = (): number => {
+    const groups = new Map<string, Client[]>();
+    
+    clients.forEach(c => {
+      const key = normalizeName(c.name || c.companyName || '');
+      if (!key) return;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(c);
+    });
+
+    const uniqueClients: Client[] = [];
+    const idMapping = new Map<string, string>();
+    let removedCount = 0;
+
+    groups.forEach((groupClients) => {
+      if (groupClients.length === 1) {
+        uniqueClients.push(groupClients[0]);
+      } else {
+        const primary = groupClients.reduce((best, cur) => {
+          if (!best) return cur;
+          if (cur.ice && !best.ice) return cur;
+          if (cur.email && !best.email) return cur;
+          return best;
+        }, groupClients[0]);
+
+        uniqueClients.push(primary);
+
+        groupClients.forEach(dupe => {
+          if (dupe.id !== primary.id) {
+            idMapping.set(dupe.id, primary.id);
+            removedCount++;
+            deleteDoc(doc(db, 'clients', dupe.id)).catch(err => {
+              handleFirestoreError(err, OperationType.DELETE, `clients/${dupe.id}`);
+            });
+          }
+        });
+      }
+    });
+
+    if (removedCount > 0) {
+      setClients(uniqueClients);
+
+      if (idMapping.size > 0) {
+        setDeliveryNotes(prevBLs => prevBLs.map(bl => {
+          if (idMapping.has(bl.clientId)) {
+            const primaryId = idMapping.get(bl.clientId)!;
+            const primary = uniqueClients.find(c => c.id === primaryId);
+            return {
+              ...bl,
+              clientId: primaryId,
+              clientName: primary ? (primary.companyName || primary.name) : bl.clientName
+            };
+          }
+          return bl;
+        }));
+
+        setOrders(prevOrders => prevOrders.map(ord => {
+          if (idMapping.has(ord.clientId)) {
+            const primaryId = idMapping.get(ord.clientId)!;
+            const primary = uniqueClients.find(c => c.id === primaryId);
+            return {
+              ...ord,
+              clientId: primaryId,
+              clientName: primary ? (primary.companyName || primary.name) : ord.clientName
+            };
+          }
+          return ord;
+        }));
+
+        setInvoices(prevInvoices => prevInvoices.map(inv => {
+          if (idMapping.has(inv.clientId)) {
+            const primaryId = idMapping.get(inv.clientId)!;
+            const primary = uniqueClients.find(c => c.id === primaryId);
+            return {
+              ...inv,
+              clientId: primaryId,
+              clientName: primary ? (primary.companyName || primary.name) : inv.clientName
+            };
+          }
+          return inv;
+        }));
+      }
+    }
+
+    return removedCount;
+  };
+
+  const mergeClients = (targetClientId: string, clientIdsToMerge: string[]) => {
+    const targetClient = clients.find(c => c.id === targetClientId);
+    if (!targetClient) return;
+
+    const secondaryIds = clientIdsToMerge.filter(id => id !== targetClientId);
+    const secondaryClients = clients.filter(c => secondaryIds.includes(c.id));
+    const secondaryNamesNorm = secondaryClients.map(c => normalizeName(c.name));
+
+    setDeliveryNotes(prev => prev.map(bl => {
+      const blClientNorm = normalizeName(bl.clientName);
+      if (secondaryIds.includes(bl.clientId) || secondaryNamesNorm.includes(blClientNorm)) {
+        return {
+          ...bl,
+          clientId: targetClient.id,
+          clientName: targetClient.name
+        };
+      }
+      return bl;
+    }));
+
+    setOrders(prev => prev.map(o => {
+      const oClientNorm = normalizeName(o.clientName);
+      if (secondaryIds.includes(o.clientId) || secondaryNamesNorm.includes(oClientNorm)) {
+        return {
+          ...o,
+          clientId: targetClient.id,
+          clientName: targetClient.name
+        };
+      }
+      return o;
+    }));
+
+    setInvoices(prev => prev.map(inv => {
+      const invClientNorm = normalizeName(inv.clientName);
+      if (secondaryIds.includes(inv.clientId) || secondaryNamesNorm.includes(invClientNorm)) {
+        return {
+          ...inv,
+          clientId: targetClient.id,
+          clientName: targetClient.name
+        };
+      }
+      return inv;
+    }));
+
+    setChequesEffets(prev => prev.map(chq => {
+      const chqPartyNorm = normalizeName(chq.partyName || chq.clientName || '');
+      if (secondaryIds.includes(chq.clientId || '') || secondaryNamesNorm.includes(chqPartyNorm)) {
+        return {
+          ...chq,
+          clientId: targetClient.id,
+          clientName: targetClient.name,
+          partyName: targetClient.name
+        };
+      }
+      return chq;
+    }));
+
+    setClients(prev => prev.filter(c => !secondaryIds.includes(c.id)));
+    secondaryIds.forEach(id => {
+      deleteDoc(doc(db, 'clients', id)).catch(err => console.error(err));
+    });
+  };
+
+  const mergeProducts = (targetProductId: string, productIdsToMerge: string[]) => {
+    const targetPrd = products.find(p => p.id === targetProductId);
+    if (!targetPrd) return;
+
+    const secondaryIds = productIdsToMerge.filter(id => id !== targetProductId);
+    const secondaryPrds = products.filter(p => secondaryIds.includes(p.id));
+    const secondaryCodes = secondaryPrds.map(p => p.code);
+    const secondaryNamesNorm = secondaryPrds.map(p => normalizeName(p.name));
+
+    setStocks(prev => {
+      const updated = [...prev];
+      frigos.forEach(frigo => {
+        const targetStockIdx = updated.findIndex(s => s.frigoId === frigo.id && s.productId === targetProductId);
+        let extraKg = 0;
+
+        secondaryIds.forEach(sId => {
+          const secStock = updated.find(s => s.frigoId === frigo.id && s.productId === sId);
+          if (secStock) {
+            extraKg += secStock.quantityKg || 0;
+          }
+        });
+
+        if (targetStockIdx >= 0) {
+          updated[targetStockIdx] = {
+            ...updated[targetStockIdx],
+            quantityKg: (updated[targetStockIdx].quantityKg || 0) + extraKg,
+            lastUpdated: new Date().toLocaleString('fr-FR')
+          };
+        }
+      });
+      return updated.filter(s => !secondaryIds.includes(s.productId));
+    });
+
+    setDeliveryNotes(prev => prev.map(bl => {
+      let modified = false;
+      const updatedItems = bl.items.map(item => {
+        const itemNormName = normalizeName(item.productName);
+        if (secondaryIds.includes(item.productId) || secondaryCodes.includes(item.productCode) || secondaryNamesNorm.includes(itemNormName)) {
+          modified = true;
+          return {
+            ...item,
+            productId: targetPrd.id,
+            productCode: targetPrd.code,
+            productName: targetPrd.name
+          };
+        }
+        return item;
+      });
+
+      if (modified) {
+        return {
+          ...bl,
+          items: updatedItems
+        };
+      }
+      return bl;
+    }));
+
+    setOrders(prev => prev.map(o => {
+      let modified = false;
+      const updatedItems = (o.items || []).map(item => {
+        const itemNormName = normalizeName(item.productName || '');
+        if (secondaryIds.includes(item.productId) || secondaryCodes.includes(item.productCode || '') || secondaryNamesNorm.includes(itemNormName)) {
+          modified = true;
+          return {
+            ...item,
+            productId: targetPrd.id,
+            productCode: targetPrd.code || targetPrd.name,
+            productName: targetPrd.name
+          };
+        }
+        return item;
+      });
+
+      if (modified) {
+        return {
+          ...o,
+          items: updatedItems
+        };
+      }
+      return o;
+    }));
+
+    setProducts(prev => prev.filter(p => !secondaryIds.includes(p.id)));
+    secondaryIds.forEach(id => {
+      deleteDoc(doc(db, 'products', id)).catch(err => console.error(err));
+    });
+  };
+
+  return (
+    <ERPContext.Provider value={{
+      currentUser,
+      setCurrentUser,
+      users: INITIAL_USERS,
+      products,
+      frigos,
+      stocks,
+      clients,
+      suppliers,
+      orders,
+      deliveryNotes,
+      invoices,
+      chequesEffets,
+      treasuryAccounts,
+      expenses,
+      inventoryCounts,
+      purchaseInvoices,
+      companyInfo,
+      updateCompanyInfo,
+      addProduct,
+      updateProduct,
+      deleteProduct,
+      syncBLPricesWithProducts,
+      recalculateAllBLPrices,
+      addFrigo,
+      updateFrigo,
+      deleteFrigo,
+      adjustStock,
+      transferStock,
+      createPurchaseInvoice,
+      createOrder,
+      updateOrderStatus,
+      addBL,
+      updateBL,
+      deleteBL,
+      approveFrigoBL,
+      signBL,
+      sendWhatsAppBL,
+      sendEmailBL,
+      createInvoiceFromBL,
+      updateInvoiceStatus,
+      addChequeEffet,
+      updateChequeEffet,
+      deleteChequeEffet,
+      updateChequeStatus,
+      resetAllData,
+      addExpense,
+      addClient,
+      updateClient,
+      deleteClient,
+      addSupplier,
+      updateSupplier,
+      deleteSupplier,
+      saveInventoryCount,
+      importExcelBLs,
+      deduplicateClients,
+      mergeClients,
+      mergeProducts,
+    }}>
+      {children}
+    </ERPContext.Provider>
+  );
+};
+
+const defaultFallbackContext: ERPContextType = {
+  currentUser: INITIAL_USERS[0],
+  setCurrentUser: () => {},
+  users: INITIAL_USERS,
+  products: [],
+  frigos: INITIAL_FRIGOS,
+  stocks: [],
+  clients: [],
+  suppliers: INITIAL_SUPPLIERS,
+  orders: [],
+  deliveryNotes: [],
+  invoices: [],
+  chequesEffets: [],
+  treasuryAccounts: [],
+  expenses: [],
+  inventoryCounts: [],
+  purchaseInvoices: [],
+  companyInfo: INITIAL_COMPANY_INFO,
+  updateCompanyInfo: () => {},
+  addProduct: () => ({ id: '', code: '', name: '', category: 'Dattes Locales', origin: '', sellingPriceHT: 0, unitCostHT: 0, vatRate: 0.2, kgPerCarton: 5, cartonsPerPallet: 100, kgPerPallet: 500, minStockAlertKg: 500, description: '' }),
+  updateProduct: async () => {},
+  deleteProduct: () => {},
+  syncBLPricesWithProducts: () => {},
+  recalculateAllBLPrices: async () => ({ reportDetails: [], totalBLsProcessed: 0, totalItemsUpdated: 0, totalBLsModified: 0, totalBLsUnchanged: 0, generatedAt: '' }),
+  addFrigo: () => ({ id: '', code: '', name: '', location: '', capacityPallets: 1000 }),
+  updateFrigo: () => {},
+  deleteFrigo: () => {},
+  adjustStock: () => {},
+  createPurchaseInvoice: () => ({ id: '', invoiceNumber: '', supplierId: '', supplierName: '', targetFrigoId: '', date: '', items: [], totalHT: 0, totalTTC: 0, totalLandedCostHT: 0, status: 'EN_ATTENTE_ENTRÉE' }),
+  createOrder: () => ({ id: '', orderNumber: '', clientId: '', clientName: '', date: '', expectedDeliveryDate: '', items: [], totalKg: 0, totalPallets: 0, totalHT: 0, totalVAT: 0, totalTTC: 0, totalCostHT: 0, grossMarginHT: 0, marginPercentage: 0, blGenerated: false, createdByName: '', status: 'NOUVEAU' }),
+  updateOrderStatus: () => {},
+  addBL: () => {},
+  updateBL: () => {},
+  deleteBL: () => {},
+  approveFrigoBL: () => {},
+  signBL: () => {},
+  sendWhatsAppBL: () => {},
+  sendEmailBL: () => {},
+  createInvoiceFromBL: () => ({ id: '', invoiceNumber: '', blIds: [], clientId: '', clientName: '', date: '', dueDate: '', items: [], totalHT: 0, vatAmount: 0, totalTTC: 0, paidAmount: 0, remainingBalance: 0, status: 'BROUILLON' }),
+  updateInvoiceStatus: () => {},
+  addChequeEffet: () => {},
+  updateChequeEffet: () => {},
+  deleteChequeEffet: () => {},
+  updateChequeStatus: () => {},
+  resetAllData: () => {},
+  addExpense: () => {},
+  addClient: () => {},
+  updateClient: () => {},
+  deleteClient: () => {},
+  addSupplier: () => {},
+  updateSupplier: () => {},
+  deleteSupplier: () => {},
+  saveInventoryCount: () => {},
+  importExcelBLs: () => {},
+  deduplicateClients: () => 0,
+  mergeClients: () => {},
+  mergeProducts: () => {},
+};
+
+export const useERP = () => {
+  const context = useContext(ERPContext);
+  if (!context) {
+    console.warn('useERP used outside ERPProvider, using fallback context');
+    return defaultFallbackContext;
+  }
+  return context;
+};

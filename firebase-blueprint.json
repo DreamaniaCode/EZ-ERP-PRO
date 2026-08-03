@@ -1,0 +1,192 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Négoce product item for dates, dry fruits, etc.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "origin": { "type": "string" },
+        "sellingPriceHT": { "type": "number" },
+        "unitCostHT": { "type": "number" },
+        "vatRate": { "type": "number" },
+        "kgPerCarton": { "type": "number" },
+        "cartonsPerPallet": { "type": "number" },
+        "kgPerPallet": { "type": "number" },
+        "minStockAlertKg": { "type": "number" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["id", "code", "name", "category", "sellingPriceHT", "unitCostHT"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Customer entity for dates trade",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "companyName": { "type": "string" },
+        "ice": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "creditLimit": { "type": "number" },
+        "currentBalance": { "type": "number" }
+      },
+      "required": ["id", "code", "name", "phone", "address", "city"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Supplier entity (local or import)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "companyName": { "type": "string" },
+        "country": { "type": "string" },
+        "iceOrTaxId": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "type": { "type": "string" },
+        "currentBalance": { "type": "number" }
+      },
+      "required": ["id", "code", "name", "country", "phone", "type"]
+    },
+    "DeliveryNoteBL": {
+      "title": "DeliveryNoteBL",
+      "description": "Bon de Livraison (BL) multi-frigo",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "blNumber": { "type": "string" },
+        "orderId": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "clientAddress": { "type": "string" },
+        "clientPhone": { "type": "string" },
+        "clientEmail": { "type": "string" },
+        "frigoId": { "type": "string" },
+        "frigoName": { "type": "string" },
+        "date": { "type": "string" },
+        "totalKg": { "type": "number" },
+        "totalPallets": { "type": "number" },
+        "totalHT": { "type": "number" },
+        "totalTTC": { "type": "number" },
+        "frigoEmployeeApproved": { "type": "boolean" },
+        "whatsappSent": { "type": "boolean" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "blNumber", "clientId", "frigoId", "date", "status"]
+    },
+    "SalesOrder": {
+      "title": "SalesOrder",
+      "description": "Commande Client (Sales Order)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string" },
+        "totalHT": { "type": "number" },
+        "totalTTC": { "type": "number" }
+      },
+      "required": ["id", "orderNumber", "clientId", "date", "status"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Facture de vente",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "date": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "totalHT": { "type": "number" },
+        "totalTTC": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "invoiceNumber", "clientId", "date", "status"]
+    },
+    "ChequeEffet": {
+      "title": "ChequeEffet",
+      "description": "Chèque et effet de commerce",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "referenceNumber": { "type": "string" },
+        "type": { "type": "string" },
+        "direction": { "type": "string" },
+        "partyId": { "type": "string" },
+        "partyName": { "type": "string" },
+        "bankName": { "type": "string" },
+        "amount": { "type": "number" },
+        "issueDate": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "referenceNumber", "type", "direction", "amount", "status"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Dépenses d'exploitation et de froid",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "expenseNumber": { "type": "string" },
+        "date": { "type": "string" },
+        "category": { "type": "string" },
+        "supplierOrPayee": { "type": "string" },
+        "amountTTC": { "type": "number" },
+        "paymentMethod": { "type": "string" }
+      },
+      "required": ["id", "expenseNumber", "date", "category", "amountTTC"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Collection of catalog products"
+    },
+    "/clients/{clientId}": {
+      "schema": { "$ref": "#/entities/Client" },
+      "description": "Collection of clients"
+    },
+    "/suppliers/{supplierId}": {
+      "schema": { "$ref": "#/entities/Supplier" },
+      "description": "Collection of suppliers"
+    },
+    "/deliveryNotes/{blId}": {
+      "schema": { "$ref": "#/entities/DeliveryNoteBL" },
+      "description": "Collection of delivery notes (Bons de Livraison)"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/SalesOrder" },
+      "description": "Collection of sales orders"
+    },
+    "/invoices/{invoiceId}": {
+      "schema": { "$ref": "#/entities/Invoice" },
+      "description": "Collection of sales invoices"
+    },
+    "/chequesEffets/{chequeId}": {
+      "schema": { "$ref": "#/entities/ChequeEffet" },
+      "description": "Collection of cheques and effets"
+    },
+    "/expenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/Expense" },
+      "description": "Collection of operational expenses"
+    }
+  }
+}
