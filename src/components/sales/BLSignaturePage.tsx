@@ -10,7 +10,7 @@ interface BLSignaturePageProps {
 
 export const BLSignaturePage: React.FC<BLSignaturePageProps> = ({ blId, onBack }) => {
   const { t } = useTranslation();
-  const { deliveryNotes, updateBLStatus } = useERP();
+  const { deliveryNotes, signBL } = useERP();
   
   const bl = deliveryNotes.find(b => b.id === blId) || deliveryNotes[0];
 
@@ -80,11 +80,7 @@ export const BLSignaturePage: React.FC<BLSignaturePageProps> = ({ blId, onBack }
     if (!canvas || isEmpty || !bl) return;
 
     const signatureUrl = canvas.toDataURL('image/png');
-    updateBLStatus(bl.id, 'LIVRE', {
-      signatureUrl,
-      signedBy: signerName || bl.clientName,
-      signedAt: new Date().toISOString()
-    });
+    signBL(bl.id, signatureUrl, signerName || bl.clientName);
 
     setSavedSuccess(true);
     setTimeout(() => {
@@ -136,7 +132,34 @@ export const BLSignaturePage: React.FC<BLSignaturePageProps> = ({ blId, onBack }
 
       {/* Summary of BL */}
       <div className="carbon-card p-5 space-y-4">
-        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Récapitulatif des Marchandises</h2>
+        {/* Detailed Products Table */}
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="bg-gray-100 px-4 py-2.5 font-bold text-xs text-gray-700 uppercase tracking-wider border-b border-gray-200">
+            Détails des Produits Chargés sur Camion
+          </div>
+          <table className="w-full text-left text-xs font-mono">
+            <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
+              <tr>
+                <th className="p-2.5">Produit / Désignation</th>
+                <th className="p-2.5 text-right">Quantité (Kg)</th>
+                <th className="p-2.5 text-right">Quantité (Palettes)</th>
+                <th className="p-2.5 text-right">Prix HT</th>
+                <th className="p-2.5 text-right">Total HT</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {(bl.items || []).map((item, idx) => (
+                <tr key={idx} className="hover:bg-gray-50/50">
+                  <td className="p-2.5 font-bold text-gray-900">{item.productName}</td>
+                  <td className="p-2.5 text-right font-bold text-emerald-700">{item.quantityKg.toLocaleString()} Kg</td>
+                  <td className="p-2.5 text-right text-gray-700">{item.quantityPallets} Pal.</td>
+                  <td className="p-2.5 text-right text-gray-600">{item.unitPriceHT} DH</td>
+                  <td className="p-2.5 text-right font-bold text-gray-900">{item.totalHT.toLocaleString()} DH</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-gray-50 p-4 rounded border border-gray-200 text-xs font-mono">
           <div>
             <span className="text-gray-500 block">Total Poids (Kg)</span>
