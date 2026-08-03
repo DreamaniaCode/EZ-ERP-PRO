@@ -97,9 +97,11 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
 
   // Filter BLs based on user role & frigo assignment
   const filteredBLs = deliveryNotes.filter(bl => {
-    // If user is RESPONSABLE_FRIGO with an assigned frigo, strictly show ONLY their assigned cold warehouse BLs!
-    if (currentUser.role === 'RESPONSABLE_FRIGO' && currentUser.assignedFrigoId) {
-      if (bl.frigoId !== currentUser.assignedFrigoId) return false;
+    // If user is RESPONSABLE_FRIGO, strictly enforce they see ONLY their assigned cold warehouse BLs!
+    if (currentUser.role === 'RESPONSABLE_FRIGO') {
+      if (!currentUser.assignedFrigoId || bl.frigoId !== currentUser.assignedFrigoId) {
+        return false;
+      }
     }
     const matchesFrigo = frigoFilter === 'ALL' || bl.frigoId === frigoFilter;
     const matchesStatus = statusFilter === 'ALL' || bl.status === statusFilter;
