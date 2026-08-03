@@ -36,6 +36,7 @@ interface DeliveryNotesBLProps {
   onEditClient?: (id: string) => void;
   onEditProduct?: (id: string) => void;
   onEditFrigo?: (id: string) => void;
+  onSignBL?: (id: string) => void;
 }
 
 export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({ 
@@ -43,7 +44,8 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   onNewBL,
   onEditClient,
   onEditProduct,
-  onEditFrigo 
+  onEditFrigo,
+  onSignBL 
 }) => {
   const { t } = useTranslation();
   const { 
@@ -596,9 +598,9 @@ EasyERP Pro • Logistics Management`;
                   {/* Step 2: Client Signature Button (Unlocked ONLY AFTER Approval) */}
                   {bl.frigoEmployeeApproved ? (
                     <button
-                      onClick={() => setActiveSignatureBL(bl)}
+                      onClick={() => onSignBL ? onSignBL(bl.id) : setActiveSignatureBL(bl)}
                       className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded flex items-center gap-1 transition-colors shadow-sm"
-                      title="Faire signer le client après approbation quai"
+                      title="Faire signer le client après approbation quai (Page Dédiée)"
                     >
                       <PenTool className="w-4 h-4" /> Faire Signer Client
                     </button>

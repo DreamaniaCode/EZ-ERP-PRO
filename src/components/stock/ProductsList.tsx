@@ -118,15 +118,31 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
       alert('Veuillez sélectionner des frigos différents pour le transfert.');
       return;
     }
-    transferStock(
-      transferData.sourceFrigoId,
-      transferData.targetFrigoId,
-      transferData.productId,
-      Number(transferData.kg),
-      Number(transferData.pallets)
-    );
+
+    const targetProductsToTransfer = selectedProductIds.length > 0 
+      ? selectedProductIds 
+      : [transferData.productId];
+
+    targetProductsToTransfer.forEach(prdId => {
+      // Find stock level for this product in source frigo
+      const sourceStock = stocks.find(s => s.productId === prdId && s.frigoId === transferData.sourceFrigoId);
+      const kgToMove = selectedProductIds.length > 0 ? (sourceStock?.quantityKg || 0) : Number(transferData.kg);
+      const palletsToMove = selectedProductIds.length > 0 ? (sourceStock?.quantityPallets || 0) : Number(transferData.pallets);
+
+      if (kgToMove > 0) {
+        transferStock(
+          transferData.sourceFrigoId,
+          transferData.targetFrigoId,
+          prdId,
+          kgToMove,
+          palletsToMove
+        );
+      }
+    });
+
     setShowTransferModal(false);
-    alert('Transfert inter-frigo effectué avec succès !');
+    setSelectedProductIds([]);
+    alert(`Transfert inter-frigo de ${targetProductsToTransfer.length} produit(s) effectué avec succès !`);
   };
 
   const filteredProducts = products.filter(p => {
@@ -193,13 +209,24 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
               };
             })}
           />
+          {selectedProductIds.length > 0 && (
+            <button
+              onClick={() => setShowTransferModal(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3.5 py-2 rounded font-bold flex items-center gap-1.5 transition-colors shadow-md animate-pulse"
+              title="Transférer les produits sélectionnés d'un frigo vers un autre"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              Transfert Groupé ({selectedProductIds.length}) Produits
+            </button>
+          )}
+
           {selectedProductIds.length >= 2 && (
             <button
               onClick={() => {
                 setTargetMergeProductId(selectedProductIds[0]);
                 setShowProductMergeModal(true);
               }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3.5 py-2 rounded font-bold flex items-center gap-1.5 transition-colors shadow-md animate-pulse"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3.5 py-2 rounded font-bold flex items-center gap-1.5 transition-colors shadow-md"
               title="Fusionner les produits sélectionnés et réunir leurs stocks"
             >
               <Layers className="w-4 h-4" />
@@ -569,23 +596,34 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
             <div className="bg-[#161616] text-white px-4 py-3 flex justify-between items-center border-b border-[#393939]">
               <h3 className="font-bold text-sm font-mono uppercase flex items-center gap-2">
                 <ArrowRightLeft className="w-4 h-4 text-emerald-400" />
-                Transfert Inter-Frigos
+                {selectedProductIds.length > 0 ? `Transfert Groupé (${selectedProductIds.length} Produits)` : 'Transfert Inter-Frigos'}
               </h3>
               <button onClick={() => setShowTransferModal(false)} className="text-gray-400 hover:text-white">✕</button>
             </div>
 
             <form onSubmit={handleTransferSubmit} className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Produit à Transférer</label>
-                <select
-                  value={transferData.productId}
-                  onChange={e => setTransferData({ ...transferData, productId: e.target.value })}
-                  className="w-full carbon-input font-mono"
-                >
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
-                  ))}
-                </select>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  {selectedProductIds.length > 0 ? 'Produits Sélectionnés (Transfert Intégral)' : 'Produit à Transférer'}
+                </label>
+                {selectedProductIds.length > 0 ? (
+                  <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded text-xs font-mono font-bold text-emerald-900 space-y-1">
+                    {selectedProductIds.map(id => {
+                      const prd = products.find(p => p.id === id);
+                      return <div key={id}>• {prd?.code} - {prd?.name}</div>;
+                    })}
+                  </div>
+                ) : (
+                  <select
+                    value={transferData.productId}
+                    onChange={e => setTransferData({ ...transferData, productId: e.target.value })}
+                    className="w-full carbon-input font-mono"
+                  >
+                    {products.map(p => (
+                      <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
