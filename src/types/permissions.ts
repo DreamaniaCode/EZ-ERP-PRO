@@ -71,11 +71,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, UserPermissions> = {
     IMPORT_BL: ['VIEW', 'CREATE'],
   },
   RESPONSABLE_FRIGO: {
-    DASHBOARD: ['VIEW'],
-    PRODUCTS: ['VIEW'],
     BL: ['VIEW', 'EDIT'],
-    INVENTORY: ['VIEW', 'CREATE', 'EDIT'],
-    FRIGO_MGMT: ['VIEW'],
   },
   COMPTABLE: {
     DASHBOARD: ['VIEW', 'EXPORT'],

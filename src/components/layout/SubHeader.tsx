@@ -32,7 +32,7 @@ export const SubHeader: React.FC<SubHeaderProps> = ({ activeTab, setActiveTab })
     <div className="h-10 bg-white border-b border-[#e0e0e0] flex items-center justify-between px-3 sm:px-4 text-xs text-[#525252] shrink-0 font-mono overflow-x-auto no-scrollbar">
       <div className="flex items-center gap-2 whitespace-nowrap shrink-0">
         <button 
-          onClick={() => setActiveTab('DASHBOARD')}
+          onClick={() => setActiveTab(currentUser.role === 'RESPONSABLE_FRIGO' ? 'DELIVERY_NOTES' : 'DASHBOARD')}
           className="hover:text-[#0f62fe] transition-colors font-medium"
         >
           EasyERP Pro

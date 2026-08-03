@@ -266,7 +266,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   )}
 
-                  {chequesDueSoon.length > 0 && (
+                  {currentUser?.role !== 'RESPONSABLE_FRIGO' && chequesDueSoon.length > 0 && (
                     <div className="p-3 bg-blue-950/30">
                       <div className="text-xs font-semibold text-blue-400 flex items-center gap-1.5 mb-1.5">
                         <Clock className="w-4 h-4" />

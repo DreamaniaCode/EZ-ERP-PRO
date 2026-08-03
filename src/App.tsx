@@ -107,6 +107,22 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
   };
 
   const renderTabContent = () => {
+    // If user is RESPONSABLE_FRIGO, strictly lock view to DELIVERY_NOTES or BL_EDIT only!
+    if (appUser?.role === 'RESPONSABLE_FRIGO') {
+      if (activeTab === 'BL_EDIT') {
+        return <BLEditPage editId={editingEntityId} onBack={navigateBack} />;
+      }
+      return (
+        <DeliveryNotesBL 
+          onEditBL={(id) => navigateToEdit('BL_EDIT', id)} 
+          onNewBL={() => navigateToEdit('BL_EDIT', null)} 
+          onEditClient={(id) => navigateToEdit('CLIENT_EDIT', id)}
+          onEditProduct={(id) => navigateToEdit('PRODUCT_EDIT', id)}
+          onEditFrigo={(id) => navigateToEdit('FRIGO_EDIT', id)}
+        />
+      );
+    }
+
     switch (activeTab) {
       case 'DASHBOARD':
         return <DashboardOverview onNavigate={(tab: NavTab) => setNavTab(tab)} />;

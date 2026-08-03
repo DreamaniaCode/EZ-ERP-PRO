@@ -103,10 +103,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     // Fallback to role-based check
     if (currentUser.role === 'ADMIN') return true;
+    if (currentUser.role === 'RESPONSABLE_FRIGO' || appUser?.role === 'RESPONSABLE_FRIGO') {
+      return tab === 'DELIVERY_NOTES';
+    }
     
     switch (tab) {
       case 'DASHBOARD':
-        return currentUser.role !== 'RESPONSABLE_FRIGO';
+        return true;
       case 'PRODUCTS_STOCK':
       case 'DELIVERY_NOTES':
       case 'MULTI_SITE_INVENTORY':
