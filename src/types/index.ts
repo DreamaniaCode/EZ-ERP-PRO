@@ -53,6 +53,25 @@ export interface FrigoStockLevel {
   lastUpdated: string;
 }
 
+export type StockMovementType = 'ENTRÉE_INVENTAIRE' | 'ENTRÉE_ACHAT' | 'SORTIE_BL' | 'TRANSFERT_INTER_FRIGO' | 'AJUSTEMENT_MANUEL';
+
+export interface ProductStockMovement {
+  id: string;
+  productId: string;
+  productName: string;
+  productCode: string;
+  frigoId: string;
+  frigoName: string;
+  type: StockMovementType;
+  quantityKg: number;
+  previousStockKg: number;
+  newStockKg: number;
+  referenceDoc?: string; // BL Number, Order Number, Purchase Invoice Number
+  date: string;
+  performedBy?: string;
+  notes?: string;
+}
+
 export interface InventoryCountItem {
   productId: string;
   theoreticalKg: number;

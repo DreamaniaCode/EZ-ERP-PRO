@@ -19,7 +19,9 @@ import {
   OrderStatus,
   CompanyInfo,
   RecalculationSummaryReport,
-  RecalculationReportItem
+  RecalculationReportItem,
+  ProductStockMovement,
+  StockMovementType
 } from '../types';
 
 import { 
@@ -49,6 +51,7 @@ interface ERPContextType {
   products: Product[];
   frigos: ColdStorageFrigo[];
   stocks: FrigoStockLevel[];
+  stockMovements: ProductStockMovement[];
   clients: Client[];
   suppliers: Supplier[];
   orders: SalesOrder[];
@@ -225,6 +228,16 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (saved) return JSON.parse(saved);
     return [];
   });
+
+  const [stockMovements, setStockMovements] = useState<ProductStockMovement[]>(() => {
+    const saved = localStorage.getItem('erp_stock_movements');
+    if (saved) return JSON.parse(saved);
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('erp_stock_movements', JSON.stringify(stockMovements));
+  }, [stockMovements]);
 
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(() => {
     const saved = localStorage.getItem('erp_company_info');
@@ -681,11 +694,46 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Stock Actions
-  const adjustStock = (frigoId: string, productId: string, newKg: number, newPallets: number) => {
+  const logStockMovement = (
+    productId: string,
+    frigoId: string,
+    type: StockMovementType,
+    quantityKg: number,
+    previousStockKg: number,
+    newStockKg: number,
+    referenceDoc?: string,
+    notes?: string
+  ) => {
+    const prd = products.find(p => p.id === productId);
+    const frg = frigos.find(f => f.id === frigoId);
+    const movement: ProductStockMovement = {
+      id: `mvt-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      productId,
+      productName: prd?.name || 'Produit Inconnu',
+      productCode: prd?.code || 'PRD-UNK',
+      frigoId,
+      frigoName: frg?.name || 'Entrepôt Inconnu',
+      type,
+      quantityKg,
+      previousStockKg,
+      newStockKg,
+      referenceDoc,
+      date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      performedBy: currentUser?.name || 'Système',
+      notes
+    };
+    setStockMovements(prev => [movement, ...prev]);
+  };
+
+  const adjustStock = (frigoId: string, productId: string, newKg: number, newPallets: number, referenceDoc?: string, type: StockMovementType = 'AJUSTEMENT_MANUEL') => {
     setStocks(prev => {
-      const exists = prev.some(s => s.frigoId === frigoId && s.productId === productId);
+      const existing = prev.find(s => s.frigoId === frigoId && s.productId === productId);
+      const prevKg = existing ? existing.quantityKg : 0;
       const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
-      if (exists) {
+
+      logStockMovement(productId, frigoId, type, Math.abs(newKg - prevKg), prevKg, newKg, referenceDoc);
+
+      if (existing) {
         return prev.map(s => {
           if (s.frigoId === frigoId && s.productId === productId) {
             return {
@@ -713,6 +761,15 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const transferStock = (sourceFrigoId: string, targetFrigoId: string, productId: string, kg: number, pallets: number) => {
+    const sourceStock = stocks.find(s => s.frigoId === sourceFrigoId && s.productId === productId);
+    const targetStock = stocks.find(s => s.frigoId === targetFrigoId && s.productId === productId);
+
+    const sourcePrevKg = sourceStock?.quantityKg || 0;
+    const targetPrevKg = targetStock?.quantityKg || 0;
+
+    logStockMovement(productId, sourceFrigoId, 'TRANSFERT_INTER_FRIGO', kg, sourcePrevKg, Math.max(0, sourcePrevKg - kg), `Vers ${targetFrigoId}`);
+    logStockMovement(productId, targetFrigoId, 'TRANSFERT_INTER_FRIGO', kg, targetPrevKg, targetPrevKg + kg, `Depuis ${sourceFrigoId}`);
+
     setStocks(prev => {
       return prev.map(s => {
         if (s.frigoId === sourceFrigoId && s.productId === productId) {
@@ -1665,6 +1722,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     products,
     frigos,
     stocks,
+    stockMovements,
     clients,
     suppliers,
     orders,
@@ -1722,6 +1780,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     products,
     frigos,
     stocks,
+    stockMovements,
     clients,
     suppliers,
     orders,

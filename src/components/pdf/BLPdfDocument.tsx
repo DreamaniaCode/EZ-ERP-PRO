@@ -194,8 +194,6 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo, onClose
                   <th className="p-2 border" style={{ borderColor: '#cbd5e1' }}>Code SKU</th>
                   <th className="p-2 border" style={{ borderColor: '#cbd5e1' }}>Désignation Produit</th>
                   <th className="p-2 border text-center" style={{ borderColor: '#cbd5e1' }}>Quantité (Kg)</th>
-                  <th className="p-2 border text-right" style={{ borderColor: '#cbd5e1' }}>Prix Unitaire (DH/Kg)</th>
-                  <th className="p-2 border text-right" style={{ borderColor: '#cbd5e1' }}>Montant Total (DH)</th>
                 </tr>
               </thead>
               <tbody>
@@ -204,8 +202,6 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo, onClose
                     <td className="p-2 border font-bold" style={{ borderColor: '#cbd5e1', color: '#0f62fe' }}>{item.productCode}</td>
                     <td className="p-2 border font-sans font-semibold" style={{ borderColor: '#cbd5e1', color: '#0f172a' }}>{item.productName}</td>
                     <td className="p-2 border text-center font-bold" style={{ borderColor: '#cbd5e1', color: '#0f172a' }}>{item.quantityKg.toLocaleString()} Kg</td>
-                    <td className="p-2 border text-right" style={{ borderColor: '#cbd5e1', color: '#334155' }}>{item.unitPriceHT} DH/kg</td>
-                    <td className="p-2 border text-right font-bold" style={{ borderColor: '#cbd5e1', color: '#0f172a' }}>{item.totalHT.toLocaleString()} DH</td>
                   </tr>
                 ))}
               </tbody>
@@ -222,15 +218,9 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo, onClose
               </div>
             </div>
 
-            <div className="p-4 rounded border w-80 text-right space-y-1.5 text-xs" style={{ backgroundColor: '#f8fafc', borderColor: '#cbd5e1' }}>
-              <div className="flex justify-between text-gray-700" style={{ color: '#334155' }}>
-                <span>POIDS TOTAL:</span>
-                <span className="font-bold text-sm" style={{ color: '#047857' }}>{bl.totalKg.toLocaleString()} Kg</span>
-              </div>
-              <div className="flex justify-between font-bold text-sm pt-2 border-t" style={{ borderColor: '#cbd5e1', color: '#0f62fe' }}>
-                <span>TOTAL NET À PAYER:</span>
-                <span>{bl.totalHT.toLocaleString()} DH</span>
-              </div>
+            <div className="p-4 rounded border text-right space-y-1 text-xs" style={{ backgroundColor: '#f8fafc', borderColor: '#cbd5e1' }}>
+              <div className="text-gray-500 text-[10px]">POIDS TOTAL EXPÉDIÉ</div>
+              <div className="font-bold text-base text-emerald-700">{bl.totalKg.toLocaleString()} Kg</div>
             </div>
           </div>
 

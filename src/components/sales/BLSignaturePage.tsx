@@ -142,9 +142,6 @@ export const BLSignaturePage: React.FC<BLSignaturePageProps> = ({ blId, onBack }
               <tr>
                 <th className="p-2.5">Produit / Désignation</th>
                 <th className="p-2.5 text-right">Quantité (Kg)</th>
-                <th className="p-2.5 text-right">Quantité (Palettes)</th>
-                <th className="p-2.5 text-right">Prix HT</th>
-                <th className="p-2.5 text-right">Total HT</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -152,30 +149,19 @@ export const BLSignaturePage: React.FC<BLSignaturePageProps> = ({ blId, onBack }
                 <tr key={idx} className="hover:bg-gray-50/50">
                   <td className="p-2.5 font-bold text-gray-900">{item.productName}</td>
                   <td className="p-2.5 text-right font-bold text-emerald-700">{item.quantityKg.toLocaleString()} Kg</td>
-                  <td className="p-2.5 text-right text-gray-700">{item.quantityPallets} Pal.</td>
-                  <td className="p-2.5 text-right text-gray-600">{item.unitPriceHT} DH</td>
-                  <td className="p-2.5 text-right font-bold text-gray-900">{item.totalHT.toLocaleString()} DH</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-gray-50 p-4 rounded border border-gray-200 text-xs font-mono">
+        <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded border border-gray-200 text-xs font-mono">
           <div>
-            <span className="text-gray-500 block">Total Poids (Kg)</span>
+            <span className="text-gray-500 block">Total Poids Expédié (Kg)</span>
             <span className="text-base font-bold text-gray-900">{bl.totalKg.toLocaleString()} Kg</span>
-          </div>
-          <div>
-            <span className="text-gray-500 block">Total Palettes</span>
-            <span className="text-base font-bold text-gray-900">{bl.totalPallets} Pal.</span>
           </div>
           <div>
             <span className="text-gray-500 block">Entrepôt / Frigo</span>
             <span className="text-base font-bold text-emerald-700">{bl.frigoName}</span>
-          </div>
-          <div>
-            <span className="text-gray-500 block">Montant Total</span>
-            <span className="text-base font-bold text-[#0f62fe]">{bl.totalTTC.toLocaleString()} DH</span>
           </div>
         </div>
 
