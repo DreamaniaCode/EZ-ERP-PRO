@@ -4,8 +4,9 @@ import { Client, DeliveryNoteBL } from '../../types';
 import { 
   Building2, Phone, Mail, MapPin, CreditCard, AlertTriangle, 
   CheckCircle2, TrendingUp, Package, FileText, Clock, X, DollarSign, ArrowLeft, ChevronRight,
-  Edit3, Trash2, Save
+  Edit3, Trash2, Save, MessageSquare
 } from 'lucide-react';
+import { generateWhatsAppInvoiceLink } from '../../utils/whatsappUtils';
 
 interface ClientDetailModalProps {
   client: Client;
@@ -494,6 +495,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                       <th>Déjà Payé</th>
                       <th>Reste à Payer</th>
                       <th>Statut</th>
+                      <th>Action WhatsApp</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -524,6 +526,18 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                                 EN ATTENTE
                               </span>
                             )}
+                          </td>
+                          <td>
+                            <button
+                              onClick={() => {
+                                const link = generateWhatsAppInvoiceLink(inv.invoiceNumber, inv.clientName, inv.totalTTC, client.phone);
+                                window.open(link, '_blank');
+                              }}
+                              className="px-2 py-1 bg-[#25D366] hover:bg-[#128c7e] text-white text-[11px] font-bold rounded flex items-center gap-1 shadow-sm"
+                              title="Envoyer cette facture au client par WhatsApp"
+                            >
+                              <MessageSquare className="w-3 h-3" /> WhatsApp
+                            </button>
                           </td>
                         </tr>
                       );

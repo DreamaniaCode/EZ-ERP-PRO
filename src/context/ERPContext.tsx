@@ -1808,6 +1808,7 @@ const defaultFallbackContext: ERPContextType = {
   products: [],
   frigos: INITIAL_FRIGOS,
   stocks: [],
+  stockMovements: [],
   clients: [],
   suppliers: INITIAL_SUPPLIERS,
   orders: [],
