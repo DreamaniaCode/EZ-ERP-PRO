@@ -37,6 +37,7 @@ interface DeliveryNotesBLProps {
   onEditProduct?: (id: string) => void;
   onEditFrigo?: (id: string) => void;
   onSignBL?: (id: string) => void;
+  onViewBLPdf?: (id: string) => void;
 }
 
 export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({ 
@@ -45,7 +46,8 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   onEditClient,
   onEditProduct,
   onEditFrigo,
-  onSignBL 
+  onSignBL,
+  onViewBLPdf
 }) => {
   const { t } = useTranslation();
   const { 
@@ -636,7 +638,7 @@ EasyERP Pro • Logistics Management`;
 
                   {/* View / Download PDF */}
                   <button
-                    onClick={() => setActivePdfBL(bl)}
+                    onClick={() => onViewBLPdf ? onViewBLPdf(bl.id) : setActivePdfBL(bl)}
                     className="px-3 py-1.5 bg-gray-900 hover:bg-black text-white text-xs font-mono font-bold rounded flex items-center gap-1 transition-colors"
                   >
                     <Eye className="w-4 h-4 text-[#0f62fe]" /> Voir PDF

@@ -345,6 +345,13 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Product helper
   const addProduct = (productData: Omit<Product, 'id' | 'code' | 'kgPerPallet'>): Product => {
+    // Check if product with exact same name already exists to prevent duplication
+    const existing = products.find(p => p.name.trim().toLowerCase() === productData.name.trim().toLowerCase());
+    if (existing) {
+      console.warn(`Product "${productData.name}" already exists (${existing.code}). Returning existing product.`);
+      return existing;
+    }
+
     const nextCodeNum = products.length + 1;
     const code = `PRD-DAT-${String(nextCodeNum).padStart(3, '0')}`;
     const kgPerPallet = productData.kgPerCarton * productData.cartonsPerPallet;

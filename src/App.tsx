@@ -47,12 +47,13 @@ const UserManagement = lazy(() => import('./components/users/UserManagement').th
 const BLImportPage = lazy(() => import('./components/sales/BLImportPage').then(m => ({ default: m.BLImportPage })));
 const BackupRestore = lazy(() => import('./components/settings/BackupRestore').then(m => ({ default: m.BackupRestore })));
 const BLSignaturePage = lazy(() => import('./components/sales/BLSignaturePage').then(m => ({ default: m.BLSignaturePage })));
+const BLPdfPage = lazy(() => import('./components/sales/BLPdfPage').then(m => ({ default: m.BLPdfPage })));
 
 // Extended NavTab type with edit sub-views
 export type ExtendedNavTab = NavTab | 
   'PRODUCT_EDIT' | 'CLIENT_EDIT' | 'SUPPLIER_EDIT' | 'FRIGO_EDIT' |
   'BL_EDIT' | 'ORDER_EDIT' | 'EXPENSE_EDIT' | 'CHEQUE_EDIT' |
-  'USERS' | 'IMPORT_BL' | 'BACKUP' | 'BL_SIGN';
+  'USERS' | 'IMPORT_BL' | 'BACKUP' | 'BL_SIGN' | 'BL_PDF';
 
 function LoadingSpinner() {
   return (
@@ -108,13 +109,16 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
   };
 
   const renderTabContent = () => {
-    // If user is RESPONSABLE_FRIGO, strictly lock view to DELIVERY_NOTES, BL_EDIT or BL_SIGN only!
+    // If user is RESPONSABLE_FRIGO, strictly lock view to DELIVERY_NOTES, BL_EDIT, BL_SIGN or BL_PDF only!
     if (appUser?.role === 'RESPONSABLE_FRIGO') {
       if (activeTab === 'BL_EDIT') {
         return <BLEditPage editId={editingEntityId} onBack={navigateBack} />;
       }
       if (activeTab === 'BL_SIGN') {
         return <BLSignaturePage blId={editingEntityId} onBack={navigateBack} />;
+      }
+      if (activeTab === 'BL_PDF') {
+        return <BLPdfPage blId={editingEntityId} onBack={navigateBack} />;
       }
       return (
         <DeliveryNotesBL 
@@ -124,6 +128,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
           onEditProduct={(id) => navigateToEdit('PRODUCT_EDIT', id)}
           onEditFrigo={(id) => navigateToEdit('FRIGO_EDIT', id)}
           onSignBL={(id) => navigateToEdit('BL_SIGN', id)}
+          onViewBLPdf={(id) => navigateToEdit('BL_PDF', id)}
         />
       );
     }
@@ -142,6 +147,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
             onEditProduct={(id) => navigateToEdit('PRODUCT_EDIT', id)}
             onEditFrigo={(id) => navigateToEdit('FRIGO_EDIT', id)}
             onSignBL={(id) => navigateToEdit('BL_SIGN', id)}
+            onViewBLPdf={(id) => navigateToEdit('BL_PDF', id)}
           />
         );
       case 'CLIENTS':
@@ -184,6 +190,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
         return <ChequeEditPage editId={editingEntityId} onBack={navigateBack} />;
       case 'BL_SIGN':
         return <BLSignaturePage blId={editingEntityId} onBack={navigateBack} />;
+      case 'BL_PDF':
+        return <BLPdfPage blId={editingEntityId} onBack={navigateBack} />;
 
       // New feature pages
       case 'USERS':
