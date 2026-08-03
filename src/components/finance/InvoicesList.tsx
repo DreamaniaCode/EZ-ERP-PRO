@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useERP } from '../../context/ERPContext';
 import { Invoice } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
-import { FileText, Search, Filter, CheckCircle, CreditCard, Download, Eye } from 'lucide-react';
+import { FileText, Search, Filter, CheckCircle, CreditCard, Download, Eye, MessageSquare } from 'lucide-react';
+import { generateWhatsAppInvoiceLink } from '../../utils/whatsappUtils';
 
 export const InvoicesList: React.FC = () => {
   const { invoices, updateInvoiceStatus, addChequeEffet, clients } = useERP();
@@ -19,6 +20,13 @@ export const InvoicesList: React.FC = () => {
   const handleMarkPaid = (inv: Invoice) => {
     updateInvoiceStatus(inv.id, 'PAYEE', inv.totalTTC);
     alert(`Facture ${inv.invoiceNumber} marquée comme entièrement PAYÉE !`);
+  };
+
+  const handleSendInvoiceWhatsApp = (inv: Invoice) => {
+    const client = clients.find(c => c.id === inv.clientId || c.name === inv.clientName);
+    const phone = client?.phone || '';
+    const link = generateWhatsAppInvoiceLink(inv.invoiceNumber, inv.clientName, inv.totalTTC, phone);
+    window.open(link, '_blank');
   };
 
   return (
@@ -131,6 +139,13 @@ export const InvoicesList: React.FC = () => {
                           <CheckCircle className="w-3.5 h-3.5" /> Régler
                         </button>
                       )}
+                      <button
+                        onClick={() => handleSendInvoiceWhatsApp(inv)}
+                        className="px-2.5 py-1 bg-[#25D366] hover:bg-[#128c7e] text-white text-[11px] font-bold rounded flex items-center gap-1 shadow-sm"
+                        title="Transmettre la facture au client par WhatsApp"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" /> WhatsApp
+                      </button>
                     </div>
                   </td>
                 </tr>

@@ -51,3 +51,31 @@ EasyERP Pro • Logistics & Food Storage`;
 
   return `https://wa.me/?text=${encoded}`;
 }
+
+/**
+ * Generates a pre-filled WhatsApp message link for Client Invoices
+ */
+export function generateWhatsAppInvoiceLink(
+  invoiceNumber: string,
+  clientName: string,
+  totalTTC: number,
+  phone?: string
+): string {
+  const messageText = `🧾 *FACTURE CLIENT - EASYERP PRO* 🧾
+----------------------------------
+🔹 *N° Facture:* ${invoiceNumber}
+👤 *Client:* ${clientName}
+💰 *Montant Total TTC:* *${totalTTC.toLocaleString()} DH*
+
+Veuillez trouver ci-joint votre facture officielle. 
+Merci pour votre confiance !
+
+EasyERP Pro • Agro Négocier`;
+
+  const encoded = encodeURIComponent(messageText);
+  if (phone) {
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    return `https://wa.me/${cleanPhone}?text=${encoded}`;
+  }
+  return `https://wa.me/?text=${encoded}`;
+}
