@@ -16,6 +16,7 @@ interface ProductsListProps {
 export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNewProduct }) => {
   const { t } = useTranslation();
   const { 
+    currentUser,
     products, 
     stocks, 
     frigos, 
@@ -152,23 +153,25 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowDiagnosticModal(true)}
-            className={`text-xs px-3 py-2 rounded flex items-center gap-1.5 font-bold transition-all border shadow ${
-              outdatedBLCount > 0 
-                ? 'bg-amber-500 hover:bg-amber-600 text-black border-amber-400 animate-pulse' 
-                : 'bg-[#262626] hover:bg-[#393939] text-gray-200 border-[#525252]'
-            }`}
-            title="Outil de Diagnostic Tarifaire & Synchronisation des prix BL avec le catalogue"
-          >
-            <Wrench className="w-4 h-4 text-amber-300" />
-            <span>Diagnostic & Synchro Prix</span>
-            {outdatedBLCount > 0 && (
-              <span className="bg-rose-600 text-white font-extrabold text-[10px] px-1.5 py-0.2 rounded-full ml-0.5">
-                {outdatedBLCount}
-              </span>
-            )}
-          </button>
+          {currentUser?.role !== 'RESPONSABLE_FRIGO' && (
+            <button
+              onClick={() => setShowDiagnosticModal(true)}
+              className={`text-xs px-3 py-2 rounded flex items-center gap-1.5 font-bold transition-all border shadow ${
+                outdatedBLCount > 0 
+                  ? 'bg-amber-500 hover:bg-amber-600 text-black border-amber-400 animate-pulse' 
+                  : 'bg-[#262626] hover:bg-[#393939] text-gray-200 border-[#525252]'
+              }`}
+              title="Outil de Diagnostic Tarifaire & Synchronisation des prix BL avec le catalogue"
+            >
+              <Wrench className="w-4 h-4 text-amber-300" />
+              <span>Diagnostic & Synchro Prix</span>
+              {outdatedBLCount > 0 && (
+                <span className="bg-rose-600 text-white font-extrabold text-[10px] px-1.5 py-0.2 rounded-full ml-0.5">
+                  {outdatedBLCount}
+                </span>
+              )}
+            </button>
+          )}
 
           <ExportButtons 
             filename="Catalogue_Produits_Et_Stock"
@@ -211,13 +214,15 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
             <ArrowRightLeft className="w-4 h-4 text-emerald-400" />
             Transfert Inter-Frigos
           </button>
-          <button
-            onClick={() => onNewProduct ? onNewProduct() : setShowAddModal(true)}
-            className="carbon-btn-primary text-xs flex items-center gap-1.5 rounded"
-          >
-            <Plus className="w-4 h-4" />
-            Nouveau Produit (Code Auto)
-          </button>
+          {currentUser?.role !== 'RESPONSABLE_FRIGO' && (
+            <button
+              onClick={() => onNewProduct ? onNewProduct() : setShowAddModal(true)}
+              className="carbon-btn-primary text-xs flex items-center gap-1.5 rounded"
+            >
+              <Plus className="w-4 h-4" />
+              Nouveau Produit (Code Auto)
+            </button>
+          )}
         </div>
       </div>
 
@@ -363,21 +368,25 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
                           <History className="w-3.5 h-3.5 text-amber-600" />
                           <span>Historique</span>
                         </button>
-                        <button
-                          onClick={() => onEditProduct ? onEditProduct(prd.id) : setEditingProduct(prd)}
-                          title="Éditer Produit & Prix de Vente"
-                          className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold rounded flex items-center gap-1 transition-colors"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                          <span>Prix / Éditer</span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProduct(prd)}
-                          title="Supprimer Produit"
-                          className="p-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs rounded transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {currentUser?.role !== 'RESPONSABLE_FRIGO' && (
+                          <>
+                            <button
+                              onClick={() => onEditProduct ? onEditProduct(prd.id) : setEditingProduct(prd)}
+                              title="Éditer Produit & Prix de Vente"
+                              className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold rounded flex items-center gap-1 transition-colors"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                              <span>Prix / Éditer</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProduct(prd)}
+                              title="Supprimer Produit du catalogue"
+                              className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

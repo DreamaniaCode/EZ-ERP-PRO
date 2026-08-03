@@ -120,7 +120,25 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Load from localStorage or default
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('erp_current_user');
-    return saved ? JSON.parse(saved) : INITIAL_USERS[0]; // Default Admin
+    return saved ? JSON.parse(saved) : INITIAL_USERS[0];
+  });
+
+  const [users, setUsers] = useState<UserProfile[]>(() => {
+    const saved = localStorage.getItem('erp_users');
+    if (saved) return JSON.parse(saved);
+    const savedAppUsers = localStorage.getItem('erp_app_users');
+    if (savedAppUsers) {
+      const parsed = JSON.parse(savedAppUsers);
+      return parsed.map((u: any) => ({
+        id: u.uid || u.id,
+        name: u.displayName || u.name,
+        email: u.email,
+        role: u.role,
+        assignedFrigoId: u.assignedFrigoId,
+        avatar: u.avatar
+      }));
+    }
+    return INITIAL_USERS;
   });
 
   const isWiped = typeof window !== 'undefined' && localStorage.getItem('erp_system_wiped') === 'true';
@@ -238,6 +256,21 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     if (isWiped) return;
 
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const docs = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return {
+          id: data.uid || docSnap.id,
+          name: data.displayName || data.name || data.email,
+          email: data.email,
+          role: data.role,
+          assignedFrigoId: data.assignedFrigoId,
+          avatar: data.avatar
+        } as UserProfile;
+      });
+      if (docs.length > 0) setUsers(docs);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'users'));
+
     const unsubClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Client);
       if (docs.length > 0) setClients(docs);
@@ -262,6 +295,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, (error) => handleFirestoreError(error, OperationType.GET, 'deliveryNotes'));
 
     return () => {
+      unsubUsers();
       unsubClients();
       unsubProducts();
       unsubFrigos();
@@ -1621,7 +1655,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     <ERPContext.Provider value={{
       currentUser,
       setCurrentUser,
-      users: INITIAL_USERS,
+      users,
       products,
       frigos,
       stocks,
