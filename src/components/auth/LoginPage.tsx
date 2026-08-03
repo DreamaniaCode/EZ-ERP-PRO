@@ -60,6 +60,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           }
         }
       }
+      // 3. Fallback heuristic by email address name
+      if (matchedName === 'Super Admin' && matchedRole === 'ADMIN' && emailInput.toLowerCase().includes('frigo')) {
+        matchedRole = 'RESPONSABLE_FRIGO';
+        matchedName = 'Responsable Frigo MFADEL';
+        matchedFrigoId = 'frigo-1';
+      }
     } catch (e) {
       console.warn('Could not look up local user list:', e);
     }

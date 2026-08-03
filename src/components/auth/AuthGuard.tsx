@@ -41,39 +41,82 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
             setAppUser(userData);
             localStorage.setItem('erp_local_session', JSON.stringify(userData));
           } else {
-            // Create default admin profile if none exists
-            const defaultAdmin: AppUser = {
+            // Check local users list before defaulting to admin
+            let foundLocalUser: AppUser | null = null;
+            try {
+              const saved = localStorage.getItem('erp_app_users');
+              if (saved) {
+                const list = JSON.parse(saved);
+                const match = list.find((u: any) => u.email?.toLowerCase() === (firebaseUser.email || '').toLowerCase());
+                if (match) {
+                  foundLocalUser = {
+                    uid: firebaseUser.uid,
+                    email: match.email,
+                    displayName: match.displayName || match.name || 'Utilisateur',
+                    role: match.role || 'RESPONSABLE_FRIGO',
+                    assignedFrigoId: match.assignedFrigoId || 'frigo-1',
+                    permissions: DEFAULT_ROLE_PERMISSIONS[match.role || 'RESPONSABLE_FRIGO'] || DEFAULT_ROLE_PERMISSIONS['RESPONSABLE_FRIGO'],
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                  };
+                }
+              }
+            } catch (e) { console.warn("Error reading local user list:", e); }
+
+            const userToSave: AppUser = foundLocalUser || {
               uid: firebaseUser.uid,
               email: firebaseUser.email || 'admin@easyerp.com',
-              displayName: firebaseUser.displayName || 'Super Admin',
-              role: 'ADMIN',
-              permissions: DEFAULT_ROLE_PERMISSIONS['ADMIN'],
+              displayName: firebaseUser.displayName || (firebaseUser.email?.includes('frigo') ? 'Responsable Frigo MFADEL' : 'Super Admin'),
+              role: firebaseUser.email?.includes('frigo') ? 'RESPONSABLE_FRIGO' : 'ADMIN',
+              assignedFrigoId: firebaseUser.email?.includes('frigo') ? 'frigo-1' : undefined,
+              permissions: DEFAULT_ROLE_PERMISSIONS[firebaseUser.email?.includes('frigo') ? 'RESPONSABLE_FRIGO' : 'ADMIN'],
               isActive: true,
               createdAt: new Date().toISOString(),
             };
             
             try {
-              await setDoc(userDocRef, defaultAdmin);
+              await setDoc(userDocRef, userToSave);
             } catch (e) {
-              console.warn("Could not save admin profile to Firestore:", e);
+              console.warn("Could not save user profile to Firestore:", e);
             }
-            setAppUser(defaultAdmin);
-            localStorage.setItem('erp_local_session', JSON.stringify(defaultAdmin));
+            setAppUser(userToSave);
+            localStorage.setItem('erp_local_session', JSON.stringify(userToSave));
           }
         } catch (error) {
           console.error("Error fetching user profile:", error);
-          // Fallback admin
-          const fallbackAdmin: AppUser = {
+          let foundLocalUser: AppUser | null = null;
+          try {
+            const saved = localStorage.getItem('erp_app_users');
+            if (saved) {
+              const list = JSON.parse(saved);
+              const match = list.find((u: any) => u.email?.toLowerCase() === (firebaseUser.email || '').toLowerCase());
+              if (match) {
+                foundLocalUser = {
+                  uid: firebaseUser.uid,
+                  email: match.email,
+                  displayName: match.displayName || match.name || 'Utilisateur',
+                  role: match.role || 'RESPONSABLE_FRIGO',
+                  assignedFrigoId: match.assignedFrigoId || 'frigo-1',
+                  permissions: DEFAULT_ROLE_PERMISSIONS[match.role || 'RESPONSABLE_FRIGO'] || DEFAULT_ROLE_PERMISSIONS['RESPONSABLE_FRIGO'],
+                  isActive: true,
+                  createdAt: new Date().toISOString(),
+                };
+              }
+            }
+          } catch (e) { /* ignore */ }
+
+          const fallbackUser: AppUser = foundLocalUser || {
             uid: firebaseUser.uid,
             email: firebaseUser.email || 'admin@easyerp.com',
-            displayName: 'Super Admin',
-            role: 'ADMIN',
-            permissions: DEFAULT_ROLE_PERMISSIONS['ADMIN'],
+            displayName: firebaseUser.email?.includes('frigo') ? 'Responsable Frigo MFADEL' : 'Super Admin',
+            role: firebaseUser.email?.includes('frigo') ? 'RESPONSABLE_FRIGO' : 'ADMIN',
+            assignedFrigoId: firebaseUser.email?.includes('frigo') ? 'frigo-1' : undefined,
+            permissions: DEFAULT_ROLE_PERMISSIONS[firebaseUser.email?.includes('frigo') ? 'RESPONSABLE_FRIGO' : 'ADMIN'],
             isActive: true,
             createdAt: new Date().toISOString(),
           };
-          setAppUser(fallbackAdmin);
-          localStorage.setItem('erp_local_session', JSON.stringify(fallbackAdmin));
+          setAppUser(fallbackUser);
+          localStorage.setItem('erp_local_session', JSON.stringify(fallbackUser));
         }
       } else {
         if (!localStorage.getItem('erp_local_session')) {
