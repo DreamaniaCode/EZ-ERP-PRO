@@ -12,11 +12,12 @@ interface LoginPageProps {
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const { t, i18n } = useTranslation();
-  const [email, setEmail] = useState('admin@easyerp.com');
-  const [password, setPassword] = useState('admin123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(true);
+
 
   const toggleLanguage = (lang?: string) => {
     const newLang = lang || (i18n.language === 'fr' ? 'ar' : 'fr');
@@ -193,32 +194,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       {/* Login Card */}
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4 sm:px-0">
         <div className="bg-slate-900/80 backdrop-blur-2xl py-8 px-6 shadow-[0_20px_50px_rgba(0,0,0,0.6)] sm:rounded-3xl sm:px-10 border border-white/15">
-          
-          {/* Quick Demo Super Admin Card */}
-          <div className="mb-6 p-3.5 bg-blue-950/70 border border-blue-500/40 rounded-2xl flex items-center justify-between text-xs text-blue-200 shadow-inner">
-            <div className="flex items-center gap-2.5">
-              <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0" />
-              <div>
-                <div className="font-bold text-white flex items-center gap-1.5">
-                  <span>Super Admin Account</span>
-                  <span className="bg-emerald-500/30 text-emerald-300 text-[9px] px-1.5 py-0.2 rounded font-mono border border-emerald-400/30">READY</span>
-                </div>
-                <div className="text-[11px] text-gray-300 font-mono mt-0.5">
-                  admin@easyerp.com • admin123456
-                </div>
-              </div>
-            </div>
 
-            <button
-              type="button"
-              onClick={handleDemoAdminLogin}
-              disabled={loading}
-              className="bg-[#0f62fe] hover:bg-blue-600 text-white font-bold text-[11px] px-3.5 py-2 rounded-xl shadow-lg shadow-blue-600/40 transition-all flex items-center gap-1 shrink-0 ml-2 border border-blue-400/30 active:scale-95"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-yellow-300 animate-spin" />
-              <span>Auto Login</span>
-            </button>
-          </div>
 
           {error && (
             <div className="mb-6 bg-red-950/90 border-l-4 border-red-500 p-3.5 rounded-r-xl">

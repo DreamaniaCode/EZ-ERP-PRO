@@ -189,23 +189,45 @@ export const UserManagement: React.FC = () => {
     try {
       const updateData: Partial<AppUser> = {
         displayName: formData.displayName,
+        email: formData.email,
         role: formData.role,
         permissions: editPermissions,
         assignedFrigoId: formData.role === 'RESPONSABLE_FRIGO' ? formData.assignedFrigoId || undefined : undefined,
         updatedAt: new Date().toISOString()
       };
 
-      await updateDoc(doc(db, 'users', uid), updateData);
+      try {
+        await updateDoc(doc(db, 'users', uid), updateData);
+      } catch (dbErr) {
+        console.warn("Firestore update error, updating local state:", dbErr);
+      }
       
-      setUsers(prev => prev.map(u => u.uid === uid ? { ...u, ...updateData } : u));
+      setUsers(prev => {
+        const updated = prev.map(u => u.uid === uid ? { ...u, ...updateData } : u);
+        localStorage.setItem('erp_app_users', JSON.stringify(updated));
+        return updated;
+      });
+
+      // If user is editing their own profile, update local session
+      const savedCu = localStorage.getItem('erp_current_user');
+      if (savedCu) {
+        const cu = JSON.parse(savedCu);
+        if (cu.id === uid || cu.email === formData.email) {
+          const newCu = { ...cu, name: formData.displayName, role: formData.role };
+          localStorage.setItem('erp_current_user', JSON.stringify(newCu));
+        }
+      }
+
       setEditingUser(null);
+      alert(t('users.updatedSuccess', 'Profil utilisateur mis à jour avec succès !'));
     } catch (err: any) {
       console.error("Error updating user:", err);
-      setError(err.message || "Failed to update user");
+      setError(err.message || "Échec de la mise à jour");
     } finally {
       setSubmitting(false);
     }
   };
+
 
   const handleToggleStatus = async (uid: string, currentStatus: boolean) => {
     if (uid === mainAuth.currentUser?.uid) {

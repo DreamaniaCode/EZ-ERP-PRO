@@ -281,30 +281,68 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           avatar: data.avatar
         } as UserProfile;
       });
-      if (docs.length > 0) setUsers(docs);
+      if (docs.length > 0) {
+        setUsers(prev => {
+          const map = new Map<string, UserProfile>();
+          docs.forEach(u => map.set(u.id, u));
+          prev.forEach(u => { if (!map.has(u.id)) map.set(u.id, u); });
+          return Array.from(map.values());
+        });
+      }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'users'));
 
     const unsubClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Client);
-      if (docs.length > 0) setClients(docs);
-      else if (localStorage.getItem('erp_system_wiped') === 'true') setClients([]);
+      if (docs.length > 0) {
+        setClients(prev => {
+          const map = new Map<string, Client>();
+          docs.forEach(c => map.set(c.id, c));
+          prev.forEach(c => { if (!map.has(c.id)) map.set(c.id, c); });
+          return Array.from(map.values());
+        });
+      } else if (localStorage.getItem('erp_system_wiped') === 'true') {
+        setClients([]);
+      }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
 
     const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Product);
-      if (docs.length > 0) setProducts(docs);
-      else if (localStorage.getItem('erp_system_wiped') === 'true') setProducts([]);
+      if (docs.length > 0) {
+        setProducts(prev => {
+          const map = new Map<string, Product>();
+          docs.forEach(p => map.set(p.id, p));
+          prev.forEach(p => { if (!map.has(p.id)) map.set(p.id, p); });
+          return Array.from(map.values());
+        });
+      } else if (localStorage.getItem('erp_system_wiped') === 'true') {
+        setProducts([]);
+      }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'products'));
 
     const unsubFrigos = onSnapshot(collection(db, 'frigos'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as ColdStorageFrigo);
-      if (docs.length > 0) setFrigos(docs);
+      if (docs.length > 0) {
+        setFrigos(prev => {
+          const map = new Map<string, ColdStorageFrigo>();
+          docs.forEach(f => map.set(f.id, f));
+          prev.forEach(f => { if (!map.has(f.id)) map.set(f.id, f); });
+          return Array.from(map.values());
+        });
+      }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'frigos'));
 
     const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as DeliveryNoteBL);
-      if (docs.length > 0) setDeliveryNotes(docs);
-      else if (localStorage.getItem('erp_system_wiped') === 'true') setDeliveryNotes([]);
+      if (docs.length > 0) {
+        setDeliveryNotes(prev => {
+          const map = new Map<string, DeliveryNoteBL>();
+          docs.forEach(d => map.set(d.id, d));
+          prev.forEach(d => { if (!map.has(d.id)) map.set(d.id, d); });
+          return Array.from(map.values());
+        });
+      } else if (localStorage.getItem('erp_system_wiped') === 'true') {
+        setDeliveryNotes([]);
+      }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'deliveryNotes'));
 
     return () => {
@@ -315,6 +353,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       unsubDeliveryNotes();
     };
   }, [isWiped]);
+
 
   useEffect(() => {
     localStorage.setItem('erp_products', JSON.stringify(products));
