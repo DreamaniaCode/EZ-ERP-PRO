@@ -27,63 +27,137 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
       .catch(err => console.error('Erreur génération QR Code Facture:', err));
   }, [invoice]);
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownloadPdf = () => {
+    const invoiceTotalHT = invoice.totalHT ?? 0;
+    const invoiceTotalVAT = invoice.totalVAT ?? 0;
+    const invoiceTotalTTC = invoice.totalTTC ?? 0;
+
+    const htmlContent = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Facture ${invoice.invoiceNumber} - ${invoice.clientName}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Arial', sans-serif; font-size: 11px; color: #111; background: #fff; }
+    @page { size: A4 portrait; margin: 12mm; }
+    @media print { body { margin: 0; } }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 14px; margin-bottom: 14px; }
+    .company-name { font-size: 16px; font-weight: 900; text-transform: uppercase; }
+    .company-meta { font-size: 9px; color: #444; margin-top: 3px; font-family: monospace; }
+    .inv-badge { background: #111; color: #fff; padding: 5px 12px; font-weight: 900; font-size: 12px; text-transform: uppercase; border-radius: 3px; display: inline-block; margin-bottom: 6px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; padding: 12px; margin-bottom: 14px; }
+    .meta-label { font-size: 8px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .meta-name { font-size: 13px; font-weight: 900; text-transform: uppercase; }
+    .meta-line { font-size: 9px; color: #555; font-family: monospace; margin-top: 2px; }
+    .meta-right { text-align: right; }
+    table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 14px; border: 1px solid #111; }
+    th { background: #111; color: #fff; font-weight: 700; text-transform: uppercase; font-size: 9px; padding: 6px 8px; border-right: 1px solid #333; text-align: left; }
+    th:last-child { border-right: none; text-align: right; }
+    td { padding: 6px 8px; border: 1px solid #ddd; font-family: monospace; }
+    td.right { text-align: right; }
+    td.bold { font-weight: 700; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    .totals-wrap { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+    .totals-box { width: 280px; border: 2px solid #111; padding: 12px; border-radius: 3px; background: #f9fafb; font-family: monospace; font-size: 10px; }
+    .totals-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .totals-final { border-top: 2px solid #111; padding-top: 6px; margin-top: 5px; font-size: 13px; font-weight: 900; display: flex; justify-content: space-between; }
+    .totals-final span:last-child { color: #0f62fe; }
+    .footer { border-top: 1px solid #ddd; padding-top: 12px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .bank-info { font-size: 9px; font-family: monospace; color: #555; line-height: 1.7; }
+    .stamp-box { width: 180px; border: 2px dashed #ccc; padding: 8px; text-align: center; border-radius: 3px; }
+    .stamp-label { font-size: 8px; font-weight: 700; color: #aaa; text-transform: uppercase; }
+    .stamp-space { height: 40px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      ${companyInfo.logoUrl ? `<img src="${companyInfo.logoUrl}" style="height:40px;object-fit:contain;margin-bottom:6px;" />` : ''}
+      <div class="company-name">${companyInfo.name}</div>
+      <div class="company-meta">Capital: ${companyInfo.capital} &bull; Siège: ${companyInfo.address}, ${companyInfo.city}</div>
+      <div class="company-meta">I.C.E: <b>${companyInfo.ice}</b> &bull; R.C: ${companyInfo.rc} &bull; I.F: ${companyInfo.if} &bull; Patente: ${companyInfo.patente}</div>
+      <div class="company-meta">Tél: ${companyInfo.phone} &bull; Email: ${companyInfo.email}</div>
+    </div>
+    <div style="text-align:right;">
+      <div><span class="inv-badge">FACTURE N° ${invoice.invoiceNumber}</span></div>
+      ${qrCodeDataUrl ? `<img src="${qrCodeDataUrl}" style="width:70px;height:70px;margin-top:5px;border:1px solid #ccc;border-radius:3px;padding:2px;" />` : ''}
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div>
+      <div class="meta-label">FACTURÉ À / CLIENT:</div>
+      <div class="meta-name">${invoice.clientName}</div>
+      <div class="meta-line">I.C.E: <b>${invoice.clientICE || client?.ice || 'N/A'}</b></div>
+      ${client?.address ? `<div class="meta-line">Adresse: ${client.address}, ${client.city || ''}</div>` : ''}
+      ${client?.phone ? `<div class="meta-line">Tél: ${client.phone}</div>` : ''}
+    </div>
+    <div class="meta-right">
+      <div class="meta-label">DÉTAILS FACTURE &amp; ÉCHÉANCE:</div>
+      <div class="meta-line">Date d'Émission: <b>${invoice.date}</b></div>
+      <div class="meta-line">Date d'Échéance: <b>${invoice.dueDate}</b></div>
+      ${invoice.blIds && invoice.blIds.length > 0 ? `<div class="meta-line">BLs: <b style="color:#0f62fe;">${invoice.blIds.join(', ')}</b></div>` : ''}
+      <div class="meta-line">Statut: <b style="color:#047857;">${invoice.status}</b></div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Code SKU</th>
+        <th>Désignation Produit</th>
+        <th style="text-align:right;">Quantité (Kg)</th>
+        <th style="text-align:right;">Prix Unitaire HT</th>
+        <th style="text-align:right;">Montant HT</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${invoice.items.map((it, idx) => `
+        <tr>
+          <td class="bold">${it.productCode}</td>
+          <td class="bold">${it.productName}</td>
+          <td class="right bold">${(it.quantityKg || 0).toLocaleString()} Kg</td>
+          <td class="right">${(it.unitPriceHT || 0).toLocaleString()} DH</td>
+          <td class="right bold">${(it.totalHT || 0).toLocaleString()} DH</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <div class="totals-wrap">
+    <div class="totals-box">
+      <div class="totals-row"><span>Total HT:</span><span><b>${invoiceTotalHT.toLocaleString()} DH</b></span></div>
+      <div class="totals-row"><span>TVA (20%):</span><span><b>${invoiceTotalVAT.toLocaleString()} DH</b></span></div>
+      <div class="totals-final"><span>NET À PAYER TTC:</span><span>${invoiceTotalTTC.toLocaleString()} DH</span></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="bank-info">
+      <b>Coordonnées Bancaires:</b> Banque BMCE &bull; RIB: 011 780 000012345678901 44<br/>
+      Règlement par Chèque ou Virement bancaire à l'ordre de <b>${companyInfo.name}</b>
+    </div>
+    <div class="stamp-box">
+      <div class="stamp-label">Cachet &amp; Signature Société</div>
+      <div class="stamp-space"></div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank', 'width=794,height=1123');
+    if (!printWindow) return;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
   };
 
-  const handleDownloadPdf = async () => {
-    const element = printRef.current;
-    if (!element) return;
-
-    try {
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        onclone: (clonedDoc) => {
-          const styleElements = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-          styleElements.forEach((el) => {
-            try {
-              if (el.textContent && (el.textContent.includes('oklch') || el.textContent.includes('oklab'))) {
-                el.textContent = el.textContent.replace(/oklch\([^)]+\)/g, '#000000').replace(/oklab\([^)]+\)/g, '#000000');
-              }
-            } catch (e) {}
-          });
-
-          const pdfElement = clonedDoc.querySelector('[data-pdf-element="true"]') || clonedDoc.body;
-          if (pdfElement) {
-            const allElements = pdfElement.querySelectorAll('*');
-            allElements.forEach((el) => {
-              const htmlEl = el as HTMLElement;
-              if (htmlEl.style) {
-                try {
-                  for (let i = 0; i < htmlEl.style.length; i++) {
-                    const prop = htmlEl.style[i];
-                    const val = htmlEl.style.getPropertyValue(prop);
-                    if (val && (val.includes('oklch') || val.includes('oklab'))) {
-                      htmlEl.style.setProperty(prop, '#000000');
-                    }
-                  }
-                } catch (e) {}
-              }
-            });
-          }
-        },
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`${invoice.invoiceNumber}_Facture_${(invoice.clientName || 'Client').replace(/\s+/g, '_')}.pdf`);
-    } catch (err) {
-      console.error('Erreur génération PDF Facture via html2canvas:', err);
-      window.print();
-    }
+  const handlePrint = () => {
+    handleDownloadPdf();
   };
 
   return (

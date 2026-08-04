@@ -77,15 +77,14 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
     date: new Date().toISOString().slice(0, 10),
   });
 
-  if (!isOpen || !product) return null;
-
   // Product stock calculation per frigo
-  const productStocks = stocks.filter(s => s.productId === product.id);
+  const productStocks = (product ? stocks.filter(s => s.productId === product.id) : []);
   const totalStockKg = productStocks.reduce((sum, s) => sum + s.quantityKg, 0);
   const totalStockPallets = productStocks.reduce((sum, s) => sum + s.quantityPallets, 0);
 
   // Compile all movements for this product chronologically
   const allMovements: StockMovementRecord[] = useMemo(() => {
+    if (!product) return [];
     const movements: StockMovementRecord[] = [];
 
     // 1. Delivery Notes (BLs) -> Stock Exits
@@ -200,6 +199,9 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
   const totalExitsKg = allMovements
     .filter(m => m.changeKg < 0)
     .reduce((sum, m) => sum + Math.abs(m.changeKg), 0);
+
+  // *** GUARD: Must come AFTER all hooks ***
+  if (!isOpen || !product) return null;
 
   // Handle manual adjustment submission
   const handleManualAdjustment = (e: React.FormEvent) => {
