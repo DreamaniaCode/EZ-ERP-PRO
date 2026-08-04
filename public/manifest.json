@@ -3,12 +3,13 @@
   "name": "EasyERP Pro - Négoce & Stock Multi-Frigos",
   "icons": [
     {
-      "src": "/icon-192.svg",
-      "type": "image/svg+xml",
+      "src": "/ez_erp_logo.jpg",
+      "type": "image/jpeg",
       "sizes": "192x192 512x512",
       "purpose": "any maskable"
     }
   ],
+
   "start_url": "/",
   "background_color": "#161616",
   "theme_color": "#0f62fe",

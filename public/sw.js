@@ -1,12 +1,13 @@
-const CACHE_NAME = 'easyerp-pwa-v3';
-const STATIC_CACHE_NAME = 'easyerp-static-v3';
+const CACHE_NAME = 'easyerp-pwa-v4';
+const STATIC_CACHE_NAME = 'easyerp-static-v4';
 
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/icon-192.svg'
+  '/ez_erp_logo.jpg'
 ];
+
 
 // Install Event - Pre-cache core shell
 self.addEventListener('install', (event) => {
