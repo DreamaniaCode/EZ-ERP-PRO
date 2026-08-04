@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
+import { Product } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
 import { 
   TrendingUp, 
@@ -17,10 +18,12 @@ import {
   QrCode,
   Search,
   ExternalLink,
-  Camera
+  Camera,
+  History
 } from 'lucide-react';
 import { NavTab } from '../layout/Sidebar';
 import { QRScannerModal } from '../common/QRScannerModal';
+import { ProductStockHistoryModal } from '../stock/ProductStockHistoryModal';
 
 interface DashboardOverviewProps {
   onNavigate: (tab: NavTab) => void;
@@ -33,11 +36,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
   const [quickBlSearch, setQuickBlSearch] = useState('');
   const [blSearchError, setBlSearchError] = useState('');
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
+  const [selectedProductForHistory, setSelectedProductForHistory] = useState<Product | null>(null);
 
   const processBlSearch = (term: string) => {
     setBlSearchError('');
     const clean = term.trim();
     if (!clean) return;
+
 
     let searchCode = clean;
     if (clean.includes('bl=')) {
@@ -424,11 +429,30 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
                   const isLowStock = totalKgPrd <= prd.minStockAlertKg;
 
                   return (
-                    <tr key={prd.id}>
-                      <td className="font-mono font-bold text-[#0f62fe]">{prd.code}</td>
-                      <td className="font-semibold text-gray-900">{prd.name}</td>
+                    <tr key={prd.id} className="hover:bg-blue-50/50 transition-colors">
+                      <td className="font-mono font-bold text-[#0f62fe]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProductForHistory(prd)}
+                          className="hover:underline text-left cursor-pointer flex items-center gap-1 text-[#0f62fe]"
+                          title="Cliquer pour voir l'historique détaillé des mouvements du produit"
+                        >
+                          <History className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                          <span>{prd.code}</span>
+                        </button>
+                      </td>
+                      <td className="font-semibold text-gray-900">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProductForHistory(prd)}
+                          className="hover:text-[#0f62fe] hover:underline text-left cursor-pointer font-bold text-gray-900"
+                          title="Cliquer pour voir l'historique du produit"
+                        >
+                          {prd.name}
+                        </button>
+                      </td>
                       <td>
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 border border-gray-300 rounded text-gray-700">
+                        <span className="text-xs px-2 py-0.5 bg-gray-100 border border-gray-300 rounded text-gray-700 font-medium">
                           {prd.origin}
                         </span>
                       </td>
@@ -440,9 +464,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
                         </span>
                       </td>
                       <td className="font-mono">
-                        <span className={`font-bold ${isLowStock ? 'text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200' : 'text-gray-900'}`}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProductForHistory(prd)}
+                          className={`font-bold hover:underline cursor-pointer ${isLowStock ? 'text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200' : 'text-gray-900'}`}
+                          title="Voir le détail du stock par frigo"
+                        >
                           {totalKgPrd.toLocaleString()} Kg
-                        </span>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -453,6 +482,21 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         </div>
       </div>
 
+      {/* Product Stock History Modal */}
+      {selectedProductForHistory && (
+        <ProductStockHistoryModal
+          product={selectedProductForHistory}
+          isOpen={!!selectedProductForHistory}
+          onClose={() => setSelectedProductForHistory(null)}
+          onNavigateToBL={(blNumber) => {
+            setSelectedProductForHistory(null);
+            window.history.pushState({}, '', `/?bl=${blNumber}`);
+            onNavigate('DELIVERY_NOTES');
+          }}
+        />
+      )}
+
     </div>
   );
 };
+
