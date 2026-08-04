@@ -191,3 +191,34 @@
 [dir="rtl"] .space-x-4 > :not([hidden]) ~ :not([hidden]) {
   --tw-space-x-reverse: 1;
 }
+
+/* Printable PDF Document Styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  [data-pdf-element="true"],
+  [data-pdf-element="true"] * {
+    visibility: visible !important;
+  }
+
+  [data-pdf-element="true"] {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 15mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    background-color: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+}
