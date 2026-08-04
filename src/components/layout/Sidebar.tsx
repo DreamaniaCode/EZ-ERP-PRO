@@ -164,13 +164,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar / Mobile Drawer */}
       <aside className={`
-        fixed md:static top-0 bottom-0 left-0 rtl:left-auto rtl:right-0 z-50
-        w-72 sm:w-64 bg-[#161616] border-[#393939] border-r rtl:border-r-0 rtl:border-l flex flex-col justify-between shrink-0
-        transition-transform duration-300 ease-in-out
+        fixed md:relative top-0 bottom-0 z-50
+        w-72 sm:w-64 bg-[#161616] border-[#393939] border-r rtl:border-r-0 rtl:border-l flex-col justify-between shrink-0
+        transition-all duration-200 ease-in-out
         ${isMobileOpen 
-          ? 'translate-x-0 shadow-2xl' 
-          : '-translate-x-full rtl:translate-x-full md:transform-none'}
+          ? 'flex left-0 rtl:left-auto rtl:right-0 shadow-2xl' 
+          : 'hidden md:flex'}
       `}>
+
 
 
         <div className="py-3 overflow-y-auto max-h-[calc(100vh-60px)] md:max-h-none">
