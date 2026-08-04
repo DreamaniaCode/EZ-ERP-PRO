@@ -56,8 +56,9 @@ export const ImportInvoiceEntry: React.FC = () => {
       if (idx !== index) return item;
       const updated = { ...item, [field]: val };
       const prd = products.find(p => p.id === updated.productId);
-      if (prd && field === 'quantityPallets') {
-        updated.quantityKg = Number(val) * prd.kgPerPallet;
+      const kgPerPallet = prd ? prd.kgPerPallet : 800;
+      if (field === 'quantityKg') {
+        updated.quantityPallets = Math.ceil(Number(val) / kgPerPallet);
       }
       return updated;
     }));
@@ -201,171 +202,178 @@ export const ImportInvoiceEntry: React.FC = () => {
         </div>
       </div>
 
-      {/* Add Purchase Modal */}
+      {/* Add Purchase Section (Inline Page Flow) */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-gray-300 w-full max-w-3xl rounded shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="carbon-card p-6 border-2 border-[#0f62fe] space-y-4">
+          <div className="flex justify-between items-center border-b border-gray-200 pb-3">
+            <h3 className="font-bold text-base font-mono uppercase flex items-center gap-2 text-gray-900">
+              <Ship className="w-5 h-5 text-[#0f62fe]" />
+              Saisie de Facture Achat / Conteneur d'Importation
+            </h3>
+            <button onClick={() => setShowAddModal(false)} className="text-gray-500 hover:text-gray-900 font-bold text-xs bg-gray-100 px-3 py-1 rounded">Fermer</button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             
-            <div className="bg-[#161616] text-white px-4 py-3 flex justify-between items-center border-b border-[#393939] shrink-0">
-              <h3 className="font-bold text-sm font-mono uppercase flex items-center gap-2">
-                <Ship className="w-4 h-4 text-[#0f62fe]" />
-                Saisie de Facture Achat / Conteneur d'Importation
-              </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-white font-bold">✕</button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Fournisseur *</label>
+                <select
+                  value={selectedSupplierId}
+                  onChange={e => setSelectedSupplierId(e.target.value)}
+                  className="w-full carbon-input font-bold"
+                >
+                  {suppliers.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.country})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">N° Facture Fournisseur *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ex: FAC-SA-2026-991"
+                  value={invoiceNumber}
+                  onChange={e => setInvoiceNumber(e.target.value)}
+                  className="w-full carbon-input font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">N° Conteneur (Si Importation)</label>
+                <input
+                  type="text"
+                  placeholder="ex: MSCU-4892019"
+                  value={containerNumber}
+                  onChange={e => setContainerNumber(e.target.value)}
+                  className="w-full carbon-input font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1 font-bold text-emerald-800">
+                  Frigo de Destination du Stock *
+                </label>
+                <select
+                  value={targetFrigoId}
+                  onChange={e => setTargetFrigoId(e.target.value)}
+                  className="w-full carbon-input font-bold text-emerald-700"
+                >
+                  {frigos.map(f => (
+                    <option key={f.id} value={f.id}>{f.name} ({f.location})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Frais de Douane & Transit (DH HT)</label>
+                <input
+                  type="number"
+                  value={customsCostsHT}
+                  onChange={e => setCustomsCostsHT(Number(e.target.value))}
+                  className="w-full carbon-input font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Frais de Transport Maritime/Routier (DH HT)</label>
+                <input
+                  type="number"
+                  value={freightCostsHT}
+                  onChange={e => setFreightCostsHT(Number(e.target.value))}
+                  className="w-full carbon-input font-mono"
+                />
+              </div>
+
             </div>
 
-            <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Fournisseur *</label>
-                  <select
-                    value={selectedSupplierId}
-                    onChange={e => setSelectedSupplierId(e.target.value)}
-                    className="w-full carbon-input font-bold"
-                  >
-                    {suppliers.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.country})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">N° Facture Fournisseur *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="ex: FAC-SA-2026-991"
-                    value={invoiceNumber}
-                    onChange={e => setInvoiceNumber(e.target.value)}
-                    className="w-full carbon-input font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">N° Conteneur (Si Importation)</label>
-                  <input
-                    type="text"
-                    placeholder="ex: MSCU-4892019"
-                    value={containerNumber}
-                    onChange={e => setContainerNumber(e.target.value)}
-                    className="w-full carbon-input font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1 font-bold text-emerald-800">
-                    Frigo de Destination du Stock *
-                  </label>
-                  <select
-                    value={targetFrigoId}
-                    onChange={e => setTargetFrigoId(e.target.value)}
-                    className="w-full carbon-input font-bold text-emerald-700"
-                  >
-                    {frigos.map(f => (
-                      <option key={f.id} value={f.id}>{f.name} ({f.location})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Frais de Douane & Transit (DH HT)</label>
-                  <input
-                    type="number"
-                    value={customsCostsHT}
-                    onChange={e => setCustomsCostsHT(Number(e.target.value))}
-                    className="w-full carbon-input font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Frais de Transport Maritime/Routier (DH HT)</label>
-                  <input
-                    type="number"
-                    value={freightCostsHT}
-                    onChange={e => setFreightCostsHT(Number(e.target.value))}
-                    className="w-full carbon-input font-mono"
-                  />
-                </div>
-
-              </div>
-
-              {/* Items */}
-              <div className="space-y-3 pt-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-gray-900 uppercase">Produits Reçus dans le Conteneur</span>
-                  <button
-                    type="button"
-                    onClick={handleAddItem}
-                    className="text-xs text-[#0f62fe] font-bold hover:underline"
-                  >
-                    + Ligne Produit
-                  </button>
-                </div>
-
-                {purchaseItems.map((item, idx) => (
-                  <div key={idx} className="p-3 bg-gray-50 border border-gray-300 rounded grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
-                    <div>
-                      <label className="block text-[10px] text-gray-500 uppercase font-semibold">Produit</label>
-                      <select
-                        value={item.productId}
-                        onChange={e => handleItemChange(idx, 'productId', e.target.value)}
-                        className="w-full carbon-input text-xs font-mono font-bold"
-                      >
-                        {products.map(p => (
-                          <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-gray-500 uppercase font-semibold">Palettes</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.quantityPallets}
-                        onChange={e => handleItemChange(idx, 'quantityPallets', Number(e.target.value))}
-                        className="w-full carbon-input font-mono text-xs font-bold"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-gray-500 uppercase font-semibold">Prix Achat HT / Kg (DH)</label>
-                      <input
-                        type="number"
-                        value={item.purchaseUnitPriceHT}
-                        onChange={e => handleItemChange(idx, 'purchaseUnitPriceHT', Number(e.target.value))}
-                        className="w-full carbon-input font-mono text-xs font-bold text-blue-700"
-                      />
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-[10px] text-gray-500 uppercase font-semibold">Tonnage</div>
-                      <div className="font-mono text-xs font-bold text-emerald-700">{item.quantityKg.toLocaleString()} Kg</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-3 border-t border-gray-200 flex justify-end gap-2 shrink-0">
+            {/* Items */}
+            <div className="space-y-3 pt-2">
+              <div className="flex justify-between items-center border-b pb-2">
+                <span className="text-xs font-bold text-gray-900 uppercase">Produits Reçus dans le Conteneur (Saisie en Kg)</span>
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 border border-gray-300 text-xs font-semibold"
+                  onClick={handleAddItem}
+                  className="text-xs text-[#0f62fe] font-bold hover:underline"
                 >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="carbon-btn-primary text-xs flex items-center gap-1.5 rounded"
-                >
-                  <CheckCircle className="w-4 h-4" /> Enregistrer & Alimenter le Frigo
+                  + Ligne Produit
                 </button>
               </div>
 
-            </form>
-          </div>
+              {purchaseItems.map((item, idx) => (
+                <div key={idx} className="p-3 bg-gray-50 border border-gray-300 rounded grid grid-cols-1 sm:grid-cols-4 gap-3 items-center">
+                  <div>
+                    <label className="block text-[10px] text-gray-500 uppercase font-semibold mb-0.5">Produit</label>
+                    <select
+                      value={item.productId}
+                      onChange={e => handleItemChange(idx, 'productId', e.target.value)}
+                      className="w-full carbon-input text-xs font-mono font-bold"
+                    >
+                      {products.map(p => (
+                        <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-gray-500 uppercase font-semibold mb-0.5">Poids Reçu (Quantité en Kg) *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantityKg}
+                      onChange={e => handleItemChange(idx, 'quantityKg', Number(e.target.value))}
+                      className="w-full carbon-input font-mono text-xs font-bold text-emerald-700"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-gray-500 uppercase font-semibold mb-0.5">Prix Achat HT / Kg (DH) *</label>
+                    <input
+                      type="number"
+                      value={item.purchaseUnitPriceHT}
+                      onChange={e => handleItemChange(idx, 'purchaseUnitPriceHT', Number(e.target.value))}
+                      className="w-full carbon-input font-mono text-xs font-bold text-blue-700"
+                    />
+                  </div>
+
+                  <div className="text-right flex items-center justify-between sm:justify-end gap-3">
+                    <div>
+                      <div className="text-[10px] text-gray-500 uppercase font-semibold">Total HT</div>
+                      <div className="font-mono text-xs font-bold text-gray-900">{(item.quantityKg * item.purchaseUnitPriceHT).toLocaleString()} DH</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(idx)}
+                      className="text-red-600 hover:text-red-800 p-1 text-xs font-bold"
+                      title="Supprimer la ligne"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-3 border-t border-gray-200 flex justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 border border-gray-300 text-xs font-semibold rounded"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                className="carbon-btn-primary text-xs flex items-center gap-1.5 rounded"
+              >
+                <CheckCircle className="w-4 h-4" /> Enregistrer & Alimenter le Frigo
+              </button>
+            </div>
+
+          </form>
         </div>
       )}
 
