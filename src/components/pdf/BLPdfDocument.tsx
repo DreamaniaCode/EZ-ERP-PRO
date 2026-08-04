@@ -4,7 +4,7 @@ import { useERP } from '../../context/ERPContext';
 import { getBLDirectLink } from '../../utils/whatsappUtils';
 import QRCode from 'qrcode';
 import jsPDF from 'jspdf';
-import { Download, Printer, CheckCircle2, ShieldCheck, X } from 'lucide-react';
+import { Download, Printer, CheckCircle2, ShieldCheck, X, MessageSquare, Phone, Users, Copy, CheckCheck } from 'lucide-react';
 
 interface BLPdfDocumentProps {
   bl: DeliveryNoteBL;
@@ -253,6 +253,56 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo, onClose
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _unused = printRef;
 
+  // ── WhatsApp share helpers ──
+  const [showWA, setShowWA] = useState(false);
+  const [waCopied, setWaCopied] = useState(false);
+
+  const waMessage = (
+    `🧊 *BON DE LIVRAISON - ${frigo?.name || bl.frigoName || 'Entrepôt Frigo'}*\n\n` +
+    `📋 *N° BL:* ${bl.blNumber}\n` +
+    `👤 *Client:* ${bl.clientName}\n` +
+    `⚖️ *Poids Total:* ${bl.totalKg?.toLocaleString()} Kg\n` +
+    `📅 *Date:* ${bl.date}\n` +
+    (bl.orderNumber ? `📦 *Réf Commande:* ${bl.orderNumber}\n` : '') +
+    `\n✅ Votre BL est prêt.\n` +
+    `🔗 ${getBLDirectLink(bl.blNumber)}`
+  );
+
+  const handleWACopyMessage = () => {
+    navigator.clipboard.writeText(waMessage).then(() => {
+      setWaCopied(true);
+      setTimeout(() => setWaCopied(false), 2500);
+    });
+  };
+
+  const handleWASendClient = () => {
+    if (!bl.clientPhone) {
+      alert('Numéro de téléphone du client non renseigné dans sa fiche.');
+      return;
+    }
+    const phone = bl.clientPhone.replace(/\D/g, '');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(waMessage)}`, '_blank');
+  };
+
+  const handleWASendFrigoGroup = () => {
+    const groupLink = frigo?.whatsappGroupLink;
+    if (!groupLink) {
+      alert('Lien du groupe WhatsApp du frigo non configuré.\nVeuillez le configurer dans Paramètres → Frigos.');
+      return;
+    }
+    // Copy message first, then open group so user can paste
+    navigator.clipboard.writeText(waMessage).then(() => {
+      window.open(groupLink, '_blank');
+    }).catch(() => {
+      window.open(groupLink, '_blank');
+    });
+  };
+
+  const handleDownloadAndWhatsApp = () => {
+    handleDownloadPdf();
+    setTimeout(() => setShowWA(true), 600);
+  };
+
   return (
     <div className="bg-white w-full rounded-lg shadow-sm overflow-hidden border border-gray-200">
       
@@ -266,7 +316,7 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo, onClose
             onClick={handlePrint}
             className="flex-1 sm:flex-initial px-3 py-1.5 bg-[#262626] hover:bg-[#393939] text-white text-xs font-semibold rounded flex items-center justify-center gap-1.5 border border-[#525252]"
           >
-            <Printer className="w-4 h-4 text-emerald-400" /> Imprimer / Imprimer PDF
+            <Printer className="w-4 h-4 text-emerald-400" /> Imprimer
           </button>
           <button
             onClick={handleDownloadPdf}
@@ -274,13 +324,73 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo, onClose
           >
             <Download className="w-4 h-4" /> Télécharger (.PDF)
           </button>
+          <button
+            onClick={handleDownloadAndWhatsApp}
+            className="flex-1 sm:flex-initial px-3 py-1.5 bg-[#25D366] hover:bg-[#128C7E] text-white text-xs font-semibold rounded flex items-center justify-center gap-1.5"
+          >
+            <MessageSquare className="w-4 h-4" /> PDF + WhatsApp
+          </button>
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
       </div>
 
+      {/* WhatsApp Share Panel — appears after clicking PDF+WhatsApp */}
+      {showWA && (
+        <div className="print:hidden bg-[#075E54] text-white px-4 py-4 border-b border-[#128C7E] space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 font-bold text-sm">
+              <MessageSquare className="w-5 h-5 text-[#25D366]" />
+              Partager via WhatsApp — BL {bl.blNumber}
+            </div>
+            <button onClick={() => setShowWA(false)} className="text-white/60 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Message preview */}
+          <div className="bg-[#dcf8c6] text-gray-800 rounded-lg p-3 text-xs font-mono whitespace-pre-line border border-green-300 max-h-32 overflow-auto">
+            {waMessage}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {/* Copy message */}
+            <button
+              onClick={handleWACopyMessage}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded border border-white/20"
+            >
+              {waCopied ? <CheckCheck className="w-4 h-4 text-[#25D366]" /> : <Copy className="w-4 h-4" />}
+              {waCopied ? 'Copié !' : 'Copier le message'}
+            </button>
+
+            {/* Send to client */}
+            <button
+              onClick={handleWASendClient}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[#25D366] hover:bg-[#1da851] text-white text-xs font-semibold rounded"
+            >
+              <Phone className="w-4 h-4" />
+              Client: {bl.clientPhone || '⚠ Numéro manquant'}
+            </button>
+
+            {/* Send to frigo group */}
+            <button
+              onClick={handleWASendFrigoGroup}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[#128C7E] hover:bg-[#075E54] text-white text-xs font-semibold rounded border border-white/20"
+            >
+              <Users className="w-4 h-4" />
+              Groupe: {frigo?.whatsappGroup || frigo?.name || bl.frigoName || '⚠ Non configuré'}
+            </button>
+          </div>
+
+          <p className="text-white/50 text-[10px]">
+            💡 Téléchargez le PDF puis joignez-le manuellement dans WhatsApp. Pour le groupe frigo, le message est copié dans le presse-papier — collez-le après avoir ouvert le groupe.
+          </p>
+        </div>
+      )}
+
       {/* Printable Document Sheet Container */}
+
       <div className="overflow-x-auto p-2 sm:p-6 bg-gray-100">
         <div ref={printRef} data-pdf-element="true" className="min-w-[700px] max-w-4xl mx-auto p-6 bg-white text-gray-900 font-sans space-y-6 shadow-md border border-gray-200" style={{ backgroundColor: '#ffffff', color: '#111827' }}>
 

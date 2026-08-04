@@ -45,9 +45,11 @@ export const FrigoEditPage: React.FC<{ editId: string | null; onBack: () => void
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editId) {
-      updateFrigo({ id: editId, ...formData });
+      // ✅ CORRECT: pass (id, partialData) separately
+      updateFrigo(editId, formData);
     } else {
-      addFrigo({ id: Date.now().toString(), ...formData });
+      // ✅ CORRECT: let ERPContext generate its own id
+      addFrigo(formData);
     }
     onBack();
   };
