@@ -237,7 +237,11 @@ EasyERP Pro • Logistics Management`;
 
     addBL(newBL);
     setShowCreateBLModal(false);
-    alert(`Bon de Livraison ${blNumber} créé avec succès !`);
+
+    const waLink = generateWhatsAppBLLink(newBL, frigo.whatsappGroup);
+    if (window.confirm(`Bon de Livraison ${blNumber} créé avec succès !\n\nVoulez-vous transmettre l'ordre de chargement au groupe WhatsApp du frigo "${frigo.name}" dès maintenant ?`)) {
+      window.open(waLink, '_blank');
+    }
   };
 
   const handleUpdateBLEditSubmit = (e: React.FormEvent) => {

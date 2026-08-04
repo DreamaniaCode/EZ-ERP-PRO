@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
 import { ArrowLeft, Save, X, Plus, Trash2, RefreshCw, Sparkles, Truck } from 'lucide-react';
 
+import { generateWhatsAppBLLink } from '../../utils/whatsappUtils';
+
 export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }> = ({ editId, onBack }) => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
@@ -139,13 +141,14 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
       }
     } else {
       if (addBL) {
-        addBL({
+        const blNumber = `BL-2026-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+        const newBL = {
           ...payload,
           id: `bl-${Date.now()}`,
-          blNumber: `BL-2026-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+          blNumber,
           orderId: '',
           orderNumber: '',
-          status: 'EN_ATTENTE_FRIGO',
+          status: 'EN_ATTENTE_FRIGO' as const,
           frigoEmployeeApproved: false,
           whatsappSent: false,
           emailSent: false,
@@ -155,7 +158,13 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
             action: 'Création manuelle du Bon de Livraison',
             author: 'Système'
           }]
-        });
+        };
+        addBL(newBL);
+
+        const waLink = generateWhatsAppBLLink(newBL, selectedFrigo?.whatsappGroup);
+        if (window.confirm(`Bon de Livraison ${blNumber} créé avec succès !\n\nVoulez-vous transmettre l'ordre de chargement au groupe WhatsApp du frigo "${selectedFrigo?.name}" dès maintenant ?`)) {
+          window.open(waLink, '_blank');
+        }
       }
     }
     onBack();

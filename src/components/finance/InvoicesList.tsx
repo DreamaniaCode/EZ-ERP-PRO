@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useERP } from '../../context/ERPContext';
 import { Invoice } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
+import { InvoicePdfDocument } from '../pdf/InvoicePdfDocument';
 import { FileText, Search, Filter, CheckCircle, CreditCard, Download, Eye, MessageSquare } from 'lucide-react';
 import { generateWhatsAppInvoiceLink } from '../../utils/whatsappUtils';
 
@@ -9,6 +10,7 @@ export const InvoicesList: React.FC = () => {
   const { invoices, updateInvoiceStatus, addChequeEffet, clients } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [activePdfInvoice, setActivePdfInvoice] = useState<Invoice | null>(null);
 
   const filteredInvoices = invoices.filter(inv => {
     const matchesSearch = inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -125,12 +127,19 @@ export const InvoicesList: React.FC = () => {
                     {inv.remainingAmount.toLocaleString()} DH
                   </td>
                   <td>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className={`text-xs px-2 py-0.5 font-mono font-bold rounded ${
                         inv.status === 'PAYEE' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
                       }`}>
                         {inv.status}
                       </span>
+                      <button
+                        onClick={() => setActivePdfInvoice(inv)}
+                        className="px-2.5 py-1 bg-gray-900 hover:bg-black text-white text-[11px] font-bold font-mono rounded flex items-center gap-1 shadow-sm"
+                        title="Visualiser et Télécharger la Facture PDF"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-[#0f62fe]" /> Facture PDF
+                      </button>
                       {inv.status !== 'PAYEE' && (
                         <button
                           onClick={() => handleMarkPaid(inv)}
@@ -154,6 +163,18 @@ export const InvoicesList: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Global Invoice PDF Viewer Modal */}
+      {activePdfInvoice && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto p-4 flex justify-center items-start">
+          <div className="bg-white w-full max-w-4xl my-8 rounded shadow-2xl overflow-hidden border border-gray-300">
+            <InvoicePdfDocument
+              invoice={activePdfInvoice}
+              onClose={() => setActivePdfInvoice(null)}
+            />
+          </div>
+        </div>
+      )}
 
     </div>
   );
