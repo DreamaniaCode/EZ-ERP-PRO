@@ -4,8 +4,7 @@ import { useERP } from '../../context/ERPContext';
 import { getBLDirectLink } from '../../utils/whatsappUtils';
 import QRCode from 'qrcode';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import { Download, Printer, CheckCircle2, ShieldCheck, X, QrCode } from 'lucide-react';
+import { Download, Printer, CheckCircle2, ShieldCheck, X } from 'lucide-react';
 
 interface BLPdfDocumentProps {
   bl: DeliveryNoteBL;
@@ -27,149 +26,232 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo, onClose
   }, [bl]);
 
   const handleDownloadPdf = () => {
-    const element = printRef.current;
-    if (!element) return;
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    const pw = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    const usable = pw - margin * 2;
+    let y = margin;
 
-    const htmlContent = `<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <title>BL ${bl.blNumber} - ${bl.clientName}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Arial', sans-serif; font-size: 11px; color: #111; background: #fff; }
-    @page { size: A4 portrait; margin: 12mm; }
-    @media print { body { margin: 0; } }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 14px; margin-bottom: 14px; }
-    .company-name { font-size: 16px; font-weight: 900; text-transform: uppercase; }
-    .company-meta { font-size: 9px; color: #444; margin-top: 3px; font-family: monospace; }
-    .bl-badge { background: #0f62fe; color: #fff; padding: 4px 10px; font-weight: 700; font-size: 11px; text-transform: uppercase; border-radius: 3px; display: inline-block; margin-bottom: 5px; }
-    .bl-number { font-size: 13px; color: #0f62fe; font-weight: 700; font-family: monospace; }
-    .meta-line { font-size: 9px; color: #555; font-family: monospace; }
-    .qr-box { border: 1px solid #ccc; padding: 4px; text-align: center; }
-    .qr-img { width: 75px; height: 75px; }
-    .qr-label { font-size: 7px; font-weight: 700; color: #666; margin-top: 2px; }
-    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-    .card { border: 1px solid #ccc; padding: 10px; border-radius: 4px; }
-    .card-blue { background: #eff6ff; border-color: #bfdbfe; }
-    .card-label { font-size: 9px; font-weight: 700; color: #0f62fe; text-transform: uppercase; border-bottom: 1px solid #dbeafe; padding-bottom: 5px; margin-bottom: 7px; }
-    .card-name { font-size: 12px; font-weight: 700; }
-    .card-detail { font-size: 9px; color: #444; margin-top: 3px; font-family: monospace; }
-    table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 14px; }
-    th { background: #e2e8f0; font-weight: 700; text-transform: uppercase; font-size: 9px; padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left; }
-    td { padding: 6px 8px; border: 1px solid #cbd5e1; }
-    tr:nth-child(even) td { background: #f8fafc; }
-    td.code { color: #0f62fe; font-weight: 700; font-family: monospace; }
-    .totals { display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #ccc; padding-top: 10px; margin-bottom: 16px; }
-    .total-box { text-align: right; border: 1px solid #ccc; padding: 10px 14px; border-radius: 4px; background: #f8fafc; }
-    .total-label { font-size: 9px; color: #555; text-transform: uppercase; }
-    .total-value { font-size: 15px; font-weight: 700; color: #047857; font-family: monospace; }
-    .notes { font-size: 9px; color: #555; }
-    .sigs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; border-top: 2px solid #333; padding-top: 14px; }
-    .sig-box { border: 1px solid #ccc; padding: 10px; height: 120px; border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between; }
-    .sig-label { font-size: 8px; font-weight: 700; text-transform: uppercase; color: #666; }
-    .sig-content { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #aaa; font-style: italic; }
-    .sig-footer { font-size: 8px; color: #aaa; }
-    .approved-badge { display: flex; align-items: center; gap: 6px; background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 4px; padding: 5px 8px; color: #065f46; font-size: 9px; font-weight: 700; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      ${companyInfo.logoUrl ? `<img src="${companyInfo.logoUrl}" style="height:40px;object-fit:contain;margin-bottom:6px;" />` : ''}
-      <div class="company-name">${companyInfo.name}</div>
-      <div class="company-meta">Capital: ${companyInfo.capital} &bull; Siège: ${companyInfo.address}, ${companyInfo.city}</div>
-      <div class="company-meta">I.C.E: <b>${companyInfo.ice}</b> &bull; R.C: ${companyInfo.rc} &bull; I.F: ${companyInfo.if} &bull; Patente: ${companyInfo.patente}</div>
-      <div class="company-meta">Tél: ${companyInfo.phone} &bull; Email: ${companyInfo.email}</div>
-    </div>
-    <div style="display:flex;align-items:flex-start;gap:12px;">
-      ${qrCodeDataUrl ? `<div class="qr-box"><img class="qr-img" src="${qrCodeDataUrl}" /><div class="qr-label">SCAN SÉCURITÉ</div></div>` : ''}
-      <div style="text-align:right;">
-        <div><span class="bl-badge">BON DE LIVRAISON</span></div>
-        <div class="bl-number">N° ${bl.blNumber}</div>
-        <div class="meta-line">Réf Commande: <b>${bl.orderNumber || '-'}</b></div>
-        <div class="meta-line">Date: <b>${bl.date}</b></div>
-      </div>
-    </div>
-  </div>
+    const safeStr = (s: any) => String(s || '').replace(/[\u0000-\u001F]/g, '');
 
-  <div class="grid2">
-    <div class="card">
-      <div class="card-label">DESTINATAIRE / CLIENT</div>
-      <div class="card-name">${bl.clientName}</div>
-      ${bl.clientAddress ? `<div class="card-detail">${bl.clientAddress}</div>` : ''}
-      ${bl.clientPhone ? `<div class="card-detail">Tél: ${bl.clientPhone}</div>` : ''}
-    </div>
-    <div class="card card-blue">
-      <div class="card-label" style="color:#1d4ed8;border-color:#dbeafe;">ENTREPÔT FRIGORIFIQUE D'EXPÉDITION</div>
-      <div class="card-name" style="color:#1e3a8a;">${frigo?.name || bl.frigoName}</div>
-      <div class="card-detail">${frigo?.location || 'Zone Portuaire, Casablanca'}</div>
-      <div class="card-detail">Responsable: ${frigo?.managerName || '-'}</div>
-      <div class="card-detail">Contact: ${frigo?.managerPhone || '-'}</div>
-    </div>
-  </div>
+    // ── Header: Company name ──
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(17, 17, 17);
+    doc.text(safeStr(companyInfo.name).toUpperCase(), margin, y);
+    y += 5;
 
-  <table>
-    <thead><tr><th>Code SKU</th><th>Désignation Produit</th><th style="text-align:center;">Quantité (Kg)</th></tr></thead>
-    <tbody>
-      ${bl.items.map((item, idx) => `
-        <tr>
-          <td class="code">${item.productCode}</td>
-          <td>${item.productName}</td>
-          <td style="text-align:center;font-weight:700;">${item.quantityKg.toLocaleString()} Kg</td>
-        </tr>
-      `).join('')}
-    </tbody>
-  </table>
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Capital: ${safeStr(companyInfo.capital)} | Siege: ${safeStr(companyInfo.address)}, ${safeStr(companyInfo.city)}`, margin, y);
+    y += 4;
+    doc.text(`I.C.E: ${safeStr(companyInfo.ice)} | R.C: ${safeStr(companyInfo.rc)} | I.F: ${safeStr(companyInfo.if)} | Patente: ${safeStr(companyInfo.patente)}`, margin, y);
+    y += 4;
+    doc.text(`Tel: ${safeStr(companyInfo.phone)} | Email: ${safeStr(companyInfo.email)}`, margin, y);
+    y += 4;
 
-  <div class="totals">
-    <div class="notes">
-      <div>Mode de Transport: <b>Camion Frigorifique Sous Chaîne de Froid (-2°C)</b></div>
-      <div>Conditions de livraison: Conforme aux règles logistiques</div>
-      <div style="font-style:italic;color:#888;margin-top:4px;font-size:8px;">"Toute réclamation concernant le poids ou l'état de la marchandise doit être stipulée lors de la signature."</div>
-    </div>
-    <div class="total-box">
-      <div class="total-label">POIDS TOTAL EXPÉDIÉ</div>
-      <div class="total-value">${bl.totalKg.toLocaleString()} Kg</div>
-    </div>
-  </div>
+    // ── BL Badge (right column) ──
+    doc.setFillColor(15, 98, 254);
+    doc.roundedRect(pw - margin - 52, margin - 3, 52, 8, 1, 1, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text('BON DE LIVRAISON', pw - margin - 26, margin + 2.5, { align: 'center' });
 
-  <div class="sigs">
-    <div class="sig-box">
-      <div class="sig-label">VISA & CACHET EXPÉDITION (ENTREPÔT FRIGO)</div>
-      <div class="sig-content">
-        ${bl.frigoEmployeeApproved
-          ? `<div class="approved-badge">✓ Approuvé pour Sortie Quai — ${bl.frigoApprovedBy} (${bl.frigoApprovedAt})</div>`
-          : 'En attente de signature du responsable frigo'}
-      </div>
-      <div class="sig-footer">Emplacement pour cachet et signature du magasinier</div>
-    </div>
-    <div class="sig-box" style="background:#f9fafb;">
-      <div class="sig-label">RECEPTION & SIGNATURE CLIENT (BON POUR ACCORD)</div>
-      <div class="sig-content">
-        ${bl.clientSignatureUrl
-          ? `<div style="text-align:center;"><img src="${bl.clientSignatureUrl}" style="height:50px;object-fit:contain;" /><div style="font-size:9px;font-weight:700;color:#333;">Signé par ${bl.signedByName} le ${bl.signedAt}</div></div>`
-          : 'Signature client à capturer lors de la livraison'}
-      </div>
-      <div class="sig-footer">Signature avec mention "Reçu conforme"</div>
-    </div>
-  </div>
-</body>
-</html>`;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(15, 98, 254);
+    doc.text(`N\u00B0 ${safeStr(bl.blNumber)}`, pw - margin, margin + 10, { align: 'right' });
 
-    const printWindow = window.open('', '_blank', 'width=794,height=1123');
-    if (!printWindow) return;
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Ref Commande: ${safeStr(bl.orderNumber) || '-'}`, pw - margin, margin + 15, { align: 'right' });
+    doc.text(`Date: ${safeStr(bl.date)}`, pw - margin, margin + 19, { align: 'right' });
+
+    // QR code (right of header)
+    if (qrCodeDataUrl) {
+      try { doc.addImage(qrCodeDataUrl, 'PNG', pw - margin - 18, margin + 21, 18, 18); } catch {}
+    }
+
+    y = Math.max(y, margin + 45);
+
+    // ── Divider ──
+    doc.setDrawColor(17, 17, 17);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pw - margin, y);
+    y += 5;
+
+    // ── Client & Frigo cards ──
+    const halfW = (usable - 5) / 2;
+    // Client card
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(margin, y, halfW, 26, 1, 1, 'F');
+    doc.setDrawColor(200, 210, 220);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, y, halfW, 26, 1, 1, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(15, 98, 254);
+    doc.text('DESTINATAIRE / CLIENT', margin + 3, y + 5);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(17, 17, 17);
+    doc.text(safeStr(bl.clientName), margin + 3, y + 11);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(80, 80, 80);
+    if (bl.clientAddress) doc.text(safeStr(bl.clientAddress), margin + 3, y + 16);
+    if (bl.clientPhone) doc.text(`Tel: ${safeStr(bl.clientPhone)}`, margin + 3, y + 20);
+
+    // Frigo card
+    const frigoX = margin + halfW + 5;
+    doc.setFillColor(239, 246, 255);
+    doc.roundedRect(frigoX, y, halfW, 26, 1, 1, 'F');
+    doc.setDrawColor(191, 219, 254);
+    doc.roundedRect(frigoX, y, halfW, 26, 1, 1, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(29, 78, 216);
+    doc.text("ENTREPOT FRIGORIFIQUE D'EXPEDITION", frigoX + 3, y + 5);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(30, 58, 138);
+    doc.text(safeStr(frigo?.name || bl.frigoName), frigoX + 3, y + 11);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text(safeStr(frigo?.location || 'Zone Portuaire, Casablanca'), frigoX + 3, y + 16);
+    doc.text(`Responsable: ${safeStr(frigo?.managerName || '-')}`, frigoX + 3, y + 20);
+    doc.text(`Contact: ${safeStr(frigo?.managerPhone || '-')}`, frigoX + 3, y + 24);
+
+    y += 32;
+
+    // ── Products Table ──
+    const colWidths = [30, usable - 30 - 28, 28];
+    const colX = [margin, margin + colWidths[0], margin + colWidths[0] + colWidths[1]];
+    const rowH = 7;
+
+    // Header row
+    doc.setFillColor(226, 232, 240);
+    doc.rect(margin, y, usable, rowH, 'F');
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, y, usable, rowH, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(17, 17, 17);
+    doc.text('CODE SKU', colX[0] + 2, y + 4.8);
+    doc.text('DESIGNATION PRODUIT', colX[1] + 2, y + 4.8);
+    doc.text('QUANTITE (KG)', colX[2] + colWidths[2] / 2, y + 4.8, { align: 'center' });
+    y += rowH;
+
+    bl.items.forEach((item, idx) => {
+      const bg = idx % 2 === 0 ? [255, 255, 255] : [248, 250, 252];
+      doc.setFillColor(bg[0], bg[1], bg[2]);
+      doc.rect(margin, y, usable, rowH, 'F');
+      doc.setDrawColor(226, 232, 240);
+      doc.rect(margin, y, usable, rowH, 'S');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(15, 98, 254);
+      doc.text(safeStr(item.productCode), colX[0] + 2, y + 4.8);
+      doc.setTextColor(17, 17, 17);
+      doc.text(safeStr(item.productName), colX[1] + 2, y + 4.8);
+      doc.setTextColor(17, 17, 17);
+      doc.text(`${Number(item.quantityKg).toLocaleString()} Kg`, colX[2] + colWidths[2] / 2, y + 4.8, { align: 'center' });
+      y += rowH;
+    });
+    y += 5;
+
+    // ── Totals ──
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(pw - margin - 48, y, 48, 18, 1, 1, 'F');
+    doc.setDrawColor(200, 210, 220);
+    doc.roundedRect(pw - margin - 48, y, 48, 18, 1, 1, 'S');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text('POIDS TOTAL EXPEDIE', pw - margin - 24, y + 6, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(4, 120, 87);
+    doc.text(`${Number(bl.totalKg).toLocaleString()} Kg`, pw - margin - 24, y + 14, { align: 'center' });
+
+    // Transport notes
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text('Mode de Transport: Camion Frigorifique Sous Chaine de Froid (-2°C)', margin, y + 6);
+    doc.text('Conditions de livraison: Conforme aux regles logistiques', margin, y + 11);
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 120);
+    doc.text('"Toute reclamation concernant le poids ou l\'etat de la marchandise doit etre stipulee lors de la signature."', margin, y + 16);
+    y += 26;
+
+    // ── Signature boxes ──
+    doc.setDrawColor(80, 80, 80);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pw - margin, y);
+    y += 5;
+
+    const sigW = (usable - 5) / 2;
+    const sigH = 35;
+    doc.setDrawColor(200, 210, 220);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, y, sigW, sigH, 'S');
+    doc.rect(margin + sigW + 5, y, sigW, sigH, 'S');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 120);
+    doc.text('VISA & CACHET EXPEDITION (ENTREPOT FRIGO)', margin + 3, y + 5);
+    doc.text('RECEPTION & SIGNATURE CLIENT (BON POUR ACCORD)', margin + sigW + 8, y + 5);
+
+    if (bl.frigoEmployeeApproved) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(6, 95, 70);
+      doc.text(`Approuve: ${safeStr(bl.frigoApprovedBy)}`, margin + 3, y + 18);
+      doc.text(safeStr(bl.frigoApprovedAt || ''), margin + 3, y + 24);
+    } else {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7);
+      doc.setTextColor(160, 160, 160);
+      doc.text('En attente de signature du responsable frigo', margin + 3, y + 20);
+    }
+
+    if (bl.clientSignatureUrl) {
+      try {
+        doc.addImage(bl.clientSignatureUrl, 'PNG', margin + sigW + 8, y + 8, 40, 15);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.setTextColor(50, 50, 50);
+        doc.text(`Signe par ${safeStr(bl.signedByName)} le ${safeStr(bl.signedAt)}`, margin + sigW + 8, y + 28);
+      } catch {}
+    } else {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7);
+      doc.setTextColor(160, 160, 160);
+      doc.text('Signature client a capturer lors de la livraison', margin + sigW + 8, y + 20);
+    }
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(160, 160, 160);
+    doc.text('Emplacement pour cachet et signature du magasinier', margin + 3, y + sigH - 3);
+    doc.text('Signature avec mention "Recu conforme"', margin + sigW + 8, y + sigH - 3);
+
+    doc.save(`${safeStr(bl.blNumber)}_BL_${safeStr(bl.clientName).replace(/\s+/g, '_')}.pdf`);
   };
 
   const handlePrint = () => {
     handleDownloadPdf();
   };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _unused = printRef;
 
   return (
     <div className="bg-white w-full rounded-lg shadow-sm overflow-hidden border border-gray-200">

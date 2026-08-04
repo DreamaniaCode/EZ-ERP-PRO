@@ -3,7 +3,6 @@ import { Invoice } from '../../types';
 import { useERP } from '../../context/ERPContext';
 import QRCode from 'qrcode';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { Download, Printer, X } from 'lucide-react';
 
 interface InvoicePdfDocumentProps {
@@ -21,139 +20,230 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
   useEffect(() => {
     const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'https://easyerp.ma';
     const directLink = `${origin}/?invoice=${invoice.invoiceNumber}`;
-
     QRCode.toDataURL(directLink, { width: 140, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
       .then(url => setQrCodeDataUrl(url))
-      .catch(err => console.error('Erreur génération QR Code Facture:', err));
+      .catch(err => console.error('Erreur QR Code Facture:', err));
   }, [invoice]);
 
   const handleDownloadPdf = () => {
-    const invoiceTotalHT = invoice.totalHT ?? 0;
-    const invoiceTotalVAT = invoice.totalVAT ?? 0;
-    const invoiceTotalTTC = invoice.totalTTC ?? 0;
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    const pw = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    const usable = pw - margin * 2;
+    let y = margin;
 
-    const htmlContent = `<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <title>Facture ${invoice.invoiceNumber} - ${invoice.clientName}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Arial', sans-serif; font-size: 11px; color: #111; background: #fff; }
-    @page { size: A4 portrait; margin: 12mm; }
-    @media print { body { margin: 0; } }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 14px; margin-bottom: 14px; }
-    .company-name { font-size: 16px; font-weight: 900; text-transform: uppercase; }
-    .company-meta { font-size: 9px; color: #444; margin-top: 3px; font-family: monospace; }
-    .inv-badge { background: #111; color: #fff; padding: 5px 12px; font-weight: 900; font-size: 12px; text-transform: uppercase; border-radius: 3px; display: inline-block; margin-bottom: 6px; }
-    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; padding: 12px; margin-bottom: 14px; }
-    .meta-label { font-size: 8px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-    .meta-name { font-size: 13px; font-weight: 900; text-transform: uppercase; }
-    .meta-line { font-size: 9px; color: #555; font-family: monospace; margin-top: 2px; }
-    .meta-right { text-align: right; }
-    table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 14px; border: 1px solid #111; }
-    th { background: #111; color: #fff; font-weight: 700; text-transform: uppercase; font-size: 9px; padding: 6px 8px; border-right: 1px solid #333; text-align: left; }
-    th:last-child { border-right: none; text-align: right; }
-    td { padding: 6px 8px; border: 1px solid #ddd; font-family: monospace; }
-    td.right { text-align: right; }
-    td.bold { font-weight: 700; }
-    tr:nth-child(even) td { background: #f9fafb; }
-    .totals-wrap { display: flex; justify-content: flex-end; margin-bottom: 14px; }
-    .totals-box { width: 280px; border: 2px solid #111; padding: 12px; border-radius: 3px; background: #f9fafb; font-family: monospace; font-size: 10px; }
-    .totals-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
-    .totals-final { border-top: 2px solid #111; padding-top: 6px; margin-top: 5px; font-size: 13px; font-weight: 900; display: flex; justify-content: space-between; }
-    .totals-final span:last-child { color: #0f62fe; }
-    .footer { border-top: 1px solid #ddd; padding-top: 12px; display: flex; justify-content: space-between; align-items: flex-end; }
-    .bank-info { font-size: 9px; font-family: monospace; color: #555; line-height: 1.7; }
-    .stamp-box { width: 180px; border: 2px dashed #ccc; padding: 8px; text-align: center; border-radius: 3px; }
-    .stamp-label { font-size: 8px; font-weight: 700; color: #aaa; text-transform: uppercase; }
-    .stamp-space { height: 40px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      ${companyInfo.logoUrl ? `<img src="${companyInfo.logoUrl}" style="height:40px;object-fit:contain;margin-bottom:6px;" />` : ''}
-      <div class="company-name">${companyInfo.name}</div>
-      <div class="company-meta">Capital: ${companyInfo.capital} &bull; Siège: ${companyInfo.address}, ${companyInfo.city}</div>
-      <div class="company-meta">I.C.E: <b>${companyInfo.ice}</b> &bull; R.C: ${companyInfo.rc} &bull; I.F: ${companyInfo.if} &bull; Patente: ${companyInfo.patente}</div>
-      <div class="company-meta">Tél: ${companyInfo.phone} &bull; Email: ${companyInfo.email}</div>
-    </div>
-    <div style="text-align:right;">
-      <div><span class="inv-badge">FACTURE N° ${invoice.invoiceNumber}</span></div>
-      ${qrCodeDataUrl ? `<img src="${qrCodeDataUrl}" style="width:70px;height:70px;margin-top:5px;border:1px solid #ccc;border-radius:3px;padding:2px;" />` : ''}
-    </div>
-  </div>
+    const safe = (s: any) => String(s || '').replace(/[\u0000-\u001F]/g, '');
+    const totalHT = invoice.totalHT ?? 0;
+    const totalVAT = invoice.totalVAT ?? 0;
+    const totalTTC = invoice.totalTTC ?? 0;
 
-  <div class="grid2">
-    <div>
-      <div class="meta-label">FACTURÉ À / CLIENT:</div>
-      <div class="meta-name">${invoice.clientName}</div>
-      <div class="meta-line">I.C.E: <b>${invoice.clientICE || client?.ice || 'N/A'}</b></div>
-      ${client?.address ? `<div class="meta-line">Adresse: ${client.address}, ${client.city || ''}</div>` : ''}
-      ${client?.phone ? `<div class="meta-line">Tél: ${client.phone}</div>` : ''}
-    </div>
-    <div class="meta-right">
-      <div class="meta-label">DÉTAILS FACTURE &amp; ÉCHÉANCE:</div>
-      <div class="meta-line">Date d'Émission: <b>${invoice.date}</b></div>
-      <div class="meta-line">Date d'Échéance: <b>${invoice.dueDate}</b></div>
-      ${invoice.blIds && invoice.blIds.length > 0 ? `<div class="meta-line">BLs: <b style="color:#0f62fe;">${invoice.blIds.join(', ')}</b></div>` : ''}
-      <div class="meta-line">Statut: <b style="color:#047857;">${invoice.status}</b></div>
-    </div>
-  </div>
+    // ── Company header (left) ──
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(17, 17, 17);
+    doc.text(safe(companyInfo.name).toUpperCase(), margin, y);
+    y += 5;
 
-  <table>
-    <thead>
-      <tr>
-        <th>Code SKU</th>
-        <th>Désignation Produit</th>
-        <th style="text-align:right;">Quantité (Kg)</th>
-        <th style="text-align:right;">Prix Unitaire HT</th>
-        <th style="text-align:right;">Montant HT</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${invoice.items.map((it, idx) => `
-        <tr>
-          <td class="bold">${it.productCode}</td>
-          <td class="bold">${it.productName}</td>
-          <td class="right bold">${(it.quantityKg || 0).toLocaleString()} Kg</td>
-          <td class="right">${(it.unitPriceHT || 0).toLocaleString()} DH</td>
-          <td class="right bold">${(it.totalHT || 0).toLocaleString()} DH</td>
-        </tr>
-      `).join('')}
-    </tbody>
-  </table>
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Capital: ${safe(companyInfo.capital)} | Siege: ${safe(companyInfo.address)}, ${safe(companyInfo.city)}`, margin, y);
+    y += 4;
+    doc.text(`I.C.E: ${safe(companyInfo.ice)} | R.C: ${safe(companyInfo.rc)} | I.F: ${safe(companyInfo.if)} | Patente: ${safe(companyInfo.patente)}`, margin, y);
+    y += 4;
+    doc.text(`Tel: ${safe(companyInfo.phone)} | Email: ${safe(companyInfo.email)}`, margin, y);
+    y += 4;
 
-  <div class="totals-wrap">
-    <div class="totals-box">
-      <div class="totals-row"><span>Total HT:</span><span><b>${invoiceTotalHT.toLocaleString()} DH</b></span></div>
-      <div class="totals-row"><span>TVA (20%):</span><span><b>${invoiceTotalVAT.toLocaleString()} DH</b></span></div>
-      <div class="totals-final"><span>NET À PAYER TTC:</span><span>${invoiceTotalTTC.toLocaleString()} DH</span></div>
-    </div>
-  </div>
+    // ── Invoice badge (right) ──
+    doc.setFillColor(17, 17, 17);
+    doc.roundedRect(pw - margin - 58, margin - 3, 58, 9, 1, 1, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`FACTURE N° ${safe(invoice.invoiceNumber)}`, pw - margin - 29, margin + 3, { align: 'center' });
 
-  <div class="footer">
-    <div class="bank-info">
-      <b>Coordonnées Bancaires:</b> Banque BMCE &bull; RIB: 011 780 000012345678901 44<br/>
-      Règlement par Chèque ou Virement bancaire à l'ordre de <b>${companyInfo.name}</b>
-    </div>
-    <div class="stamp-box">
-      <div class="stamp-label">Cachet &amp; Signature Société</div>
-      <div class="stamp-space"></div>
-    </div>
-  </div>
-</body>
-</html>`;
+    // QR code
+    if (qrCodeDataUrl) {
+      try { doc.addImage(qrCodeDataUrl, 'PNG', pw - margin - 20, margin + 8, 20, 20); } catch {}
+    }
 
-    const printWindow = window.open('', '_blank', 'width=794,height=1123');
-    if (!printWindow) return;
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
+    y = Math.max(y, margin + 34);
+
+    // ── Divider ──
+    doc.setDrawColor(17, 17, 17);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pw - margin, y);
+    y += 5;
+
+    // ── Client info + Invoice meta grid ──
+    const halfW = (usable - 5) / 2;
+    doc.setFillColor(249, 250, 251);
+    doc.roundedRect(margin, y, usable, 30, 1, 1, 'F');
+    doc.setDrawColor(229, 231, 235);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, y, usable, 30, 1, 1, 'S');
+
+    // Left: client
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(170, 170, 170);
+    doc.text('FACTURE A / CLIENT:', margin + 3, y + 5);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(17, 17, 17);
+    doc.text(safe(invoice.clientName).toUpperCase(), margin + 3, y + 11);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`I.C.E: ${safe(invoice.clientICE || client?.ice || 'N/A')}`, margin + 3, y + 16);
+    if (client?.address) doc.text(`Adresse: ${safe(client.address)}, ${safe(client.city || '')}`, margin + 3, y + 20);
+    if (client?.phone) doc.text(`Tel: ${safe(client.phone)}`, margin + 3, y + 24);
+
+    // Right: invoice details
+    const rightX = margin + halfW + 5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(170, 170, 170);
+    doc.text('DETAILS FACTURE:', rightX, y + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Date d'Emission: `, rightX, y + 11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(17, 17, 17);
+    doc.text(safe(invoice.date), rightX + 28, y + 11);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Date d'Echeance: `, rightX, y + 16);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(17, 17, 17);
+    doc.text(safe(invoice.dueDate), rightX + 28, y + 16);
+    if (invoice.blIds && invoice.blIds.length > 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      doc.text('BLs: ', rightX, y + 21);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 98, 254);
+      doc.text(invoice.blIds.join(', '), rightX + 9, y + 21);
+    }
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    doc.text('Statut: ', rightX, y + 26);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(4, 120, 87);
+    doc.text(safe(invoice.status).toUpperCase(), rightX + 14, y + 26);
+
+    y += 36;
+
+    // ── Items Table ──
+    const cols = [30, usable - 30 - 28 - 28, 28, 28];
+    const colX = [margin, margin + cols[0], margin + cols[0] + cols[1], margin + cols[0] + cols[1] + cols[2]];
+    const rowH = 7;
+
+    // Table header
+    doc.setFillColor(17, 17, 17);
+    doc.rect(margin, y, usable, rowH, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text('CODE SKU', colX[0] + 2, y + 4.8);
+    doc.text('DESIGNATION PRODUIT', colX[1] + 2, y + 4.8);
+    doc.text('QTE (KG)', colX[2] + cols[2] / 2, y + 4.8, { align: 'center' });
+    doc.text('PU HT', colX[3] + cols[3] / 2, y + 4.8, { align: 'center' });
+    // Last col for total
+    doc.text('MONTANT HT', pw - margin - 2, y + 4.8, { align: 'right' });
+    y += rowH;
+
+    invoice.items.forEach((it, idx) => {
+      const bg = idx % 2 === 0 ? [255, 255, 255] : [249, 250, 251];
+      doc.setFillColor(bg[0], bg[1], bg[2]);
+      doc.rect(margin, y, usable, rowH, 'F');
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.2);
+      doc.rect(margin, y, usable, rowH, 'S');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(15, 98, 254);
+      doc.text(safe(it.productCode), colX[0] + 2, y + 4.8);
+      doc.setTextColor(17, 17, 17);
+      doc.text(safe(it.productName), colX[1] + 2, y + 4.8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(17, 17, 17);
+      doc.text(`${Number(it.quantityKg || 0).toLocaleString()} Kg`, colX[2] + cols[2] / 2, y + 4.8, { align: 'center' });
+      doc.text(`${Number(it.unitPriceHT || 0).toLocaleString()} DH`, colX[3] + cols[3] / 2, y + 4.8, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${Number(it.totalHT || 0).toLocaleString()} DH`, pw - margin - 2, y + 4.8, { align: 'right' });
+      y += rowH;
+    });
+    y += 6;
+
+    // ── Totals box ──
+    const boxW = 68;
+    const boxX = pw - margin - boxW;
+    doc.setFillColor(249, 250, 251);
+    doc.roundedRect(boxX, y, boxW, 28, 1, 1, 'F');
+    doc.setDrawColor(17, 17, 17);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(boxX, y, boxW, 28, 1, 1, 'S');
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(80, 80, 80);
+    doc.text('Total HT:', boxX + 3, y + 7);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(17, 17, 17);
+    doc.text(`${totalHT.toLocaleString()} DH`, boxX + boxW - 3, y + 7, { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    doc.text('TVA (20%):', boxX + 3, y + 14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(17, 17, 17);
+    doc.text(`${totalVAT.toLocaleString()} DH`, boxX + boxW - 3, y + 14, { align: 'right' });
+
+    doc.setDrawColor(17, 17, 17);
+    doc.setLineWidth(0.4);
+    doc.line(boxX + 3, y + 17, boxX + boxW - 3, y + 17);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(17, 17, 17);
+    doc.text('NET A PAYER TTC:', boxX + 3, y + 24);
+    doc.setTextColor(15, 98, 254);
+    doc.text(`${totalTTC.toLocaleString()} DH`, boxX + boxW - 3, y + 24, { align: 'right' });
+
+    y += 34;
+
+    // ── Footer: bank info + stamp ──
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pw - margin, y);
+    y += 5;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text('Coordonnees Bancaires:', margin, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(' Banque BMCE | RIB: 011 780 000012345678901 44', margin + 32, y);
+    y += 5;
+    doc.text(`Reglement par Cheque ou Virement a l'ordre de ${safe(companyInfo.name)}`, margin, y);
+
+    // Stamp box
+    const stampX = pw - margin - 50;
+    const stampY = y - 9;
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineDash([1.5, 1.5]);
+    doc.setLineWidth(0.4);
+    doc.rect(stampX, stampY, 50, 20, 'S');
+    doc.setLineDash([]);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(160, 160, 160);
+    doc.text('CACHET & SIGNATURE SOCIETE', stampX + 25, stampY + 5, { align: 'center' });
+
+    doc.save(`${safe(invoice.invoiceNumber)}_Facture_${safe(invoice.clientName).replace(/\s+/g, '_')}.pdf`);
   };
 
   const handlePrint = () => {
@@ -173,7 +263,7 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
             onClick={handlePrint}
             className="flex-1 sm:flex-initial px-3 py-1.5 bg-[#262626] hover:bg-[#393939] text-white text-xs font-semibold rounded flex items-center justify-center gap-1.5 border border-[#525252]"
           >
-            <Printer className="w-4 h-4 text-emerald-400" /> Imprimer / Imprimer PDF
+            <Printer className="w-4 h-4 text-emerald-400" /> Imprimer
           </button>
           <button
             onClick={handleDownloadPdf}
@@ -238,9 +328,9 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
               <div><span className="text-gray-500 font-mono">Date d'Émission:</span> <b className="font-mono text-gray-900">{invoice.date}</b></div>
               <div><span className="text-gray-500 font-mono">Date d'Échéance:</span> <b className="font-mono text-gray-900">{invoice.dueDate}</b></div>
               {invoice.blIds && invoice.blIds.length > 0 && (
-                <div><span className="text-gray-500 font-mono">Bons de Livraison Rattachés:</span> <b className="font-mono text-blue-700">{invoice.blIds.join(', ')}</b></div>
+                <div><span className="text-gray-500 font-mono">Bons de Livraison:</span> <b className="font-mono text-blue-700">{invoice.blIds.join(', ')}</b></div>
               )}
-              <div><span className="text-gray-500 font-mono">Statut Règlement:</span> <b className="font-mono uppercase text-emerald-700">{invoice.status}</b></div>
+              <div><span className="text-gray-500 font-mono">Statut:</span> <b className="font-mono uppercase text-emerald-700">{invoice.status}</b></div>
             </div>
           </div>
 
@@ -275,15 +365,15 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
             <div className="w-80 bg-gray-50 p-4 rounded border-2 border-gray-900 space-y-2 text-xs font-mono" style={{ backgroundColor: '#f9fafb', borderColor: '#111827' }}>
               <div className="flex justify-between items-center text-gray-700">
                 <span>Total HT:</span>
-                <span className="font-bold text-gray-900">{invoice.totalHT.toLocaleString()} DH</span>
+                <span className="font-bold text-gray-900">{(invoice.totalHT ?? 0).toLocaleString()} DH</span>
               </div>
               <div className="flex justify-between items-center text-gray-700">
                 <span>TVA (20%):</span>
-                <span className="font-bold text-gray-900">{invoice.totalVAT.toLocaleString()} DH</span>
+                <span className="font-bold text-gray-900">{(invoice.totalVAT ?? 0).toLocaleString()} DH</span>
               </div>
               <div className="border-t-2 border-gray-900 pt-2 flex justify-between items-center text-sm font-black text-gray-900" style={{ borderColor: '#111827' }}>
                 <span>NET À PAYER TTC:</span>
-                <span className="text-[#0f62fe]">{invoice.totalTTC.toLocaleString()} DH</span>
+                <span className="text-[#0f62fe]">{(invoice.totalTTC ?? 0).toLocaleString()} DH</span>
               </div>
             </div>
           </div>
