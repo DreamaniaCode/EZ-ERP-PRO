@@ -37,19 +37,24 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
   }, [isOpen]);
 
   const handleNativePromptInstall = async () => {
-    if (!deferredPrompt) return;
-    setInstalling(true);
-    try {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setInstallSuccess(true);
-        if (onInstallSuccess) onInstallSuccess();
+    if (deferredPrompt) {
+      setInstalling(true);
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          setInstallSuccess(true);
+          if (onInstallSuccess) onInstallSuccess();
+        }
+      } catch (err) {
+        console.error('Erreur installation PWA:', err);
+      } finally {
+        setInstalling(false);
       }
-    } catch (err) {
-      console.error('Erreur installation PWA:', err);
-    } finally {
-      setInstalling(false);
+    } else {
+      // Direct instruction popup for PC / Chrome / Edge users
+      setActiveOsTab('desktop');
+      alert("Sur PC (Chrome / Edge) : Cliquez sur l'icône 💻 ou ⊕ située tout à droite de la barre d'adresse de votre navigateur en haut pour installer EasyERP Pro !");
     }
   };
 
@@ -75,7 +80,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
               <h3 className="font-bold text-sm tracking-wide flex items-center gap-2">
                 <span>Installer EasyERP Pro</span>
                 <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold px-2 py-0.5 rounded border border-emerald-500/30 uppercase">
-                  PWA Mobile
+                  PWA PC & Mobile
                 </span>
               </h3>
               <p className="text-xs text-gray-400">Application Web Progressive (Négoce & Frigo)</p>
@@ -111,22 +116,21 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
             </div>
           ) : (
             <>
-              {/* Primary 1-Click Install Button if supported */}
-              {deferredPrompt && (
-                <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-center space-y-3">
-                  <div className="text-xs font-semibold text-blue-900">
-                    Votre navigateur prend en charge l'installation directe en 1 clic :
-                  </div>
-                  <button
-                    onClick={handleNativePromptInstall}
-                    disabled={installing}
-                    className="w-full bg-[#0f62fe] hover:bg-blue-700 text-white font-bold text-xs py-3 px-4 rounded-lg shadow-md transition flex items-center justify-center gap-2 group"
-                  >
-                    <Download className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />
-                    <span>{installing ? 'Installation en cours...' : 'Installer EasyERP Pro sur cet appareil'}</span>
-                  </button>
+              {/* Primary 1-Click Install Button - ALWAYS SHOWN */}
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-center space-y-3">
+                <div className="text-xs font-semibold text-blue-900">
+                  Installer l'application sur cet ordinateur (PC/Mac) ou Smartphone :
                 </div>
-              )}
+                <button
+                  onClick={handleNativePromptInstall}
+                  disabled={installing}
+                  className="w-full bg-[#0f62fe] hover:bg-blue-700 text-white font-bold text-xs py-3 px-4 rounded-lg shadow-md transition flex items-center justify-center gap-2 group cursor-pointer"
+                >
+                  <Download className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />
+                  <span>{installing ? 'Installation en cours...' : "Installer EasyERP Pro sur cet appareil"}</span>
+                </button>
+              </div>
+
 
               {/* Standalone New Tab escape option */}
               <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
