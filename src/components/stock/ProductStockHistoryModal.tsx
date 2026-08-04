@@ -53,14 +53,13 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
   onClose,
   onNavigateToBL
 }) => {
-  const { 
-    deliveryNotes, 
-    purchaseInvoices, 
-    inventoryCounts, 
-    stocks, 
-    frigos, 
-    adjustStock 
-  } = useERP();
+  const erp = useERP();
+  const deliveryNotes = erp.deliveryNotes || [];
+  const purchaseInvoices = erp.purchaseInvoices || [];
+  const inventoryCounts = erp.inventoryCounts || [];
+  const stocks = erp.stocks || [];
+  const frigos = erp.frigos || [];
+  const adjustStock = erp.adjustStock;
 
   const [frigoFilter, setFrigoFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
