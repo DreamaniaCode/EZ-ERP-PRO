@@ -134,8 +134,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-  return (
     <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden bg-slate-950 select-none">
+
       
       {/* Dynamic Modern Abstract Animated Background Orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
