@@ -2,9 +2,10 @@ import React, { useRef, useState, useEffect } from 'react';
 import { DeliveryNoteBL, ColdStorageFrigo } from '../../types';
 import { useERP } from '../../context/ERPContext';
 import { getBLDirectLink } from '../../utils/whatsappUtils';
+import { generateAndDownloadInvoicePdf } from '../../utils/pdfGenerators';
 import QRCode from 'qrcode';
 import jsPDF from 'jspdf';
-import { Download, Printer, CheckCircle2, ShieldCheck, X, MessageSquare, Phone, Users, Copy, CheckCheck } from 'lucide-react';
+import { Download, Printer, CheckCircle2, ShieldCheck, X, MessageSquare, Phone, Users, Copy, CheckCheck, FileText, Receipt } from 'lucide-react';
 
 interface BLPdfDocumentProps {
   bl: DeliveryNoteBL;
@@ -13,7 +14,7 @@ interface BLPdfDocumentProps {
 }
 
 export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoProp, onClose }) => {
-  const { companyInfo, frigos } = useERP();
+  const { companyInfo, frigos, invoices, createInvoiceFromBL, approveFrigoBL, currentUser } = useERP();
   const printRef = useRef<HTMLDivElement | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
 
@@ -323,6 +324,47 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
     setTimeout(() => setShowWA(true), 600);
   };
 
+  const handleApproveFrigo = () => {
+    const approverName = currentUser?.name || 'Responsable Frigo';
+    approveFrigoBL(bl.id, approverName);
+    alert(`✓ Sortie Quai approuvée avec succès par ${approverName} !`);
+  };
+
+  const handleGenerateInvoiceAndWhatsApp = () => {
+    let inv = invoices.find(i => i.blId === bl.id || (i.blIds && i.blIds.includes(bl.id)));
+    if (!inv) {
+      try {
+        inv = createInvoiceFromBL(bl.id);
+      } catch (err: any) {
+        alert('Erreur lors de la création de la facture: ' + (err.message || err));
+        return;
+      }
+    }
+
+    // 1. Download Invoice PDF directly
+    generateAndDownloadInvoicePdf(inv, companyInfo);
+
+    // 2. Open WhatsApp to send invoice to client
+    const invoiceMsg = (
+      `🧾 *FACTURE CLIENT - N° ${inv.invoiceNumber}*\n\n` +
+      `👤 *Client:* ${inv.clientName}\n` +
+      `📋 *Réf BL:* ${bl.blNumber}\n` +
+      `⚖️ *Poids Total:* ${bl.totalKg.toLocaleString()} Kg\n` +
+      `💰 *Total TTC:* ${inv.totalTTC.toLocaleString()} DH\n\n` +
+      `✅ Votre facture a été générée. Le fichier PDF est joint ci-dessous.\n\n` +
+      `EasyERP Pro • Agro Négoce`
+    );
+
+    const clientPhone = (bl.clientPhone || '').replace(/\D/g, '');
+    if (clientPhone) {
+      window.open(`https://wa.me/${clientPhone}?text=${encodeURIComponent(invoiceMsg)}`, '_blank');
+    } else {
+      navigator.clipboard.writeText(invoiceMsg).then(() => {
+        alert('Facture générée ! Numéro du client non renseigné dans sa fiche — le texte du message de la facture a été copié dans le presse-papier.');
+      });
+    }
+  };
+
   return (
     <div className="bg-white w-full rounded-lg shadow-sm overflow-hidden border border-gray-200">
       
@@ -332,29 +374,52 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
           <span className="text-[#0f62fe]">PDF</span> PREVIEW - BON DE LIVRAISON {bl.blNumber}
         </div>
         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-          <button
-            onClick={handlePrint}
-            className="flex-1 sm:flex-initial px-3 py-1.5 bg-[#262626] hover:bg-[#393939] text-white text-xs font-semibold rounded flex items-center justify-center gap-1.5 border border-[#525252]"
-          >
-            <Printer className="w-4 h-4 text-emerald-400" /> Imprimer
-          </button>
-          <button
-            onClick={handleDownloadPdf}
-            className="flex-1 sm:flex-initial carbon-btn-primary text-xs flex items-center justify-center gap-1.5 rounded"
-          >
-            <Download className="w-4 h-4" /> Télécharger (.PDF)
-          </button>
+          {/* Responsable Approval Button */}
+          {!bl.frigoEmployeeApproved ? (
+            <button
+              onClick={handleApproveFrigo}
+              className="flex-1 sm:flex-initial px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded flex items-center justify-center gap-1.5 shadow-sm"
+              title="Valider la sortie quai"
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-200" /> Approuver Sortie Quai
+            </button>
+          ) : (
+            <div className="px-2.5 py-1 bg-emerald-900/60 text-emerald-300 text-[11px] font-mono font-bold rounded border border-emerald-700/50 flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" /> Quai Approuvé
+            </div>
+          )}
+
+          {/* WhatsApp BL Share */}
           <button
             onClick={handleDownloadAndWhatsApp}
             className="flex-1 sm:flex-initial px-3 py-1.5 bg-[#25D366] hover:bg-[#128C7E] text-white text-xs font-semibold rounded flex items-center justify-center gap-1.5"
           >
-            <MessageSquare className="w-4 h-4" /> PDF + WhatsApp
+            <MessageSquare className="w-4 h-4" /> BL + WhatsApp
           </button>
+
+          {/* Invoice + WhatsApp */}
+          <button
+            onClick={handleGenerateInvoiceAndWhatsApp}
+            className="flex-1 sm:flex-initial px-3 py-1.5 bg-[#0f62fe] hover:bg-blue-700 text-white text-xs font-semibold rounded flex items-center justify-center gap-1.5"
+            title="Générer la Facture client et l'envoyer sur WhatsApp"
+          >
+            <Receipt className="w-4 h-4" /> Facture + WhatsApp
+          </button>
+
+          {/* Download BL PDF */}
+          <button
+            onClick={handleDownloadPdf}
+            className="flex-1 sm:flex-initial px-3 py-1.5 bg-[#262626] hover:bg-[#393939] text-white text-xs font-semibold rounded flex items-center justify-center gap-1.5 border border-[#525252]"
+          >
+            <Download className="w-4 h-4" /> BL (.PDF)
+          </button>
+
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
       </div>
+
 
       {/* WhatsApp Share Panel — appears after clicking PDF+WhatsApp */}
       {showWA && (
@@ -537,19 +602,28 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
               
               {bl.frigoEmployeeApproved ? (
                 <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 p-2 border border-emerald-300 rounded">
-                  <ShieldCheck className="w-6 h-6 shrink-0" />
+                  <ShieldCheck className="w-6 h-6 shrink-0 text-emerald-600" />
                   <div>
                     <div className="font-bold text-xs">Approuvé pour Sortie Quai</div>
                     <div className="text-[10px]">{bl.frigoApprovedBy} • {bl.frigoApprovedAt}</div>
                   </div>
                 </div>
               ) : (
-                <div className="text-gray-400 italic text-[11px] text-center my-auto">
-                  En attente de signature du responsable frigo
+                <div className="my-auto text-center space-y-2">
+                  <div className="text-gray-400 italic text-[11px]">
+                    En attente d'approbation quai frigo
+                  </div>
+                  <button
+                    onClick={handleApproveFrigo}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded flex items-center justify-center gap-1.5 mx-auto print:hidden shadow-sm"
+                  >
+                    <CheckCircle2 className="w-4 h-4" /> Approuver la Sortie Quai
+                  </button>
                 </div>
               )}
 
               <div className="text-[9px] text-gray-400">Emplacement pour cachet et signature du magasinier</div>
+
             </div>
 
             {/* Client Signature Box */}
