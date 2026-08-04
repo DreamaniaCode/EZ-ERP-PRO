@@ -75,11 +75,24 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      localStorage.removeItem('erp_local_session');
+      await signOut();
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      localStorage.removeItem('erp_local_session');
+      window.location.href = '/';
+    }
+  };
+
   const toggleLanguage = () => {
     const newLang = i18n.language === 'ar' ? 'fr' : 'ar';
     i18n.changeLanguage(newLang);
     localStorage.setItem('erp_language', newLang);
   };
+
 
   // Pending BLs needing frigo approval
   const pendingBLs = (deliveryNotes || []).filter(bl => {
