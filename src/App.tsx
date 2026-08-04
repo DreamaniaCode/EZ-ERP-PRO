@@ -100,6 +100,12 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
       if (match) {
         setEditingEntityId(match.id);
         setActiveTab('BL_PDF');
+        // Clean up query param so refreshes and tab navigation stay on active state cleanly
+        try {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } catch (e) {
+          console.error(e);
+        }
       }
     }
   }, [deliveryNotes]);

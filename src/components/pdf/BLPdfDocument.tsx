@@ -17,10 +17,25 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
   const printRef = useRef<HTMLDivElement | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
 
-  // Always resolve the live frigo from context (fallback to prop) so whatsappGroupLink is fresh
-  const frigo: ColdStorageFrigo | undefined =
-    (bl.frigoId ? frigos.find(f => f.id === bl.frigoId) : undefined)
-    ?? frigoProp;
+  // Multi-stage resolution for live frigo so whatsappGroupLink is always found
+  const frigo: ColdStorageFrigo | undefined = (() => {
+    if (!frigos || frigos.length === 0) return frigoProp;
+    if (bl.frigoId) {
+      const byId = frigos.find(f => f.id === bl.frigoId || f.name.trim().toLowerCase() === bl.frigoId.trim().toLowerCase());
+      if (byId) return byId;
+    }
+    if (bl.frigoName) {
+      const byName = frigos.find(f => f.name.trim().toLowerCase() === bl.frigoName.trim().toLowerCase());
+      if (byName) return byName;
+    }
+    if (frigoProp) {
+      const byProp = frigos.find(f => f.id === frigoProp.id || f.name.trim().toLowerCase() === frigoProp.name.trim().toLowerCase());
+      if (byProp) return byProp;
+    }
+    const withLink = frigos.find(f => !!f.whatsappGroupLink?.trim());
+    if (withLink) return withLink;
+    return frigos[0] || frigoProp;
+  })();
 
   useEffect(() => {
     const directLink = getBLDirectLink(bl.blNumber);
