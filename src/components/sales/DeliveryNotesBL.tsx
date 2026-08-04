@@ -300,7 +300,8 @@ EasyERP Pro • Logistics Management`;
         <div className="flex items-center gap-3 flex-wrap">
           <ExportButtons 
             filename="Bons_De_Livraison_BL"
-            title={t('nav.deliveryNotes', 'Registre Général des Bons de Livraison (BL)')}
+            title="REGISTRE ET SUIVI DES BONS DE LIVRAISON (BL)"
+            frigoName={currentUser?.assignedFrigoId ? frigos.find(f => f.id === currentUser.assignedFrigoId)?.name : undefined}
             excelData={deliveryNotes.map(bl => ({
               'N° BL': bl.blNumber,
               'Réf Commande': bl.orderNumber,
@@ -314,6 +315,7 @@ EasyERP Pro • Logistics Management`;
               'Statut': bl.status,
             }))}
           />
+
 
           <button
             onClick={() => {

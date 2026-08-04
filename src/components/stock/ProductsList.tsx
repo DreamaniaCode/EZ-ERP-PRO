@@ -191,11 +191,13 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
 
           <ExportButtons 
             filename="Catalogue_Produits_Et_Stock"
-            title="Catalogue des Produits & Niveaux de Stock Multi-Frigos"
+            title="CATALOGUE DES PRODUITS & SITUATION DU STOCK MULTI-FRIGOS"
+            frigoName={currentUser?.assignedFrigoId ? frigos.find(f => f.id === currentUser.assignedFrigoId)?.name : 'Tous les Frigos'}
             excelData={products.map(p => {
               const pStocks = stocks.filter(s => s.productId === p.id);
               const totalKg = pStocks.reduce((sum, s) => sum + s.quantityKg, 0);
               const totalPal = pStocks.reduce((sum, s) => sum + s.quantityPallets, 0);
+              const valHT = totalKg * p.sellingPriceHT;
               return {
                 'Code SKU': p.code,
                 'Désignation Produit': p.name,
@@ -205,10 +207,12 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
                 'Prix Revient HT (DH/Kg)': p.unitCostHT,
                 'Stock Total (Kg)': totalKg,
                 'Stock Total (Palettes)': totalPal,
+                'Valeur Stock HT (DH)': valHT,
                 'Conditionnement (Kg/Pal)': p.kgPerPallet,
               };
             })}
           />
+
           {selectedProductIds.length > 0 && (
             <button
               onClick={() => setShowTransferModal(true)}

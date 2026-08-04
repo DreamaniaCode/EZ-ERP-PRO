@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useERP } from '../../context/ERPContext';
 import { Product, InventoryCountItem } from '../../types';
+import { ExportButtons } from '../common/ExportButtons';
+
 import { 
   ClipboardCheck, 
   Building2, 
@@ -467,6 +469,30 @@ export const MultiFrigoInventory: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <ExportButtons
+              filename={`Inventaire_${activeFrigo?.name?.replace(/\s+/g, '_') || 'Stock'}`}
+              title={`FEUILLE D'INVENTAIRE & SITUATION DU STOCK - ${activeFrigo?.name?.toUpperCase() || 'TOUS LES FRIGOS'}`}
+              frigoName={activeFrigo?.name}
+              frigoLocation={activeFrigo?.location}
+              excelData={filteredProducts.map(prd => {
+                const info = getProductStockInfo(prd);
+                const physicalKg = Number(physicalCounts[prd.id]?.physicalKg || 0);
+                const ecartKg = physicalKg - info.frigoKg;
+                return {
+                  'Code Produit': prd.code,
+                  'Désignation': prd.name,
+                  'Catégorie': prd.category,
+                  'Origine': prd.origin,
+                  'Stock Théorique (Kg)': info.frigoKg,
+                  'Stock Théorique (Palettes)': info.frigoPallets,
+                  'Stock Physique (Kg)': physicalKg,
+                  'Écart (Kg)': ecartKg,
+                  'Seuil Alerte (Kg)': info.minThreshold,
+                  'Statut Alerte': info.isRupture ? 'RUPTURE' : info.isLowStock ? 'ALERTE STOCK BAS' : 'NORMAL',
+                };
+              })}
+            />
+
             <button
               onClick={() => handleSaveInventory(false)}
               className="bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-800 text-xs px-3 py-2 rounded flex items-center gap-1 font-semibold transition-colors"
@@ -482,6 +508,7 @@ export const MultiFrigoInventory: React.FC = () => {
               Valider & Ajuster Stock
             </button>
           </div>
+
         </div>
 
         {/* Search & Filter Toolbar */}

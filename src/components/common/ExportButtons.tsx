@@ -6,6 +6,8 @@ import { exportToExcel, exportToCsv, exportElementToPdf, printDataReport } from 
 interface ExportButtonsProps {
   filename: string;
   title?: string;
+  frigoName?: string;
+  frigoLocation?: string;
   excelData?: Record<string, any>[];
   pdfElementId?: string;
   pdfHeaders?: string[];
@@ -17,6 +19,8 @@ interface ExportButtonsProps {
 export const ExportButtons: React.FC<ExportButtonsProps> = ({
   filename,
   title = 'Rapport ERP',
+  frigoName,
+  frigoLocation,
   excelData,
   pdfElementId,
   pdfHeaders,
@@ -28,11 +32,18 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
   const handleExcelExport = () => {
     if (excelData && excelData.length > 0) {
-      exportToExcel(excelData, filename, sheetName);
+      exportToExcel(excelData, filename, {
+        title,
+        frigoName,
+        frigoLocation,
+        includeTotals: true,
+        sheetName,
+      });
     } else {
       alert(t('common.noData', 'Aucune donnée à exporter.'));
     }
   };
+
 
   const handleCsvExport = () => {
     if (excelData && excelData.length > 0) {

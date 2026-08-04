@@ -2,45 +2,113 @@ import * as XLSX from 'xlsx';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
-/**
- * Export generic array of objects to Excel .xlsx file
- */
-import * as XLSX from 'xlsx';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-
 export interface ExportColumn {
   key: string;
   label: string;
 }
 
+export interface ExcelExportOptions {
+  title?: string;
+  frigoName?: string;
+  frigoLocation?: string;
+  includeTotals?: boolean;
+  sheetName?: string;
+}
+
 /**
- * Export generic array of objects to Excel .xlsx file
+ * Export formatted array of objects to Excel .xlsx file with French Header, Totals, and Frigo Situation
  */
-export function exportToExcel(data: Record<string, any>[], filename: string, sheetName: string = 'Données') {
+export function exportToExcel(
+  data: Record<string, any>[], 
+  filename: string, 
+  optionsOrSheetName?: string | ExcelExportOptions
+) {
   if (!data || data.length === 0) {
     alert('Aucune donnée à exporter.');
     return;
   }
 
-  const worksheet = XLSX.utils.json_to_sheet(data);
+  const options: ExcelExportOptions = typeof optionsOrSheetName === 'string'
+    ? { sheetName: optionsOrSheetName }
+    : (optionsOrSheetName || {});
+
+  const sheetName = options.sheetName || 'Rapport ERP';
+  const reportTitle = options.title || filename.replace(/_/g, ' ').toUpperCase();
+  const dateStrFR = new Date().toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const frigoInfo = options.frigoName 
+    ? `SITUATION FRIGO: ${options.frigoName.toUpperCase()}${options.frigoLocation ? ` (${options.frigoLocation})` : ''}` 
+    : 'SITUATION FRIGO: TOUS LES FRIGOS & ENTREPÔTS';
+
+  // Build 2D array for Excel Sheet
+  const sheetRows: any[][] = [];
+
+  // Header Banner rows in French
+  sheetRows.push(['EASYERP PRO - NÉGOCE & LOGISTIQUE AGRO-ALIMENTAIRE']);
+  sheetRows.push([reportTitle]);
+  sheetRows.push([`Date de génération: ${dateStrFR}`]);
+  sheetRows.push([frigoInfo]);
+  sheetRows.push([]); // Empty row separator
+
+  // Table Column Headers (Keys from data)
+  const keys = Object.keys(data[0] || {});
+  sheetRows.push(keys);
+
+  // Data rows and calculate totals for numeric columns
+  const numericTotals: Record<string, number> = {};
+  const numericKeys = new Set<string>();
+
+  data.forEach(item => {
+    const rowVals = keys.map(k => {
+      const val = item[k];
+      if (typeof val === 'number') {
+        numericKeys.add(k);
+        numericTotals[k] = (numericTotals[k] || 0) + val;
+      }
+      return val ?? '';
+    });
+    sheetRows.push(rowVals);
+  });
+
+  // Calculate Totals Row at bottom
+  if (options.includeTotals !== false && numericKeys.size > 0) {
+    const totalsRow = keys.map((k, idx) => {
+      if (idx === 0) return 'TOTAL GÉNÉRAL';
+      if (numericKeys.has(k)) {
+        const sum = numericTotals[k] || 0;
+        return Number.isInteger(sum) ? sum : Math.round(sum * 100) / 100;
+      }
+      return '';
+    });
+    sheetRows.push(totalsRow);
+  }
+
+  const worksheet = XLSX.utils.aoa_to_sheet(sheetRows);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
   // Auto-fit column widths
-  const maxCols = Object.keys(data[0] || {}).map(key => {
+  const maxCols = keys.map((key, colIdx) => {
     let maxLen = key.length;
-    data.forEach(row => {
-      const valStr = row[key] !== undefined && row[key] !== null ? String(row[key]) : '';
+    sheetRows.forEach(r => {
+      const cellVal = r[colIdx];
+      const valStr = cellVal !== undefined && cellVal !== null ? String(cellVal) : '';
       if (valStr.length > maxLen) maxLen = valStr.length;
     });
-    return { wch: Math.min(Math.max(maxLen + 3, 12), 50) };
+    return { wch: Math.min(Math.max(maxLen + 4, 14), 60) };
   });
   worksheet['!cols'] = maxCols;
 
-  const dateStr = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(workbook, `${filename}_${dateStr}.xlsx`);
+  const dateFileStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(workbook, `${filename}_${dateFileStr}.xlsx`);
 }
+
 
 /**
  * Export generic array of objects to CSV with UTF-8 BOM (proper Arabic support in Excel)
