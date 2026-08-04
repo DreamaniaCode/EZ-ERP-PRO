@@ -154,23 +154,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Backdrop Overlay */}
+      {/* Mobile Dark Backdrop Overlay */}
       {isMobileOpen && (
         <div 
           onClick={onCloseMobile}
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 md:hidden transition-opacity"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden transition-opacity"
         />
       )}
 
       {/* Sidebar / Mobile Drawer */}
       <aside className={`
-        fixed md:static top-0 bottom-0 z-40
-        w-72 sm:w-64 bg-[#161616] border-[#393939] border-r rtl:border-r-0 rtl:border-l flex flex-col justify-between shrink-0
+        fixed md:static top-0 bottom-0 z-50
+        w-72 sm:w-64 bg-[#161616] border-[#393939] border-r ltr:left-0 rtl:right-0 flex flex-col justify-between shrink-0
         transition-transform duration-300 ease-in-out
         ${isMobileOpen 
           ? 'translate-x-0 shadow-2xl' 
-          : '-translate-x-full md:translate-x-0'}
+          : 'ltr:-translate-x-full rtl:translate-x-full md:translate-x-0'}
       `}>
+
         <div className="py-3 overflow-y-auto max-h-[calc(100vh-60px)] md:max-h-none">
           
           {/* User Context Banner if Responsable Frigo */}
@@ -279,7 +280,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Carbon Footer */}
-        <div className="p-3 border-t border-[#262626] bg-[#0d0d0d] text-[11px] text-gray-400">
+        <div className="p-3 border-t border-[#262626] bg-[#0d0d0d] text-[11px] text-gray-400 hidden md:block">
           <div className="font-mono text-[10px] text-gray-300 font-semibold mb-0.5">
             {t('app.name')}
           </div>
@@ -291,3 +292,4 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </>
   );
 };
+

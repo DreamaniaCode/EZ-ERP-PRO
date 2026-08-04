@@ -369,22 +369,28 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
     <div className="bg-white w-full rounded-lg shadow-sm overflow-hidden border border-gray-200">
       
       {/* Action Bar */}
-      <div className="bg-[#161616] text-white px-4 py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 print:hidden border-b border-[#393939]">
-        <div className="font-mono text-xs sm:text-sm font-bold flex items-center gap-2">
-          <span className="text-[#0f62fe]">PDF</span> PREVIEW - BON DE LIVRAISON {bl.blNumber}
+      <div className="bg-[#161616] text-white px-3 sm:px-4 py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 print:hidden border-b border-[#393939]">
+        <div className="font-mono text-xs sm:text-sm font-bold flex items-center justify-between w-full sm:w-auto">
+          <div className="flex items-center gap-2">
+            <span className="text-[#0f62fe]">PDF</span> BL {bl.blNumber}
+          </div>
+          <button onClick={onClose} className="sm:hidden p-1 text-gray-400 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
         </div>
-        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+        
+        <div className="grid grid-cols-2 sm:flex sm:flex-row items-center gap-2 w-full sm:w-auto text-xs">
           {/* Responsable Approval Button */}
           {!bl.frigoEmployeeApproved ? (
             <button
               onClick={handleApproveFrigo}
-              className="flex-1 sm:flex-initial px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded flex items-center justify-center gap-1.5 shadow-sm"
+              className="px-2.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-xs font-bold rounded flex items-center justify-center gap-1 shadow-sm"
               title="Valider la sortie quai"
             >
-              <CheckCircle2 className="w-4 h-4 text-emerald-200" /> Approuver Sortie Quai
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" /> Approuver Quai
             </button>
           ) : (
-            <div className="px-2.5 py-1 bg-emerald-900/60 text-emerald-300 text-[11px] font-mono font-bold rounded border border-emerald-700/50 flex items-center gap-1">
+            <div className="px-2 py-1.5 bg-emerald-900/60 text-emerald-300 text-[10px] sm:text-[11px] font-mono font-bold rounded border border-emerald-700/50 flex items-center justify-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" /> Quai Approuvé
             </div>
           )}
@@ -392,33 +398,34 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
           {/* WhatsApp BL Share */}
           <button
             onClick={handleDownloadAndWhatsApp}
-            className="flex-1 sm:flex-initial px-3 py-1.5 bg-[#25D366] hover:bg-[#128C7E] text-white text-xs font-semibold rounded flex items-center justify-center gap-1.5"
+            className="px-2.5 py-2 bg-[#25D366] hover:bg-[#128C7E] text-white text-[11px] sm:text-xs font-semibold rounded flex items-center justify-center gap-1"
           >
-            <MessageSquare className="w-4 h-4" /> BL + WhatsApp
+            <MessageSquare className="w-3.5 h-3.5" /> BL + WhatsApp
           </button>
 
           {/* Invoice + WhatsApp */}
           <button
             onClick={handleGenerateInvoiceAndWhatsApp}
-            className="flex-1 sm:flex-initial px-3 py-1.5 bg-[#0f62fe] hover:bg-blue-700 text-white text-xs font-semibold rounded flex items-center justify-center gap-1.5"
+            className="px-2.5 py-2 bg-[#0f62fe] hover:bg-blue-700 text-white text-[11px] sm:text-xs font-semibold rounded flex items-center justify-center gap-1"
             title="Générer la Facture client et l'envoyer sur WhatsApp"
           >
-            <Receipt className="w-4 h-4" /> Facture + WhatsApp
+            <Receipt className="w-3.5 h-3.5" /> Facture + WA
           </button>
 
           {/* Download BL PDF */}
           <button
             onClick={handleDownloadPdf}
-            className="flex-1 sm:flex-initial px-3 py-1.5 bg-[#262626] hover:bg-[#393939] text-white text-xs font-semibold rounded flex items-center justify-center gap-1.5 border border-[#525252]"
+            className="px-2.5 py-2 bg-[#262626] hover:bg-[#393939] text-white text-[11px] sm:text-xs font-semibold rounded flex items-center justify-center gap-1 border border-[#525252]"
           >
-            <Download className="w-4 h-4" /> BL (.PDF)
+            <Download className="w-3.5 h-3.5" /> Télécharger BL
           </button>
 
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white shrink-0">
+          <button onClick={onClose} className="hidden sm:block p-1.5 text-gray-400 hover:text-white shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
       </div>
+
 
 
       {/* WhatsApp Share Panel — appears after clicking PDF+WhatsApp */}

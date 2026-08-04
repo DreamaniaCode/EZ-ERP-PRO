@@ -1,5 +1,5 @@
-const CACHE_NAME = 'easyerp-pwa-v2';
-const STATIC_CACHE_NAME = 'easyerp-static-v2';
+const CACHE_NAME = 'easyerp-pwa-v3';
+const STATIC_CACHE_NAME = 'easyerp-static-v3';
 
 const PRECACHE_ASSETS = [
   '/',
