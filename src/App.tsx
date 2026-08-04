@@ -73,7 +73,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
   const [previousTab, setPreviousTab] = useState<ExtendedNavTab>('DASHBOARD');
-  const { frigos, setCurrentUser } = useERP();
+  const { frigos, deliveryNotes, setCurrentUser } = useERP();
 
   // CRITICAL: Sync authenticated appUser into ERPContext.currentUser
   // so role-based filtering (RESPONSABLE_FRIGO sees only their warehouse) works
@@ -89,6 +89,20 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
       });
     }
   }, [appUser.uid, appUser.role, appUser.assignedFrigoId]);
+
+  // Handle direct links like https://ez-erp-pro.vercel.app/?bl=BL-2026-7219
+  useEffect(() => {
+    if (typeof window === 'undefined' || !deliveryNotes || deliveryNotes.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const blParam = params.get('bl');
+    if (blParam) {
+      const match = deliveryNotes.find(b => b.blNumber === blParam || b.id === blParam);
+      if (match) {
+        setEditingEntityId(match.id);
+        setActiveTab('BL_PDF');
+      }
+    }
+  }, [deliveryNotes]);
 
   // Navigate to an edit page
   const navigateToEdit = (editTab: ExtendedNavTab, entityId: string | null = null) => {

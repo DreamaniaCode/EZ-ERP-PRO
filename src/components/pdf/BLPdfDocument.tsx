@@ -12,10 +12,15 @@ interface BLPdfDocumentProps {
   onClose: () => void;
 }
 
-export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo, onClose }) => {
-  const { companyInfo } = useERP();
+export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoProp, onClose }) => {
+  const { companyInfo, frigos } = useERP();
   const printRef = useRef<HTMLDivElement | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+
+  // Always resolve the live frigo from context (fallback to prop) so whatsappGroupLink is fresh
+  const frigo: ColdStorageFrigo | undefined =
+    (bl.frigoId ? frigos.find(f => f.id === bl.frigoId) : undefined)
+    ?? frigoProp;
 
   useEffect(() => {
     const directLink = getBLDirectLink(bl.blNumber);
@@ -285,9 +290,9 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo, onClose
   };
 
   const handleWASendFrigoGroup = () => {
-    const groupLink = frigo?.whatsappGroupLink;
+    const groupLink = frigo?.whatsappGroupLink?.trim();
     if (!groupLink) {
-      alert('Lien du groupe WhatsApp du frigo non configuré.\nVeuillez le configurer dans Paramètres → Frigos.');
+      alert(`Lien du groupe WhatsApp non configuré pour l'entrepôt "${frigo?.name || bl.frigoName || 'Frigo'}".\n\nVeuillez aller dans "Entrepôts Frigo" (ou Paramètres), cliquer sur "Modifier" cet entrepôt et coller le lien d'invitation du groupe WhatsApp.`);
       return;
     }
     // Copy message first, then open group so user can paste

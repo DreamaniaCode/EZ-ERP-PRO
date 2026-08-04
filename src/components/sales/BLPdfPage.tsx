@@ -11,14 +11,22 @@ interface BLPdfPageProps {
 export const BLPdfPage: React.FC<BLPdfPageProps> = ({ blId, onBack }) => {
   const { deliveryNotes, frigos } = useERP();
   
-  const bl = deliveryNotes.find(b => b.id === blId) || deliveryNotes[0];
+  const bl = deliveryNotes.find(b => b.id === blId || b.blNumber === blId);
   const frigo = bl ? frigos.find(f => f.id === bl.frigoId) : undefined;
 
   if (!bl) {
+    if (deliveryNotes.length === 0) {
+      return (
+        <div className="flex items-center justify-center p-12">
+          <div className="w-8 h-8 border-2 border-[#0f62fe] border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      );
+    }
+
     return (
-      <div className="p-6 text-center">
-        <p className="text-gray-500">Bon de livraison non trouvé.</p>
-        <button onClick={onBack} className="mt-4 carbon-btn-secondary text-xs">Retour</button>
+      <div className="p-6 text-center bg-white rounded-lg shadow-sm border border-gray-200">
+        <p className="text-gray-600 font-semibold">Bon de livraison non trouvé ({blId || 'aucun identifiant'}).</p>
+        <button onClick={onBack} className="mt-4 carbon-btn-secondary text-xs">Retour aux BLs</button>
       </div>
     );
   }
