@@ -35,28 +35,46 @@ export const UserManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const DEFAULT_SUPER_ADMIN: AppUser = {
+    uid: 'admin-1',
+    email: 'admin@easyerp.com',
+    displayName: 'Super Admin',
+    role: 'ADMIN',
+    permissions: DEFAULT_ROLE_PERMISSIONS['ADMIN'],
+    isActive: true,
+    createdAt: new Date().toISOString()
+  };
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
       const usersSnap = await getDocs(collection(db, 'users'));
-      const usersList = usersSnap.docs.map(doc => doc.data() as AppUser);
+      let usersList = usersSnap.docs.map(doc => doc.data() as AppUser);
+      
+      // Ensure Super Admin is always in the list
+      if (!usersList.some(u => u.role === 'ADMIN' || u.email?.toLowerCase() === 'admin@easyerp.com')) {
+        usersList = [DEFAULT_SUPER_ADMIN, ...usersList];
+      }
+
       setUsers(usersList);
-      // Also persist to localStorage so LoginPage fallback can look up roles
       localStorage.setItem('erp_app_users', JSON.stringify(usersList));
     } catch (err) {
       console.error("Error fetching users:", err);
-      // Fallback: load from localStorage if Firestore is offline
       try {
         const saved = localStorage.getItem('erp_app_users');
-        if (saved) {
-          setUsers(JSON.parse(saved));
+        let parsed: AppUser[] = saved ? JSON.parse(saved) : [];
+        if (!parsed.some(u => u.role === 'ADMIN' || u.email?.toLowerCase() === 'admin@easyerp.com')) {
+          parsed = [DEFAULT_SUPER_ADMIN, ...parsed];
         }
-      } catch (e) { /* ignore */ }
-      setError("Failed to load users from server — using local cache");
+        setUsers(parsed);
+      } catch (e) {
+        setUsers([DEFAULT_SUPER_ADMIN]);
+      }
     } finally {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchUsers();

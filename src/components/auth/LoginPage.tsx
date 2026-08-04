@@ -134,12 +134,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div 
-      className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden bg-cover bg-center bg-no-repeat select-none"
-      style={{ backgroundImage: `url('/abstract_login_bg.jpg')` }}
-    >
-      {/* Sleek Gradient Overlay for max contrast & elegance */}
-      <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[3px]"></div>
+  return (
+    <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden bg-slate-950 select-none">
+      
+      {/* Dynamic Modern Abstract Animated Background Orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-600/30 rounded-full blur-[120px] animate-pulse"></div>
+        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-cyan-500/25 rounded-full blur-[120px] animate-pulse delay-700"></div>
+        <div className="absolute -bottom-40 left-1/3 w-96 h-96 bg-indigo-600/30 rounded-full blur-[120px] animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-10 w-72 h-72 bg-emerald-500/20 rounded-full blur-[100px] animate-pulse delay-500"></div>
+        
+        {/* Subtle grid pattern */}
+        <div 
+          className="absolute inset-0 opacity-10" 
+          style={{ 
+            backgroundImage: `radial-gradient(#0f62fe 1px, transparent 1px)`, 
+            backgroundSize: '24px 24px' 
+          }}
+        ></div>
+      </div>
 
       {/* Top Header: Language Switcher */}
       <div className="absolute top-5 right-5 rtl:left-5 rtl:right-auto z-20 flex items-center gap-2">
@@ -149,7 +162,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
             i18n.language === 'fr' 
               ? 'bg-[#0f62fe] text-white shadow-lg shadow-blue-500/50 scale-105 border border-blue-400/40' 
-              : 'bg-black/50 text-gray-300 hover:bg-white/20 backdrop-blur-md border border-white/10'
+              : 'bg-white/10 text-gray-300 hover:bg-white/20 backdrop-blur-md border border-white/10'
           }`}
         >
           🇫🇷 Français
@@ -161,7 +174,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
             i18n.language === 'ar' 
               ? 'bg-[#0f62fe] text-white shadow-lg shadow-blue-500/50 scale-105 border border-blue-400/40' 
-              : 'bg-black/50 text-gray-300 hover:bg-white/20 backdrop-blur-md border border-white/10'
+              : 'bg-white/10 text-gray-300 hover:bg-white/20 backdrop-blur-md border border-white/10'
           }`}
         >
           🇸🇦 العربية
@@ -170,30 +183,36 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
       {/* Main Logo & Title Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 text-center">
-        <div className="flex justify-center mb-4">
-          <div className="relative p-1 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-400 shadow-2xl shadow-blue-500/40">
-            <img 
-              src="/ez_erp_logo.jpg" 
-              alt="EasyERP Pro Logo" 
-              className="w-16 h-16 rounded-xl object-cover"
-              onError={(e) => {
-                // Fallback icon if image loading delay
-                (e.target as HTMLElement).style.display = 'none';
-              }}
-            />
+        <div className="flex justify-center mb-5">
+          <div className="relative group">
+            {/* Glowing animated aura behind logo */}
+            <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-blue-600 via-cyan-400 to-indigo-600 blur-lg opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-tilt"></div>
+            
+            <div className="relative p-1.5 rounded-2xl bg-slate-900 border border-white/20 shadow-2xl">
+              <img 
+                src="/ez_erp_logo.jpg" 
+                alt="EasyERP Pro Logo" 
+                className="w-20 h-20 rounded-xl object-cover shadow-inner"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+            </div>
           </div>
         </div>
-        <h2 className="text-center text-3xl font-black text-white tracking-tight drop-shadow-md font-sans">
+
+        <h2 className="text-center text-3xl font-black text-white tracking-tight drop-shadow-md font-sans bg-gradient-to-r from-white via-blue-100 to-cyan-200 bg-clip-text text-transparent">
           {t('app.name', 'EasyERP Pro')}
         </h2>
-        <p className="mt-1.5 text-center text-xs text-blue-200 font-medium drop-shadow max-w-xs mx-auto">
+        <p className="mt-1.5 text-center text-xs text-cyan-200/90 font-medium drop-shadow max-w-xs mx-auto">
           {t('auth.subtitle', 'Connectez-vous pour accéder à votre espace de gestion')}
         </p>
       </div>
 
       {/* Login Card */}
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4 sm:px-0">
-        <div className="bg-slate-900/80 backdrop-blur-2xl py-8 px-6 shadow-[0_20px_50px_rgba(0,0,0,0.6)] sm:rounded-3xl sm:px-10 border border-white/15">
+        <div className="bg-slate-900/80 backdrop-blur-2xl py-8 px-6 shadow-[0_20px_50px_rgba(0,0,0,0.8)] sm:rounded-3xl sm:px-10 border border-blue-500/20">
+
 
 
           {error && (
