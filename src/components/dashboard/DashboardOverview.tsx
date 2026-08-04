@@ -129,7 +129,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
             title={t('dashboard.title', 'Tableau de Bord ERP')}
             excelData={[
               { Indicateur: t('dashboard.totalRevenue', 'Chiffre d\'Affaires HT'), Valeur: `${totalSalesHT.toLocaleString()} DH` },
-              { Indicateur: t('dashboard.grossMargin', 'Marge Brute'), Valeur: `${grossMarginHT.toLocaleString()} DH (${globalMarginPct.toFixed(1)}%)` },
+              { Indicateur: t('dashboard.grossMargin', 'Marge Brute'), Valeur: `${grossMarginHT.toLocaleString()} DH (${(globalMarginPct || 0).toFixed(1)}%)` },
               { Indicateur: t('dashboard.stockValuation', 'Valorisation Stock HT'), Valeur: `${totalStockValuationHT.toLocaleString()} DH` },
               { Indicateur: t('products.totalStock', 'Total Stock Kg'), Valeur: `${totalStockKg.toLocaleString()} Kg` },
               { Indicateur: t('clients.receivables', 'Créances Clients TTC'), Valeur: `${totalReceivablesTTC.toLocaleString()} DH` },

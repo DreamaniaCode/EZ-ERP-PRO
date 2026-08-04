@@ -161,8 +161,8 @@ export const SalesOrders: React.FC<SalesOrdersProps> = ({ onEditOrder, onNewOrde
               'Total Palettes': o.totalPallets,
               'Chiffre d\'Affaires HT (DH)': o.totalHT,
               'Coût de Revient HT (DH)': o.totalCostHT,
-              'Marge Brute HT (DH)': o.marginHT,
-              'Marge %': `${o.marginPct.toFixed(1)}%`,
+              'Marge Brute HT (DH)': o.marginHT || o.grossMarginHT || 0,
+              'Marge %': `${(o.marginPct ?? o.marginPercentage ?? 0).toFixed(1)}%`,
               'Statut BL': o.blGenerated ? 'BL Généré' : 'En Attente BL',
             }))}
           />
