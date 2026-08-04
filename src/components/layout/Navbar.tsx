@@ -44,13 +44,65 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { t, i18n } = useTranslation();
   const { deliveryNotes, chequesEffets, currentUser, frigos } = useERP();
 
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
+  const [isPwaModalOpen, setIsPwaModalOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [_isInstalled, setIsInstalled] = useState(false);
+
+  const handleQrCodeScanned = (scannedText: string) => {
+    setIsQrScannerOpen(false);
+    let code = scannedText.trim();
+    if (scannedText.includes('bl=')) {
+      const match = scannedText.match(/bl=([^&]+)/);
+      if (match) code = match[1];
+    }
+    window.history.pushState({}, '', `/?bl=${code}`);
+    onNavigateToBL();
+  };
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+    }
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
   const toggleLanguage = () => {
     const newLang = i18n.language === 'ar' ? 'fr' : 'ar';
     i18n.changeLanguage(newLang);
     localStorage.setItem('erp_language', newLang);
   };
 
+  // Pending BLs needing frigo approval
+  const pendingBLs = (deliveryNotes || []).filter(bl => {
+    if (currentUser.role === 'RESPONSABLE_FRIGO' && currentUser.assignedFrigoId) {
+      return !bl.frigoEmployeeApproved && bl.frigoId === currentUser.assignedFrigoId;
+    }
+    return !bl.frigoEmployeeApproved;
+  });
+
+  // Cheques due in next 7 days
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const chequesDueSoon = (chequesEffets || []).filter(c => {
+    if (c.status === 'ENCAISSE' || c.status === 'IMPAYE_REJETE') return false;
+    const dueDate = new Date(c.dueDate);
+    const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+    return diffDays <= 7;
+  });
+
+  const totalAlerts = pendingBLs.length + chequesDueSoon.length;
+
   return (
+
     <header className="bg-[#161616] border-b border-[#393939] text-white sticky top-0 z-40 select-none">
       <div className="flex items-center justify-between px-2 sm:px-4 py-2 gap-1.5">
         
