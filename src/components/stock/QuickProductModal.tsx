@@ -138,29 +138,30 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-gray-700 uppercase mb-1">Poids Carton (Kg)</label>
+              <label className="block font-bold text-gray-700 uppercase mb-1">Poids Carton (Kg) <span className="text-gray-400 text-[10px] font-normal">(Optionnel)</span></label>
               <input
                 type="number"
-                required
-                min={1}
-                value={form.kgPerCarton}
+                min={0}
+                placeholder="ex: 10 (Optionnel)"
+                value={form.kgPerCarton || ''}
                 onChange={e => setForm({ ...form, kgPerCarton: Number(e.target.value) })}
                 className="w-full carbon-input text-xs font-mono"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-gray-700 uppercase mb-1">Cartons / Palette</label>
+              <label className="block font-bold text-gray-700 uppercase mb-1">Cartons / Palette <span className="text-gray-400 text-[10px] font-normal">(Optionnel)</span></label>
               <input
                 type="number"
-                required
-                min={1}
-                value={form.cartonsPerPallet}
+                min={0}
+                placeholder="ex: 100 (Optionnel)"
+                value={form.cartonsPerPallet || ''}
                 onChange={e => setForm({ ...form, cartonsPerPallet: Number(e.target.value) })}
                 className="w-full carbon-input text-xs font-mono"
               />
             </div>
           </div>
+
 
           {/* Submit Footer */}
           <div className="pt-3 border-t border-gray-200 flex justify-end gap-2">

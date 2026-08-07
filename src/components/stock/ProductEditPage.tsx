@@ -230,11 +230,10 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
               <h2 className="text-lg font-medium border-b border-[#e0e0e0] pb-2 mb-4">{t('stock.logistics')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.kgPerCarton')} *</label>
+                  <label className="block text-sm font-medium mb-1">{t('stock.kgPerCarton')} <span className="text-gray-400 text-xs font-normal">(Optionnel)</span></label>
                   <input
                     type="number"
                     name="kgPerCarton"
-                    required
                     min="0"
                     step="0.01"
                     value={formData.kgPerCarton}
@@ -243,12 +242,12 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.cartonsPerPallet')} *</label>
+                  <label className="block text-sm font-medium mb-1">{t('stock.cartonsPerPallet')} <span className="text-gray-400 text-xs font-normal">(Optionnel)</span></label>
                   <input
                     type="number"
                     name="cartonsPerPallet"
-                    required
                     min="0"
+                    step="1"
                     value={formData.cartonsPerPallet}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe]"
