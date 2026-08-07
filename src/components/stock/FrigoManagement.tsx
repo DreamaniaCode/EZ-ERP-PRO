@@ -3,6 +3,8 @@ import { useERP } from '../../context/ERPContext';
 import { ColdStorageFrigo } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
 import { StockTransferModal } from './StockTransferModal';
+import { FrigoDetailPage } from './FrigoDetailPage';
+
 import { 
   Warehouse, 
   Plus, 
@@ -25,17 +27,18 @@ import {
 interface FrigoManagementProps {
   onEditFrigo?: (id: string) => void;
   onNewFrigo?: () => void;
+  onViewFrigoDetail?: (id: string) => void;
 }
 
-export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, onNewFrigo }) => {
+export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, onNewFrigo, onViewFrigoDetail }) => {
   const { frigos, stocks, products, deliveryNotes, addFrigo, updateFrigo, deleteFrigo } = useERP();
-
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [editingFrigo, setEditingFrigo] = useState<ColdStorageFrigo | null>(null);
-  const [selectedFrigoDetail, setSelectedFrigoDetail] = useState<ColdStorageFrigo | null>(null);
+  const [selectedFrigoDetailId, setSelectedFrigoDetailId] = useState<string | null>(null);
+
 
 
   // Form State for Add / Edit
@@ -153,8 +156,18 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
     };
   });
 
+  if (selectedFrigoDetailId) {
+    return (
+      <FrigoDetailPage
+        frigoId={selectedFrigoDetailId}
+        onBack={() => setSelectedFrigoDetailId(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6" id="frigo-management-page">
+
       {/* Page Title Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-lg border border-[#e0e0e0] shadow-sm">
         <div className="flex items-center gap-3">
@@ -365,13 +378,20 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
               {/* Card Footer Actions */}
               <div className="p-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
                 <button
-                  onClick={() => setSelectedFrigoDetail(frigo)}
+                  onClick={() => {
+                    if (onViewFrigoDetail) {
+                      onViewFrigoDetail(frigo.id);
+                    } else {
+                      setSelectedFrigoDetailId(frigo.id);
+                    }
+                  }}
                   className="w-full text-center text-xs font-semibold text-[#0f62fe] bg-white border border-[#0f62fe] hover:bg-blue-50 py-1.5 rounded transition flex items-center justify-center gap-1.5"
                 >
                   <Package className="w-3.5 h-3.5" />
-                  <span>Voir Détail du Stock</span>
+                  <span>Voir Fiche Entrepôt & Valorisation (Page)</span>
                 </button>
               </div>
+
             </div>
           );
         })}

@@ -110,23 +110,64 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
     }
   }, [deliveryNotes]);
 
+  // Sync activeTab with URL params & handle browser back button (popstate)
+  const updateUrlAndTab = (tab: ExtendedNavTab, entityId: string | null = null, pushState = true) => {
+    setEditingEntityId(entityId);
+    setActiveTab(tab);
+
+    if (pushState && typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      if (entityId) {
+        url.searchParams.set('id', entityId);
+      } else {
+        url.searchParams.delete('id');
+      }
+      window.history.pushState({ tab, entityId }, '', url.toString());
+    }
+  };
+
+  // Listen to browser Back / Forward buttons
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state && e.state.tab) {
+        setActiveTab(e.state.tab);
+        setEditingEntityId(e.state.entityId || null);
+      } else if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get('tab') as ExtendedNavTab;
+        const idParam = params.get('id');
+        if (tabParam) {
+          setActiveTab(tabParam);
+          setEditingEntityId(idParam || null);
+        } else {
+          setActiveTab(appUser?.role === 'RESPONSABLE_FRIGO' ? 'DELIVERY_NOTES' : 'DASHBOARD');
+          setEditingEntityId(null);
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [appUser?.role]);
+
   // Navigate to an edit page
   const navigateToEdit = (editTab: ExtendedNavTab, entityId: string | null = null) => {
     setPreviousTab(activeTab);
-    setEditingEntityId(entityId);
-    setActiveTab(editTab);
+    updateUrlAndTab(editTab, entityId, true);
   };
 
   // Navigate back from edit page
   const navigateBack = () => {
     setEditingEntityId(null);
-    setActiveTab(previousTab);
+    updateUrlAndTab(previousTab, null, true);
   };
 
   const setNavTab = (tab: NavTab) => {
-    setActiveTab(tab as ExtendedNavTab);
-    setEditingEntityId(null);
+    setPreviousTab(activeTab);
+    updateUrlAndTab(tab as ExtendedNavTab, null, true);
   };
+
 
   const renderTabContent = () => {
     // If user is RESPONSABLE_FRIGO, strictly lock view to DELIVERY_NOTES, BL_EDIT, BL_SIGN or BL_PDF only!
