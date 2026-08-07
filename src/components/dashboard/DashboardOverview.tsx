@@ -24,6 +24,8 @@ import {
 import { NavTab } from '../layout/Sidebar';
 import { QRScannerModal } from '../common/QRScannerModal';
 import { ProductStockHistoryModal } from '../stock/ProductStockHistoryModal';
+import { CylinderKpiChart } from './CylinderKpiChart';
+
 
 interface DashboardOverviewProps {
   onNavigate: (tab: NavTab) => void;
@@ -299,8 +301,56 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         </div>
       </div>
 
+      {/* 3D Cylinder KPI Growth & Color Customization Stage */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Chart 1: Sales Growth by Category */}
+        <CylinderKpiChart
+          title="Indicateurs de Croissance & Ventes HT par Catégorie (Cylindres 3D)"
+          subtitle="Graphique 3D interactif • Sélectionnez votre thème de couleurs en haut à droite"
+          unit="DH"
+          data={
+            Object.keys(categoryStats).length > 0 
+              ? Object.entries(categoryStats).map(([cat, st]) => ({
+                  label: cat,
+                  value: st.salesHT,
+                  subValue: `Marge: ${st.marginHT.toLocaleString()} DH`,
+                  growthPct: st.salesHT > 0 ? Math.round((st.marginHT / st.salesHT) * 100) : 0
+                }))
+              : [
+                  { label: 'Dattes Locales', value: 450000, subValue: 'Marge: 120.000 DH', growthPct: +26 },
+                  { label: 'Dattes Importées', value: 380000, subValue: 'Marge: 95.000 DH', growthPct: +24 },
+                  { label: 'Fruits Secs', value: 210000, subValue: 'Marge: 48.000 DH', growthPct: +22 },
+                  { label: 'Huiles & Condiments', value: 140000, subValue: 'Marge: 32.000 DH', growthPct: +18 },
+                ]
+          }
+        />
+
+        {/* Chart 2: Frigo Volumes in 3D Storage Cylinders */}
+        <CylinderKpiChart
+          title="Niveaux de Remplissage des Frigos (Réservoirs Cylindriques 3D)"
+          subtitle="Supervision visuelle des volumes stockés en Kg par entrepôt frigorifique"
+          unit="Kg"
+          data={
+            frigos.map(f => {
+              const fKg = stocks.filter(s => s.frigoId === f.id).reduce((sum, s) => sum + s.quantityKg, 0);
+              const fPal = stocks.filter(s => s.frigoId === f.id).reduce((sum, s) => sum + s.quantityPallets, 0);
+              const pct = f.capacityPallets > 0 ? Math.round((fPal / f.capacityPallets) * 100) : 0;
+              return {
+                label: f.name,
+                value: fKg,
+                subValue: `${fPal} Pal. (${pct}% d'occup.)`,
+                growthPct: pct
+              };
+            })
+          }
+        />
+
+      </div>
+
       {/* Main Grid: Margins Analysis & Frigos Occupancy */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
         
         {/* Margin Analysis by Category */}
         <div className="lg:col-span-2 carbon-card p-5 space-y-4">
