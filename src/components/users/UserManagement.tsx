@@ -451,21 +451,23 @@ export const UserManagement: React.FC = () => {
               </div>
               {formData.role === 'RESPONSABLE_FRIGO' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('users.assigned_frigo', 'Assigned Frigo')}</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('users.assigned_frigo', 'Frigo Assigné')} <span className="text-gray-400 text-xs font-normal">(Optionnel - Certains frigos n'ont pas de responsable dédié)</span>
+                  </label>
                   <select
                     name="assignedFrigoId"
                     value={formData.assignedFrigoId}
                     onChange={handleInputChange}
-                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0f62fe] focus:border-transparent bg-white"
                   >
-                    <option value="">{t('common.select', 'Select...')}</option>
+                    <option value="">-- Aucun frigo spécifique (Optionnel / Géré par Agent Stock) --</option>
                     {frigos.map(f => (
-                      <option key={f.id} value={f.id}>{f.name}</option>
+                      <option key={f.id} value={f.id}>{f.name} ({f.location})</option>
                     ))}
                   </select>
                 </div>
               )}
+
             </div>
             <div className="flex justify-end mt-6">
               <button
@@ -615,20 +617,23 @@ export const UserManagement: React.FC = () => {
                               </div>
                               {formData.role === 'RESPONSABLE_FRIGO' && (
                                 <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('users.assigned_frigo', 'Assigned Frigo')}</label>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    {t('users.assigned_frigo', 'Frigo Assigné')} <span className="text-gray-400 text-xs font-normal">(Optionnel)</span>
+                                  </label>
                                   <select
                                     name="assignedFrigoId"
                                     value={formData.assignedFrigoId}
                                     onChange={handleInputChange}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
                                   >
-                                    <option value="">{t('common.select', 'Select...')}</option>
+                                    <option value="">-- Aucun frigo spécifique (Optionnel / Géré par Agent Stock) --</option>
                                     {frigos.map(f => (
-                                      <option key={f.id} value={f.id}>{f.name}</option>
+                                      <option key={f.id} value={f.id}>{f.name} ({f.location})</option>
                                     ))}
                                   </select>
                                 </div>
                               )}
+
                             </div>
 
                             <div className="mb-4">
