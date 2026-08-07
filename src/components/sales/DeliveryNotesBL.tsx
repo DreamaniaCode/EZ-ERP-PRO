@@ -27,8 +27,12 @@ import {
   FileSpreadsheet,
   Plus,
   Edit,
-  Trash2
+  Trash2,
+  Camera,
+  Image as ImageIcon,
+  Upload
 } from 'lucide-react';
+
 
 interface DeliveryNotesBLProps {
   onEditBL?: (id: string) => void;
@@ -145,10 +149,34 @@ EasyERP Pro • Logistics Management`;
     window.open('https://chat.whatsapp.com/demo', '_blank');
   };
 
+  const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
+
+  const handleUploadBonDeSortie = (bl: DeliveryNoteBL, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const photoUrl = event.target?.result as string;
+      updateBL(bl.id, {
+        bonDeSortiePhotoUrl: photoUrl,
+        bonDeSortieUploadedBy: currentUser.name,
+        bonDeSortieUploadedAt: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
+        frigoEmployeeApproved: true,
+        frigoApprovedBy: currentUser.name,
+        frigoApprovedAt: new Date().toISOString(),
+        status: 'APPROUVÉ_FRIGO'
+      });
+      alert(`Photo du Bon de Sortie du Frigo pour le BL ${bl.blNumber} attachée avec succès ! Le chargement quai est validé.`);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleApproveQuai = (bl: DeliveryNoteBL) => {
     approveFrigoBL(bl.id, currentUser.name);
     alert(`Chargement du Bon de Livraison ${bl.blNumber} approuvé avec succès par ${currentUser.name} !`);
   };
+
 
   const handleGenerateInvoice = (bl: DeliveryNoteBL) => {
     try {
@@ -592,6 +620,31 @@ EasyERP Pro • Logistics Management`;
                 {/* Right Action Buttons */}
                 <div className="flex items-center gap-2 flex-wrap">
                   
+                  {/* Photo Bon de Sortie Frigo Button */}
+                  <label className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm" title="Téléverser ou Prendre en photo le Bon de Sortie physique du Frigo">
+                    <Camera className="w-4 h-4 text-cyan-300" />
+                    <span>{bl.bonDeSortiePhotoUrl ? '📷 Changer Photo Bon Sortie' : '📷 Photo Bon de Sortie Frigo'}</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment"
+                      onChange={(e) => handleUploadBonDeSortie(bl, e)}
+                      className="hidden" 
+                    />
+                  </label>
+
+                  {/* Thumbnail Preview if Photo attached */}
+                  {bl.bonDeSortiePhotoUrl && (
+                    <div 
+                      onClick={() => setSelectedPhotoUrl(bl.bonDeSortiePhotoUrl!)}
+                      className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-300 px-2 py-1 rounded cursor-pointer hover:bg-emerald-100 transition-colors"
+                      title="Cliquer pour agrandir la photo du Bon de Sortie Frigo"
+                    >
+                      <img src={bl.bonDeSortiePhotoUrl} alt="Bon de sortie frigo" className="w-6 h-6 object-cover rounded border border-emerald-500" />
+                      <span className="text-[10px] font-mono text-emerald-900 font-bold">Photo Bon Sortie ✓</span>
+                    </div>
+                  )}
+
                   {/* Step 1: Quai Approval Button for Frigo Manager */}
                   {!bl.frigoEmployeeApproved && (
                     <button
@@ -602,6 +655,7 @@ EasyERP Pro • Logistics Management`;
                       <ShieldCheck className="w-4 h-4" /> Approuver Quai Frigo
                     </button>
                   )}
+
 
                   {/* Step 2: Client Signature Button (Unlocked ONLY AFTER Approval) */}
                   {bl.frigoEmployeeApproved ? (
@@ -1176,8 +1230,42 @@ EasyERP Pro • Logistics Management`;
             </form>
           </div>
         </div>
+      {/* High-Res Photo Modal Viewer for Bon de Sortie Frigo */}
+      {selectedPhotoUrl && (
+        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="relative max-w-4xl w-full bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl p-4">
+            <div className="flex justify-between items-center pb-3 mb-3 border-b border-slate-800 text-white font-mono text-xs">
+              <span className="font-bold flex items-center gap-2 text-emerald-400">
+                <Camera className="w-4 h-4 text-emerald-400" />
+                Preuve d'Approbation Quai - Photo Bon de Sortie Physique Frigo
+              </span>
+              <button 
+                onClick={() => setSelectedPhotoUrl(null)}
+                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded text-xs transition-colors"
+              >
+                Fermer (ESC)
+              </button>
+            </div>
+
+            <div className="flex justify-center items-center bg-black/60 rounded-xl p-2 max-h-[75vh] overflow-auto">
+              <img src={selectedPhotoUrl} alt="Bon de sortie frigo physique" className="max-h-[70vh] object-contain rounded shadow-lg" />
+            </div>
+
+            <div className="mt-3 flex justify-between items-center text-[11px] font-mono text-gray-400">
+              <span>Original Document Proof • EasyERP Pro Logistics</span>
+              <a 
+                href={selectedPhotoUrl} 
+                download="Bon_De_Sortie_Frigo.jpg"
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded transition-colors"
+              >
+                Télécharger l'image HD
+              </a>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
   );
 };
+

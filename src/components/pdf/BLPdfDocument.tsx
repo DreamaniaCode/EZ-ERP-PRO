@@ -608,14 +608,26 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
               </div>
               
               {bl.frigoEmployeeApproved ? (
-                <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 p-2 border border-emerald-300 rounded">
-                  <ShieldCheck className="w-6 h-6 shrink-0 text-emerald-600" />
-                  <div>
-                    <div className="font-bold text-xs">Approuvé pour Sortie Quai</div>
-                    <div className="text-[10px]">{bl.frigoApprovedBy} • {bl.frigoApprovedAt}</div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 p-2 border border-emerald-300 rounded">
+                    <ShieldCheck className="w-6 h-6 shrink-0 text-emerald-600" />
+                    <div>
+                      <div className="font-bold text-xs">Approuvé pour Sortie Quai</div>
+                      <div className="text-[10px]">{bl.frigoApprovedBy} • {bl.frigoApprovedAt}</div>
+                    </div>
                   </div>
+                  {bl.bonDeSortiePhotoUrl && (
+                    <div className="flex items-center gap-2 bg-emerald-100/60 p-1.5 rounded border border-emerald-300 text-[10px] font-mono text-emerald-900">
+                      <img src={bl.bonDeSortiePhotoUrl} alt="Bon de sortie frigo photo" className="w-8 h-8 object-cover rounded border border-emerald-500 shrink-0" />
+                      <div>
+                        <div className="font-bold">📷 Bon de Sortie Physical Photo</div>
+                        <div className="text-[9px] text-gray-600">Par {bl.bonDeSortieUploadedBy}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
+
                 <div className="my-auto text-center space-y-2">
                   <div className="text-gray-400 italic text-[11px]">
                     En attente d'approbation quai frigo

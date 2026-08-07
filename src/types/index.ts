@@ -228,6 +228,12 @@ export interface DeliveryNoteBL {
   frigoApprovedBy?: string;
   frigoApprovedAt?: string;
 
+  // Photo du Bon de Sortie Physique du Frigo (Validation Chargement Quai)
+  bonDeSortiePhotoUrl?: string;
+  bonDeSortieUploadedBy?: string;
+  bonDeSortieUploadedAt?: string;
+
+
   // WhatsApp group notification log
   whatsappSent: boolean;
   whatsappSentAt?: string;

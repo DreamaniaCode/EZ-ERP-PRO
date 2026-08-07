@@ -436,14 +436,18 @@ export const UserManagement: React.FC = () => {
                   name="role"
                   value={formData.role}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0f62fe] focus:border-transparent bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0f62fe] focus:border-transparent bg-white text-sm font-semibold"
                 >
-                  <option value="ADMIN">{t('roles.admin', 'Admin')}</option>
-                  <option value="MANAGER">{t('roles.manager', 'Manager')}</option>
-                  <option value="RESPONSABLE_FRIGO">{t('roles.responsable_frigo', 'Frigo Manager')}</option>
-                  <option value="CAISSIER">{t('roles.caissier', 'Cashier')}</option>
-                  <option value="USER">{t('roles.user', 'User')}</option>
+                  <option value="SUPER_ADMIN">👑 Super Admin (Le Gérant / Propriétaire)</option>
+                  <option value="CONTROLEUR">👁️ Contrôleur (Audit & Inspection - Voit Tout)</option>
+                  <option value="AGENT_STOCK">📦 Agent Stock & Logistique (Entrées / Sorties)</option>
+                  <option value="RESPONSABLE_FRIGO">🏭 Responsable Frigo / Entrepôt (Bon de Sortie Photo)</option>
+                  <option value="COMPTABLE_FACTURES">📄 Responsable Facturation & Comptabilité</option>
+                  <option value="ADMIN">🛡️ Admin Général</option>
+                  <option value="COMMERCIAL">💼 Agent Commercial</option>
+                  <option value="COMPTABLE">💰 Comptable</option>
                 </select>
+
               </div>
               {formData.role === 'RESPONSABLE_FRIGO' && (
                 <div>
@@ -513,10 +517,25 @@ export const UserManagement: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200 w-fit">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border w-fit ${
+                            user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' ? 'bg-purple-100 text-purple-900 border-purple-300' :
+                            user.role === 'CONTROLEUR' ? 'bg-cyan-100 text-cyan-900 border-cyan-300' :
+                            user.role === 'AGENT_STOCK' ? 'bg-blue-100 text-blue-900 border-blue-300' :
+                            user.role === 'RESPONSABLE_FRIGO' ? 'bg-amber-100 text-amber-900 border-amber-300' :
+                            user.role === 'COMPTABLE_FACTURES' || user.role === 'COMPTABLE' ? 'bg-emerald-100 text-emerald-900 border-emerald-300' :
+                            'bg-gray-100 text-gray-800 border-gray-200'
+                          }`}>
                             <Shield className="w-3 h-3" />
-                            {user.role}
+                            {
+                              user.role === 'SUPER_ADMIN' ? '👑 Super Admin (Gérant)' :
+                              user.role === 'CONTROLEUR' ? '👁️ Contrôleur (Audit)' :
+                              user.role === 'AGENT_STOCK' ? '📦 Agent Stock & Logistique' :
+                              user.role === 'RESPONSABLE_FRIGO' ? '🏭 Responsable Frigo' :
+                              user.role === 'COMPTABLE_FACTURES' ? '📄 Facturation & Comptabilité' :
+                              user.role
+                            }
                           </span>
+
                           {user.role === 'RESPONSABLE_FRIGO' && user.assignedFrigoId && (
                             <span className="text-xs text-gray-500 mt-1">
                               Frigo: {frigos.find(f => f.id === user.assignedFrigoId)?.name || user.assignedFrigoId}
@@ -581,14 +600,18 @@ export const UserManagement: React.FC = () => {
                                   name="role"
                                   value={formData.role}
                                   onChange={handleInputChange}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-semibold"
                                 >
-                                  <option value="ADMIN">{t('roles.admin', 'Admin')}</option>
-                                  <option value="MANAGER">{t('roles.manager', 'Manager')}</option>
-                                  <option value="RESPONSABLE_FRIGO">{t('roles.responsable_frigo', 'Frigo Manager')}</option>
-                                  <option value="CAISSIER">{t('roles.caissier', 'Cashier')}</option>
-                                  <option value="USER">{t('roles.user', 'User')}</option>
+                                  <option value="SUPER_ADMIN">👑 Super Admin (Le Gérant / Propriétaire)</option>
+                                  <option value="CONTROLEUR">👁️ Contrôleur (Audit & Inspection - Voit Tout)</option>
+                                  <option value="AGENT_STOCK">📦 Agent Stock & Logistique (Entrées / Sorties)</option>
+                                  <option value="RESPONSABLE_FRIGO">🏭 Responsable Frigo / Entrepôt (Bon de Sortie Photo)</option>
+                                  <option value="COMPTABLE_FACTURES">📄 Responsable Facturation & Comptabilité</option>
+                                  <option value="ADMIN">🛡️ Admin Général</option>
+                                  <option value="COMMERCIAL">💼 Agent Commercial</option>
+                                  <option value="COMPTABLE">💰 Comptable</option>
                                 </select>
+
                               </div>
                               {formData.role === 'RESPONSABLE_FRIGO' && (
                                 <div>
