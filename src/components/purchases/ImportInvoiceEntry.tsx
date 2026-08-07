@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { useERP } from '../../context/ERPContext';
 import { PurchaseImportInvoice } from '../../types';
+import { QuickProductModal } from '../stock/QuickProductModal';
 import { Ship, Plus, Search, Building2, Package, Calculator, CheckCircle } from 'lucide-react';
+
 
 export const ImportInvoiceEntry: React.FC = () => {
   const { suppliers, products, frigos, purchaseInvoices, createPurchaseInvoice } = useERP();
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showQuickProductModal, setShowQuickProductModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
 
   // Form State
   const [selectedSupplierId, setSelectedSupplierId] = useState(suppliers[0]?.id || '');
@@ -294,14 +298,28 @@ export const ImportInvoiceEntry: React.FC = () => {
             <div className="space-y-3 pt-2">
               <div className="flex justify-between items-center border-b pb-2">
                 <span className="text-xs font-bold text-gray-900 uppercase">Produits Reçus dans le Conteneur (Saisie en Kg)</span>
-                <button
-                  type="button"
-                  onClick={handleAddItem}
-                  className="text-xs text-[#0f62fe] font-bold hover:underline"
-                >
-                  + Ligne Produit
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickProductModal(true)}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded flex items-center gap-1 shadow-sm transition-colors"
+                    title="Créer rapidement un nouveau produit au catalogue"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Nouveau Produit</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAddItem}
+                    className="px-3 py-1.5 bg-[#0f62fe] hover:bg-blue-700 text-white text-xs font-bold rounded flex items-center gap-1 shadow-sm transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Ligne Produit</span>
+                  </button>
+                </div>
               </div>
+
 
               {purchaseItems.map((item, idx) => (
                 <div key={idx} className="p-3 bg-gray-50 border border-gray-300 rounded grid grid-cols-1 sm:grid-cols-4 gap-3 items-center">
@@ -377,6 +395,27 @@ export const ImportInvoiceEntry: React.FC = () => {
         </div>
       )}
 
+      {showQuickProductModal && (
+        <QuickProductModal
+          onClose={() => setShowQuickProductModal(false)}
+          onProductCreated={(newProdId) => {
+            const prd = products.find(p => p.id === newProdId);
+            if (prd) {
+              setPurchaseItems(prev => [
+                ...prev,
+                {
+                  productId: prd.id,
+                  quantityKg: 8000,
+                  quantityPallets: Math.ceil(8000 / ((prd.kgPerCarton || 10) * (prd.cartonsPerPallet || 100))),
+                  purchaseUnitPriceHT: prd.unitCostHT || 30
+                }
+              ]);
+            }
+          }}
+        />
+      )}
+
     </div>
   );
 };
+
