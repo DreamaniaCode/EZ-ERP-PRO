@@ -62,7 +62,7 @@ export const FrigoEditPage: React.FC<{ editId: string | null; onBack: () => void
           <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-[#0f62fe]">
             <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
           </button>
-          <h1 className="text-xl font-semibold">
+          <h1 className="text-xl font-bold">
             {editId ? t('frigos.editFrigo', 'Modifier Entrepôt Frigo') : t('frigos.addFrigo', 'Nouveau Frigo')}
           </h1>
         </div>
@@ -77,7 +77,7 @@ export const FrigoEditPage: React.FC<{ editId: string | null; onBack: () => void
           </button>
           <button 
             onClick={handleSubmit}
-            className="flex items-center px-4 py-2 bg-[#0f62fe] text-white hover:bg-blue-700 rounded text-sm font-medium transition-colors"
+            className="flex items-center px-4 py-2 bg-[#0f62fe] text-white hover:bg-blue-700 rounded text-sm font-bold transition-colors shadow-md"
           >
             <Save className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
             {t('common.save', 'Enregistrer')}
@@ -91,29 +91,36 @@ export const FrigoEditPage: React.FC<{ editId: string | null; onBack: () => void
           <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-[#e0e0e0] p-6 space-y-8">
             {/* General Info */}
             <div>
-              <h2 className="text-lg font-medium border-b border-[#e0e0e0] pb-2 mb-4">{t('stock.generalInfo', 'Informations Générales')}</h2>
+              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-[#e0e0e0] pb-2 mb-4">
+                {t('stock.generalInfo', 'Informations Générales')}
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.frigoName', 'Nom du Frigo')} *</label>
+                  <label className="block text-xs font-bold uppercase text-gray-700 mb-1">
+                    {t('stock.frigoName', 'Nom du Frigo')} *
+                  </label>
                   <input
                     type="text"
                     name="name"
                     required
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe]"
+                    className="w-full carbon-input text-sm font-bold"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.location', 'Emplacement / Adresse')}</label>
+                  <label className="block text-xs font-bold uppercase text-gray-700 mb-1">
+                    {t('stock.location', 'Emplacement / Adresse')}
+                  </label>
                   <input
                     type="text"
                     name="location"
                     value={formData.location}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe]"
+                    className="w-full carbon-input text-sm"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-1">{t('stock.capacityPallets', 'Capacité Totale (Palettes)')}</label>
                   <input

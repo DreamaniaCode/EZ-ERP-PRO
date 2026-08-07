@@ -72,8 +72,8 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
           <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-[#0f62fe]">
             <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
           </button>
-          <h1 className="text-xl font-semibold">
-            {editId ? t('stock.editProduct') : t('stock.newProduct')}
+          <h1 className="text-xl font-bold">
+            {editId ? t('stock.editProduct', 'Modifier la Fiche Produit') : t('stock.newProduct', 'Nouveau Produit')}
           </h1>
         </div>
         <div className="flex items-center space-x-3 rtl:space-x-reverse">
@@ -83,14 +83,14 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
             className="flex items-center px-4 py-2 border border-[#393939] text-[#161616] bg-white hover:bg-gray-50 rounded text-sm font-medium transition-colors"
           >
             <X className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-            {t('common.cancel')}
+            {t('common.cancel', 'Annuler')}
           </button>
           <button 
             onClick={handleSubmit}
-            className="flex items-center px-4 py-2 bg-[#0f62fe] text-white hover:bg-blue-700 rounded text-sm font-medium transition-colors"
+            className="flex items-center px-4 py-2 bg-[#0f62fe] text-white hover:bg-blue-700 rounded text-sm font-bold transition-colors shadow-md"
           >
             <Save className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-            {t('common.save')}
+            {t('common.save', 'Enregistrer')}
           </button>
         </div>
       </div>
@@ -101,27 +101,34 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
           <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-[#e0e0e0] p-6 space-y-8">
             {/* General Info */}
             <div>
-              <h2 className="text-lg font-medium border-b border-[#e0e0e0] pb-2 mb-4">{t('stock.generalInfo')}</h2>
+              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-[#e0e0e0] pb-2 mb-4">
+                {t('stock.generalInfo', 'Informations Générales Produit')}
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.productName')} *</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    {t('stock.productName', 'Désignation du Produit')} *
+                  </label>
                   <input
                     type="text"
                     name="name"
                     required
+                    placeholder="ex: Dattes Majhoul Premium 1Kg, Deglet Nour..."
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe] focus:ring-1 focus:ring-[#0f62fe]"
+                    className="w-full carbon-input font-bold text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.category')} *</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    {t('stock.category', 'Catégorie')} *
+                  </label>
                   <select
                     name="category"
                     required
                     value={formData.category}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe] focus:ring-1 focus:ring-[#0f62fe]"
+                    className="w-full carbon-input text-sm font-semibold"
                   >
                     <option value="Dattes Locales">Dattes Locales</option>
                     <option value="Dattes Importées">Dattes Importées</option>
@@ -131,17 +138,22 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.origin')}</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    {t('stock.origin', 'Origine / Provenance')}
+                  </label>
                   <input
                     type="text"
                     name="origin"
+                    placeholder="ex: Maroc, Algérie, Tunisie, Égypte..."
                     value={formData.origin}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe]"
+                    className="w-full carbon-input text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.imageUrl')}</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    {t('stock.imageUrl', 'URL Image Produit')}
+                  </label>
                   <div className="flex items-center space-x-2 rtl:space-x-reverse">
                     <div className="flex-1">
                       <input
@@ -149,12 +161,12 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
                         name="imageUrl"
                         value={formData.imageUrl}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe]"
+                        className="w-full carbon-input text-sm"
                         placeholder="https://..."
                       />
                     </div>
                     {formData.imageUrl && (
-                      <div className="w-10 h-10 rounded border border-[#e0e0e0] overflow-hidden flex items-center justify-center bg-gray-50">
+                      <div className="w-10 h-10 rounded border border-[#e0e0e0] overflow-hidden flex items-center justify-center bg-gray-50 shrink-0">
                         <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                       </div>
                     )}
@@ -165,10 +177,14 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
 
             {/* Pricing Info */}
             <div>
-              <h2 className="text-lg font-medium border-b border-[#e0e0e0] pb-2 mb-4">{t('stock.pricing')}</h2>
+              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-[#e0e0e0] pb-2 mb-4">
+                {t('stock.pricing', 'Tarification & Prix HT (en DH/Kg)')}
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.unitCostHT')} *</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    {t('stock.unitCostHT', 'Prix de Revient HT (DH/Kg)')} *
+                  </label>
                   <input
                     type="number"
                     name="unitCostHT"
@@ -177,11 +193,13 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
                     step="0.01"
                     value={formData.unitCostHT}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe]"
+                    className="w-full carbon-input font-mono font-bold text-purple-900 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.sellingPriceHT')} *</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    {t('stock.sellingPriceHT', 'Prix de Vente HT (DH/Kg)')} *
+                  </label>
                   <input
                     type="number"
                     name="sellingPriceHT"
@@ -190,11 +208,13 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
                     step="0.01"
                     value={formData.sellingPriceHT}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe]"
+                    className="w-full carbon-input font-mono font-bold text-blue-900 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.vatRate')} (%)</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    {t('stock.vatRate', 'Taux TVA')} (%)
+                  </label>
                   <input
                     type="number"
                     name="vatRate"
@@ -204,21 +224,21 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
                     step="0.1"
                     value={formData.vatRate}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe]"
+                    className="w-full carbon-input font-mono text-sm"
                   />
                 </div>
               </div>
               
-              <div className="mt-4 p-4 bg-gray-50 border border-[#e0e0e0] rounded-md flex space-x-8 rtl:space-x-reverse">
+              <div className="mt-4 p-4 bg-gray-50 border border-[#e0e0e0] rounded flex space-x-8 rtl:space-x-reverse">
                 <div>
-                  <span className="text-sm text-gray-500 block">{t('stock.computedMargin')}</span>
-                  <span className={`text-lg font-semibold ${margin > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {margin.toFixed(2)}
+                  <span className="text-xs text-gray-500 font-bold uppercase block">{t('stock.computedMargin', 'Marge Unitaire (DH/Kg)')}</span>
+                  <span className={`text-xl font-bold font-mono ${margin > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                    {margin.toFixed(2)} DH
                   </span>
                 </div>
                 <div>
-                  <span className="text-sm text-gray-500 block">{t('stock.marginPercent')}</span>
-                  <span className={`text-lg font-semibold ${marginPercent > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <span className="text-xs text-gray-500 font-bold uppercase block">{t('stock.marginPercent', 'Taux de Marge Brute (%)')}</span>
+                  <span className={`text-xl font-bold font-mono ${marginPercent > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
                     {marginPercent.toFixed(1)}%
                   </span>
                 </div>
@@ -227,10 +247,14 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
 
             {/* Logistics Info */}
             <div>
-              <h2 className="text-lg font-medium border-b border-[#e0e0e0] pb-2 mb-4">{t('stock.logistics')}</h2>
+              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-[#e0e0e0] pb-2 mb-4">
+                {t('stock.logistics', 'Logistique & Conditionnement')}
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.kgPerCarton')} <span className="text-gray-400 text-xs font-normal">(Optionnel)</span></label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    {t('stock.kgPerCarton', 'Poids par Carton (Kg)')} <span className="text-gray-400 font-normal">(Optionnel)</span>
+                  </label>
                   <input
                     type="number"
                     name="kgPerCarton"
@@ -238,11 +262,13 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
                     step="0.01"
                     value={formData.kgPerCarton}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe]"
+                    className="w-full carbon-input font-mono text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.cartonsPerPallet')} <span className="text-gray-400 text-xs font-normal">(Optionnel)</span></label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    {t('stock.cartonsPerPallet', 'Cartons par Palette')} <span className="text-gray-400 font-normal">(Optionnel)</span>
+                  </label>
                   <input
                     type="number"
                     name="cartonsPerPallet"
@@ -250,11 +276,13 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
                     step="1"
                     value={formData.cartonsPerPallet}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe]"
+                    className="w-full carbon-input font-mono text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('stock.minStockAlertKg')} *</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    {t('stock.minStockAlertKg', 'Seuil d\'Alerte Stock Min (Kg)')} *
+                  </label>
                   <input
                     type="number"
                     name="minStockAlertKg"
@@ -263,27 +291,31 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
                     step="0.1"
                     value={formData.minStockAlertKg}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe]"
+                    className="w-full carbon-input font-mono text-sm text-amber-700 font-bold"
                   />
                 </div>
               </div>
-              <div className="mt-4 p-4 bg-gray-50 border border-[#e0e0e0] rounded-md">
-                <span className="text-sm text-gray-500 block">{t('stock.computedKgPerPallet')}</span>
-                <span className="text-lg font-semibold text-[#161616]">{kgPerPallet.toFixed(2)} kg</span>
+              <div className="mt-4 p-3 bg-gray-50 border border-[#e0e0e0] rounded">
+                <span className="text-xs text-gray-500 font-bold uppercase block">{t('stock.computedKgPerPallet', 'Poids Théorique Palette (Kg)')}</span>
+                <span className="text-base font-bold font-mono text-[#161616]">{kgPerPallet.toFixed(2)} Kg</span>
               </div>
             </div>
 
             {/* Description */}
             <div>
-              <h2 className="text-lg font-medium border-b border-[#e0e0e0] pb-2 mb-4">{t('stock.additionalInfo')}</h2>
+              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-[#e0e0e0] pb-2 mb-4">
+                {t('stock.additionalInfo', 'Informations Complémentaires')}
+              </h2>
               <div>
-                <label className="block text-sm font-medium mb-1">{t('common.description')}</label>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  {t('common.description', 'Description & remarques particulières')}
+                </label>
                 <textarea
                   name="description"
                   rows={4}
                   value={formData.description}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe] resize-none"
+                  className="w-full carbon-input text-sm resize-none"
                 ></textarea>
               </div>
             </div>
@@ -293,3 +325,4 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
     </div>
   );
 };
+

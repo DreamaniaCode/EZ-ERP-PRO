@@ -62,8 +62,8 @@ export const SupplierEditPage: React.FC<{ editId: string | null; onBack: () => v
           <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-[#0f62fe]">
             <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
           </button>
-          <h1 className="text-xl font-semibold">
-            {editId ? t('directory.editSupplier') : t('directory.newSupplier')}
+          <h1 className="text-xl font-bold">
+            {editId ? t('directory.editSupplier', 'Modifier la Fiche Fournisseur') : t('directory.newSupplier', 'Nouveau Fournisseur')}
           </h1>
         </div>
         <div className="flex items-center space-x-3 rtl:space-x-reverse">
@@ -73,14 +73,14 @@ export const SupplierEditPage: React.FC<{ editId: string | null; onBack: () => v
             className="flex items-center px-4 py-2 border border-[#393939] text-[#161616] bg-white hover:bg-gray-50 rounded text-sm font-medium transition-colors"
           >
             <X className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-            {t('common.cancel')}
+            {t('common.cancel', 'Annuler')}
           </button>
           <button 
             onClick={handleSubmit}
-            className="flex items-center px-4 py-2 bg-[#0f62fe] text-white hover:bg-blue-700 rounded text-sm font-medium transition-colors"
+            className="flex items-center px-4 py-2 bg-[#0f62fe] text-white hover:bg-blue-700 rounded text-sm font-bold transition-colors shadow-md"
           >
             <Save className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-            {t('common.save')}
+            {t('common.save', 'Enregistrer')}
           </button>
         </div>
       </div>
@@ -91,29 +91,36 @@ export const SupplierEditPage: React.FC<{ editId: string | null; onBack: () => v
           <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-[#e0e0e0] p-6 space-y-8">
             {/* Identity Info */}
             <div>
-              <h2 className="text-lg font-medium border-b border-[#e0e0e0] pb-2 mb-4">{t('directory.identity')}</h2>
+              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-[#e0e0e0] pb-2 mb-4">
+                {t('directory.identity', "Informations d'Identité")}
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('directory.name')} *</label>
+                  <label className="block text-xs font-bold uppercase text-gray-700 mb-1">
+                    {t('directory.name', 'Nom du Fournisseur')} *
+                  </label>
                   <input
                     type="text"
                     name="name"
                     required
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe]"
+                    className="w-full carbon-input text-sm font-bold"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t('directory.companyName')}</label>
+                  <label className="block text-xs font-bold uppercase text-gray-700 mb-1">
+                    {t('directory.companyName', 'Raison Sociale / Entreprise')}
+                  </label>
                   <input
                     type="text"
                     name="companyName"
                     value={formData.companyName}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-[#e0e0e0] rounded focus:outline-none focus:border-[#0f62fe]"
+                    className="w-full carbon-input text-sm"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-1">{t('directory.type')} *</label>
                   <select
