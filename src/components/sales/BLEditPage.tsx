@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
 import { ArrowLeft, Save, X, Plus, Trash2, RefreshCw, Sparkles, Truck } from 'lucide-react';
+import { QuickProductModal } from '../stock/QuickProductModal';
 
 import { generateWhatsAppBLLink } from '../../utils/whatsappUtils';
 
@@ -14,6 +15,8 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
   const [frigoId, setFrigoId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [items, setItems] = useState<any[]>([]);
+  const [showQuickProductModal, setShowQuickProductModal] = useState(false);
+
 
   // Load existing BL data when editId is provided
   useEffect(() => {
@@ -287,14 +290,27 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
               <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
                 {t('sales.items', 'Articles & Quantités (Kg)')}
               </h2>
-              <button
-                type="button"
-                onClick={handleAddItem}
-                className="bg-[#0f62fe] text-white hover:bg-blue-700 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 shadow-sm transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Ajouter une Ligne</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickProductModal(true)}
+                  className="bg-emerald-600 text-white hover:bg-emerald-700 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 shadow-sm transition-colors"
+                  title="Créer rapidement un nouveau produit au catalogue"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Nouveau Produit</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  className="bg-[#0f62fe] text-white hover:bg-blue-700 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 shadow-sm transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Ajouter une Ligne</span>
+                </button>
+              </div>
+
             </div>
             
             <div className="overflow-x-auto">
@@ -388,6 +404,33 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
           </div>
         </div>
       </div>
+
+      {showQuickProductModal && (
+        <QuickProductModal
+          onClose={() => setShowQuickProductModal(false)}
+          onProductCreated={(newProdId) => {
+            const prd = products.find(p => p.id === newProdId);
+            if (prd) {
+              setItems(prev => [
+                ...prev,
+                {
+                  id: `item-${Date.now()}`,
+                  productId: prd.id,
+                  productName: prd.name,
+                  productCode: prd.code,
+                  quantityKg: 100,
+                  quantityPallets: Math.ceil(100 / ((prd.kgPerCarton || 10) * (prd.cartonsPerPallet || 100))),
+                  unitPriceHT: prd.sellingPriceHT,
+                  totalHT: 100 * prd.sellingPriceHT,
+                  totalTTC: 100 * prd.sellingPriceHT * 1.2
+                }
+              ]);
+            }
+          }}
+        />
+      )}
+
     </div>
   );
 };
+

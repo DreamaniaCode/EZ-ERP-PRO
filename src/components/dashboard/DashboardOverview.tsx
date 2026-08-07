@@ -372,11 +372,19 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
               const totalKgInFrigo = frigoStocks.reduce((acc, s) => acc + s.quantityKg, 0);
 
               return (
-                <div key={frigo.id} className="p-3 bg-gray-50 border border-gray-200 rounded">
+                <div 
+                  key={frigo.id} 
+                  onClick={() => onNavigate('FRIGOS')}
+                  className="p-3 bg-gray-50 border border-gray-200 rounded cursor-pointer hover:border-[#0f62fe] hover:bg-blue-50/50 transition-all group"
+                  title="Cliquer pour voir la fiche détaillée et la valorisation de ce frigo"
+                >
                   <div className="flex justify-between items-start mb-1">
                     <div>
-                      <span className="font-bold text-xs text-gray-900">{frigo.name}</span>
-                      <div className="text-[10px] text-gray-500">{frigo.managerName} ({frigo.managerPhone})</div>
+                      <span className="font-bold text-xs text-gray-900 group-hover:text-[#0f62fe] flex items-center gap-1">
+                        {frigo.name}
+                        <ExternalLink className="w-3 h-3 text-gray-400 group-hover:text-[#0f62fe]" />
+                      </span>
+                      <div className="text-[10px] text-gray-500">{frigo.managerName || 'Responsable Frigo'} ({frigo.managerPhone || '-'})</div>
                     </div>
                   </div>
 
@@ -388,6 +396,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
               );
             })}
           </div>
+
         </div>
       </div>
 

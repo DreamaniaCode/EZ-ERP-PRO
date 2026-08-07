@@ -28,7 +28,8 @@ interface FrigoManagementProps {
 }
 
 export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, onNewFrigo }) => {
-  const { frigos, stocks, products, addFrigo, updateFrigo, deleteFrigo } = useERP();
+  const { frigos, stocks, products, deliveryNotes, addFrigo, updateFrigo, deleteFrigo } = useERP();
+
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
