@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useERP } from '../../context/ERPContext';
 import { Product, InventoryCountItem } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
+import { StockTransferModal } from './StockTransferModal';
 
 import { 
   ClipboardCheck, 
@@ -21,7 +22,8 @@ import {
   PackageCheck,
   PackageX,
   Trash2,
-  Plus
+  Plus,
+  ArrowLeftRight
 } from 'lucide-react';
 import { ColdStorageFrigo } from '../../types';
 
@@ -33,7 +35,9 @@ export const MultiFrigoInventory: React.FC = () => {
   );
   const [showAddFrigoModal, setShowAddFrigoModal] = useState(false);
   const [showManageFrigosModal, setShowManageFrigosModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
   const [editingFrigo, setEditingFrigo] = useState<ColdStorageFrigo | null>(null);
+
 
   const [frigoForm, setFrigoForm] = useState({
     name: '',
@@ -297,6 +301,15 @@ export const MultiFrigoInventory: React.FC = () => {
           </div>
 
           <button
+            onClick={() => setShowTransferModal(true)}
+            className="px-3 py-1.5 bg-[#0f62fe] hover:bg-blue-700 text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-all shadow-sm"
+            title="Transférer du stock d'un frigo de départ vers un frigo de destination"
+          >
+            <ArrowLeftRight className="w-4 h-4 text-cyan-300" />
+            <span>Transfert Inter-Frigos</span>
+          </button>
+
+          <button
             onClick={() => setShowManageFrigosModal(true)}
             className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-all shadow-sm"
             title="Gérer la liste complète des Frigos & Entrepôts (CRUD)"
@@ -304,6 +317,7 @@ export const MultiFrigoInventory: React.FC = () => {
             <Building2 className="w-4 h-4" />
             <span>Gérer Frigos (CRUD)</span>
           </button>
+
 
           <button
             onClick={handleOpenAddFrigo}
@@ -1073,6 +1087,16 @@ export const MultiFrigoInventory: React.FC = () => {
         </div>
       )}
 
+      {/* Stock Transfer Inter-Frigos Modal */}
+
+      {showTransferModal && (
+        <StockTransferModal
+          onClose={() => setShowTransferModal(false)}
+          defaultSourceFrigoId={selectedFrigoId}
+        />
+      )}
+
     </div>
   );
 };
+

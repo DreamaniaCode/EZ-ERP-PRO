@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useERP } from '../../context/ERPContext';
 import { ColdStorageFrigo } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
+import { StockTransferModal } from './StockTransferModal';
 import { 
   Warehouse, 
   Plus, 
@@ -16,8 +17,10 @@ import {
   CheckCircle2, 
   AlertTriangle,
   ExternalLink,
-  Layers
+  Layers,
+  ArrowLeftRight
 } from 'lucide-react';
+
 
 interface FrigoManagementProps {
   onEditFrigo?: (id: string) => void;
@@ -29,8 +32,10 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
   const [editingFrigo, setEditingFrigo] = useState<ColdStorageFrigo | null>(null);
   const [selectedFrigoDetail, setSelectedFrigoDetail] = useState<ColdStorageFrigo | null>(null);
+
 
   // Form State for Add / Edit
   const [formData, setFormData] = useState<Omit<ColdStorageFrigo, 'id' | 'code'>>({
@@ -161,13 +166,23 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <ExportButtons 
             filename="Frigos_Supervision_ERP" 
             title="Liste des Entrepôts Frigorifiques & Capacités" 
             excelData={exportData}
             pdfElementId="frigo-management-page"
           />
+
+          <button
+            onClick={() => setShowTransferModal(true)}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-3.5 py-2 rounded transition shadow-sm"
+            title="Transférer du stock d'un frigo vers un autre"
+          >
+            <ArrowLeftRight className="w-4 h-4 text-cyan-300" />
+            <span>Transfert Inter-Frigos</span>
+          </button>
+
           <button
             onClick={handleOpenAdd}
             className="flex items-center gap-2 bg-[#0f62fe] hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs px-3.5 py-2 rounded transition shadow-sm"
@@ -176,6 +191,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
             <span>Nouveau Frigo</span>
           </button>
         </div>
+
       </div>
 
       {/* Global Capacity Summary KPI Cards */}
@@ -773,8 +789,14 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
             </div>
           </div>
         </div>
+      {/* Stock Transfer Inter-Frigos Modal */}
+      {showTransferModal && (
+        <StockTransferModal
+          onClose={() => setShowTransferModal(false)}
+        />
       )}
 
     </div>
   );
 };
+
