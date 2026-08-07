@@ -789,7 +789,10 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
             </div>
           </div>
         </div>
+      )}
+
       {/* Stock Transfer Inter-Frigos Modal */}
+
       {showTransferModal && (
         <StockTransferModal
           onClose={() => setShowTransferModal(false)}
