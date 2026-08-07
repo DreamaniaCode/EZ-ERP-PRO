@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useERP } from '../../context/ERPContext';
 import { Client, DeliveryNoteBL } from '../../types';
+import { ExportButtons } from '../common/ExportButtons';
 import { 
   Building2, Phone, Mail, MapPin, CreditCard, AlertTriangle, 
   CheckCircle2, TrendingUp, Package, FileText, Clock, X, DollarSign, ArrowLeft, ChevronRight,
   Edit3, Trash2, Save, MessageSquare
 } from 'lucide-react';
 import { generateWhatsAppInvoiceLink } from '../../utils/whatsappUtils';
+
 
 interface ClientDetailModalProps {
   client: Client;
@@ -162,7 +164,32 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <ExportButtons
+              filename={`Releve_Compte_${client.code}_${client.name.replace(/\s+/g, '_')}`}
+              title={`DOSSIER ET RELEVÉ DE COMPTE CLIENT - ${client.name.toUpperCase()} (${client.code})`}
+              excelData={clientBLs.map(bl => {
+                const inv = clientInvoices.find(i => i.blId === bl.id || i.invoiceNumber.includes(bl.blNumber.replace('BL-', '')));
+                return {
+                  'Code Client': client.code,
+                  'Nom Client': client.name,
+                  'N° BL': bl.blNumber,
+                  'Réf Commande': bl.orderNumber || '-',
+                  'Date Livré': bl.date,
+                  'Entrepôt Frigo': bl.frigoName,
+                  'Poids Livré (Kg)': bl.totalKg,
+                  'Palettes': bl.totalPallets,
+                  'Montant BL HT (DH)': bl.totalHT,
+                  'Montant BL TTC (DH)': bl.totalTTC,
+                  'N° Facture': inv?.invoiceNumber || 'Non Facturé',
+                  'Statut Facture': inv?.status || (bl.status === 'FACTURÉ' ? 'FACTURÉ' : 'EN ATTENTE'),
+                  'Montant Payé (DH)': inv?.paidAmount || 0,
+                  'Reste à Payer (DH)': inv ? (inv.totalTTC - inv.paidAmount) : bl.totalTTC,
+                  'Statut Quai Frigo': bl.frigoEmployeeApproved ? `Approuvé (${bl.frigoApprovedBy})` : 'En Attente',
+                };
+              })}
+            />
+
             <button
               onClick={() => {
                 setEditForm({
@@ -197,6 +224,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
               Retour Liste
             </button>
           </div>
+
         </div>
 
         {/* Overdue Warning Alert */}
