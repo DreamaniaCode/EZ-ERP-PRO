@@ -386,8 +386,6 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
                             Éditer
                           </button>
                         )}
-                      </td>
-
                         <button
                           onClick={() => {
                             if (window.confirm(`Êtes-vous sûr de vouloir supprimer définitivement le client "${c.name}" (${c.code}) ?`)) {
@@ -401,6 +399,7 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
                         </button>
                       </td>
                     </tr>
+
                   );
                 })}
               </tbody>
