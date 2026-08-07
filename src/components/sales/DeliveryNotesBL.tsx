@@ -1230,7 +1230,10 @@ EasyERP Pro • Logistics Management`;
             </form>
           </div>
         </div>
+      )}
+
       {/* High-Res Photo Modal Viewer for Bon de Sortie Frigo */}
+
       {selectedPhotoUrl && (
         <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="relative max-w-4xl w-full bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl p-4">
