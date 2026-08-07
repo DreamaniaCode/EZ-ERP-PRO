@@ -101,8 +101,28 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
   // Pending BLs
   const pendingBLsCount = deliveryNotes.filter(bl => !bl.frigoEmployeeApproved).length;
 
-  // Category breakdown for margins
+  // Category breakdown for margins (100% derived from real database: orders, BLs, stocks)
   const categoryStats: { [cat: string]: { salesHT: number; costHT: number; marginHT: number } } = {};
+  const categorySalesStats: { [cat: string]: { salesHT: number; costHT: number; marginHT: number; stockKg: number; valuationHT: number } } = {};
+
+  // Initialize catalog categories
+  ['Dattes Locales', 'Dattes Importées', 'Fruits Secs', 'Huiles & Condiments', 'Autres Produits Alimentaires'].forEach(cat => {
+    categorySalesStats[cat] = { salesHT: 0, costHT: 0, marginHT: 0, stockKg: 0, valuationHT: 0 };
+  });
+
+  // Real Stocks aggregation by category
+  stocks.forEach(stk => {
+    const prd = products.find(p => p.id === stk.productId);
+    if (prd && prd.category) {
+      if (!categorySalesStats[prd.category]) {
+        categorySalesStats[prd.category] = { salesHT: 0, costHT: 0, marginHT: 0, stockKg: 0, valuationHT: 0 };
+      }
+      categorySalesStats[prd.category].stockKg += stk.quantityKg;
+      categorySalesStats[prd.category].valuationHT += (stk.quantityKg * (prd.unitCostHT || 0));
+    }
+  });
+
+  // Real Orders / BLs aggregation by category
   orders.forEach(ord => {
     ord.items.forEach(item => {
       if (!categoryStats[item.category]) {
@@ -112,8 +132,16 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
       categoryStats[item.category].salesHT += item.totalHT;
       categoryStats[item.category].costHT += itemCost;
       categoryStats[item.category].marginHT += (item.totalHT - itemCost);
+
+      if (!categorySalesStats[item.category]) {
+        categorySalesStats[item.category] = { salesHT: 0, costHT: 0, marginHT: 0, stockKg: 0, valuationHT: 0 };
+      }
+      categorySalesStats[item.category].salesHT += item.totalHT;
+      categorySalesStats[item.category].costHT += itemCost;
+      categorySalesStats[item.category].marginHT += (item.totalHT - itemCost);
     });
   });
+
 
   return (
     <div className="space-y-6">
@@ -304,32 +332,33 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
       {/* 3D Cylinder KPI Growth & Color Customization Stage */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Chart 1: Sales Growth by Category */}
+        {/* Chart 1: Real Sales & Valuation HT by Category */}
         <CylinderKpiChart
-          title="Indicateurs de Croissance & Ventes HT par Catégorie (Cylindres 3D)"
-          subtitle="Graphique 3D interactif • Sélectionnez votre thème de couleurs en haut à droite"
+          title="Valorisation & Chiffre d'Affaires HT par Catégorie Produit (Données Réelles)"
+          subtitle="Données 100% issues de votre base de données (Stocks & Bons de Livraison)"
           unit="DH"
           data={
-            Object.keys(categoryStats).length > 0 
-              ? Object.entries(categoryStats).map(([cat, st]) => ({
+            Object.entries(categorySalesStats)
+              .filter(([_, st]) => st.salesHT > 0 || st.valuationHT > 0)
+              .map(([cat, st]) => {
+                const val = st.salesHT > 0 ? st.salesHT : st.valuationHT;
+                const marginPct = st.salesHT > 0 ? Math.round((st.marginHT / st.salesHT) * 100) : 0;
+                return {
                   label: cat,
-                  value: st.salesHT,
-                  subValue: `Marge: ${st.marginHT.toLocaleString()} DH`,
-                  growthPct: st.salesHT > 0 ? Math.round((st.marginHT / st.salesHT) * 100) : 0
-                }))
-              : [
-                  { label: 'Dattes Locales', value: 450000, subValue: 'Marge: 120.000 DH', growthPct: +26 },
-                  { label: 'Dattes Importées', value: 380000, subValue: 'Marge: 95.000 DH', growthPct: +24 },
-                  { label: 'Fruits Secs', value: 210000, subValue: 'Marge: 48.000 DH', growthPct: +22 },
-                  { label: 'Huiles & Condiments', value: 140000, subValue: 'Marge: 32.000 DH', growthPct: +18 },
-                ]
+                  value: val,
+                  subValue: st.salesHT > 0 
+                    ? `Marge: ${st.marginHT.toLocaleString()} DH` 
+                    : `Stock: ${st.stockKg.toLocaleString()} Kg`,
+                  growthPct: marginPct
+                };
+              })
           }
         />
 
-        {/* Chart 2: Frigo Volumes in 3D Storage Cylinders */}
+        {/* Chart 2: Real Frigo Volumes in 3D Storage Cylinders */}
         <CylinderKpiChart
-          title="Niveaux de Remplissage des Frigos (Réservoirs Cylindriques 3D)"
-          subtitle="Supervision visuelle des volumes stockés en Kg par entrepôt frigorifique"
+          title="Niveaux de Remplissage des Frigos (Entrepôts Réels)"
+          subtitle="Supervision visuelle des volumes stockés en Kg dans vos entrepôts frigorifiques"
           unit="Kg"
           data={
             frigos.map(f => {
@@ -345,6 +374,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
             })
           }
         />
+
 
       </div>
 
