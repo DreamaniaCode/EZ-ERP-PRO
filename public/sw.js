@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easyerp-pwa-v19-robust-stock-receivables';
+const CACHE_NAME = 'easyerp-pwa-v20-real-fixes';
 
 
 

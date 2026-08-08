@@ -53,7 +53,7 @@ export interface FrigoStockLevel {
   lastUpdated: string;
 }
 
-export type StockMovementType = 'ENTRÉE_INVENTAIRE' | 'ENTRÉE_ACHAT' | 'SORTIE_BL' | 'TRANSFERT_INTER_FRIGO' | 'AJUSTEMENT_MANUEL';
+export type StockMovementType = 'ENTRÉE_INVENTAIRE' | 'ENTRÉE_ACHAT' | 'SORTIE_BL' | 'TRANSFERT_INTER_FRIGO' | 'AJUSTEMENT_MANUEL' | 'EXPÉDITION_VENTE';
 
 export interface ProductStockMovement {
   id: string;
@@ -272,6 +272,10 @@ export interface DeliveryNoteBL {
   emailSent: boolean;
   emailSentAt?: string;
   emailRecipient?: string;
+
+  // Invoice link (set when invoice is created from this BL)
+  invoiceId?: string;
+  invoiceNumber?: string;
 
   // Status
   status: 'EN_ATTENTE_FRIGO' | 'APPROUVÉ_FRIGO' | 'EN_COURS_LIVRAISON' | 'LIVRÉ' | 'FACTURÉ';

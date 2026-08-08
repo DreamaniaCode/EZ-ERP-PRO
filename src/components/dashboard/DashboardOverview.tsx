@@ -102,17 +102,19 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
   const grossMarginHT = totalSalesHT - totalCostHT;
   const globalMarginPct = totalSalesHT > 0 ? (grossMarginHT / totalSalesHT) * 100 : 0;
 
-  // Receivables (Créances Clients)
+  // Receivables (Créances Clients) - computed from actual invoice and BL data
   const invoiceReceivables = (invoices || [])
     .filter(inv => inv.status !== 'PAYEE')
     .reduce((acc, inv) => acc + (inv.remainingAmount ?? (inv.totalTTC - (inv.amountPaid || 0))), 0);
 
+  // Only count delivered BLs that haven't been invoiced yet
   const nonInvoicedBLReceivables = (deliveryNotes || [])
-    .filter(bl => bl.status !== 'FACTURÉ' && !bl.invoiceId && !bl.invoiceNumber)
+    .filter(bl => (bl.status === 'LIVRÉ' || bl.status === 'EN_COURS_LIVRAISON') && !bl.invoiceId)
     .reduce((acc, bl) => acc + (bl.totalTTC || (bl.totalHT * 1.20)), 0);
 
   const clientBalanceReceivables = (clients || []).reduce((acc, c) => acc + (c.currentBalance || 0), 0);
 
+  // Use the highest of: client balances vs computed receivables (invoices + non-invoiced BLs)
   const totalReceivablesTTC = Math.max(clientBalanceReceivables, invoiceReceivables + nonInvoicedBLReceivables);
 
 

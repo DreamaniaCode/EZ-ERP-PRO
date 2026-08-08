@@ -1152,14 +1152,15 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setDeliveryNotes(prev => prev.map(bl => {
       if (bl.id !== blId) return bl;
 
-      // Decrement stock upon frigo manager approval if not already done
-      if (!bl.stockDecremented) {
+      // Use stockDeductedV2 flag - old stockDecremented flag was set by buggy code that never actually deducted
+      if (!(bl as any).stockDeductedV2) {
         deductBLStockHelper(bl);
       }
 
       const updated = {
         ...bl,
         stockDecremented: true,
+        stockDeductedV2: true,
         frigoEmployeeApproved: true,
         frigoApprovedBy: employeeName,
         frigoApprovedAt: timestamp,
@@ -1275,14 +1276,16 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (b.id !== id) return b;
 
       const merged = { ...b, ...updatedData };
-      let shouldDeduct = Boolean((updatedData.bonDeSortiePhotoUrl || updatedData.frigoEmployeeApproved) && !b.stockDecremented);
+      // Use stockDeductedV2 flag - old stockDecremented was set by buggy code
+      let shouldDeduct = Boolean((updatedData.bonDeSortiePhotoUrl || updatedData.frigoEmployeeApproved) && !(b as any).stockDeductedV2);
       if (shouldDeduct) {
         deductBLStockHelper(merged);
       }
 
       const updated = { 
         ...merged,
-        stockDecremented: b.stockDecremented || shouldDeduct
+        stockDecremented: (b as any).stockDecremented || shouldDeduct,
+        stockDeductedV2: (b as any).stockDeductedV2 || shouldDeduct
       };
 
       setDoc(doc(db, 'deliveryNotes', id), sanitizeForFirestore(updated), { merge: true }).catch(err => {

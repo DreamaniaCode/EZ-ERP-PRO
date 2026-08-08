@@ -1,3 +1,6 @@
+import jsPDF from 'jspdf';
+import { Invoice, CompanyInfo } from '../types';
+
 const fmtNum = (val: number | string | null | undefined): string => {
   if (val === null || val === undefined || isNaN(Number(val))) return '0';
   return Number(val).toLocaleString('en-US').replace(/,/g, ' ');
