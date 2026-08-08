@@ -12,7 +12,13 @@ interface InvoicePdfDocumentProps {
   onClose: () => void;
 }
 
+const formatNumber = (val: number | string | null | undefined): string => {
+  if (val === null || val === undefined || isNaN(Number(val))) return '0';
+  return Number(val).toLocaleString('en-US').replace(/,/g, ' ');
+};
+
 export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice, onClose }) => {
+
   const { companyInfo, clients, companies, activeCompany } = useERP();
   const printRef = useRef<HTMLDivElement | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
@@ -140,9 +146,9 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
                   <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>
                     <td className="p-2 border-r border-gray-300 font-bold text-gray-900">{it.productCode}</td>
                     <td className="p-2 border-r border-gray-300 font-semibold text-gray-900">{it.productName}</td>
-                    <td className="p-2 border-r border-gray-300 text-right font-bold text-gray-900">{it.quantityKg.toLocaleString()} Kg</td>
-                    <td className="p-2 border-r border-gray-300 text-right text-gray-900">{it.unitPriceHT.toLocaleString()} DH</td>
-                    <td className="p-2 text-right font-bold text-gray-900">{it.totalHT.toLocaleString()} DH</td>
+                    <td className="p-2 border-r border-gray-300 text-right font-bold text-gray-900">{formatNumber(it.quantityKg)} Kg</td>
+                    <td className="p-2 border-r border-gray-300 text-right text-gray-900">{formatNumber(it.unitPriceHT)} DH</td>
+                    <td className="p-2 text-right font-bold text-gray-900">{formatNumber(it.totalHT)} DH</td>
                   </tr>
                 ))}
               </tbody>
@@ -154,18 +160,19 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
             <div className="w-80 bg-gray-50 p-4 rounded border-2 border-gray-900 space-y-2 text-xs font-mono" style={{ backgroundColor: '#f9fafb', borderColor: '#111827' }}>
               <div className="flex justify-between items-center text-gray-700">
                 <span>Total HT:</span>
-                <span className="font-bold text-gray-900">{(invoice.totalHT ?? 0).toLocaleString()} DH</span>
+                <span className="font-bold text-gray-900">{formatNumber(invoice.totalHT)} DH</span>
               </div>
               <div className="flex justify-between items-center text-gray-700">
                 <span>TVA (20%):</span>
-                <span className="font-bold text-gray-900">{(invoice.totalVAT ?? 0).toLocaleString()} DH</span>
+                <span className="font-bold text-gray-900">{formatNumber(invoice.totalVAT)} DH</span>
               </div>
               <div className="border-t-2 border-gray-900 pt-2 flex justify-between items-center text-sm font-black text-gray-900" style={{ borderColor: '#111827' }}>
                 <span>NET À PAYER TTC:</span>
-                <span className="text-[#0f62fe]">{(invoice.totalTTC ?? 0).toLocaleString()} DH</span>
+                <span className="text-[#0f62fe]">{formatNumber(invoice.totalTTC)} DH</span>
               </div>
             </div>
           </div>
+
 
           {/* Bank / Payment Instructions */}
           <div className="border-t border-gray-200 pt-4 flex justify-between items-end text-xs">

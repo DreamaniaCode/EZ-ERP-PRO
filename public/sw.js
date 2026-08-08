@@ -1,4 +1,5 @@
-const CACHE_NAME = 'easyerp-pwa-v15-live-sync';
+const CACHE_NAME = 'easyerp-pwa-v16-clean-numbers';
+
 
 
 

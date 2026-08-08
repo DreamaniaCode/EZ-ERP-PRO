@@ -13,7 +13,13 @@ interface BLPdfDocumentProps {
   onClose: () => void;
 }
 
+const formatNumber = (val: number | string | null | undefined): string => {
+  if (val === null || val === undefined || isNaN(Number(val))) return '0';
+  return Number(val).toLocaleString('en-US').replace(/,/g, ' ');
+};
+
 export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoProp, onClose }) => {
+
   const { companyInfo, frigos, invoices, createInvoiceFromBL, approveFrigoBL, currentUser, companies, activeCompany } = useERP();
   const printRef = useRef<HTMLDivElement | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
@@ -184,7 +190,7 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
       doc.setTextColor(17, 17, 17);
       doc.text(safeStr(item.productName), colX[1] + 2, y + 4.8);
       doc.setTextColor(17, 17, 17);
-      doc.text(`${Number(item.quantityKg).toLocaleString()} Kg`, colX[2] + colWidths[2] / 2, y + 4.8, { align: 'center' });
+      doc.text(`${formatNumber(item.quantityKg)} Kg`, colX[2] + colWidths[2] / 2, y + 4.8, { align: 'center' });
       y += rowH;
     });
     y += 5;
@@ -201,7 +207,8 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
     doc.setTextColor(4, 120, 87);
-    doc.text(`${Number(bl.totalKg).toLocaleString()} Kg`, pw - margin - 24, y + 14, { align: 'center' });
+    doc.text(`${formatNumber(bl.totalKg)} Kg`, pw - margin - 24, y + 14, { align: 'center' });
+
 
     // Transport notes
     doc.setFont('helvetica', 'normal');
@@ -285,12 +292,13 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
     `🧊 *BON DE LIVRAISON - ${frigo?.name || bl.frigoName || 'Entrepôt Frigo'}*\n\n` +
     `📋 *N° BL:* ${bl.blNumber}\n` +
     `👤 *Client:* ${bl.clientName}\n` +
-    `⚖️ *Poids Total:* ${bl.totalKg?.toLocaleString()} Kg\n` +
+    `⚖️ *Poids Total:* ${formatNumber(bl.totalKg)} Kg\n` +
     `📅 *Date:* ${bl.date}\n` +
     (bl.orderNumber ? `📦 *Réf Commande:* ${bl.orderNumber}\n` : '') +
     `\n✅ Votre BL est prêt.\n` +
     `🔗 ${getBLDirectLink(bl.blNumber)}`
   );
+
 
   const handleWACopyMessage = () => {
     navigator.clipboard.writeText(waMessage).then(() => {
@@ -579,7 +587,7 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
                   <tr key={idx} className="border-b" style={{ borderColor: '#e2e8f0', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
                     <td className="p-2 border font-bold" style={{ borderColor: '#cbd5e1', color: '#0f62fe' }}>{item.productCode}</td>
                     <td className="p-2 border font-sans font-semibold" style={{ borderColor: '#cbd5e1', color: '#0f172a' }}>{item.productName}</td>
-                    <td className="p-2 border text-center font-bold" style={{ borderColor: '#cbd5e1', color: '#0f172a' }}>{item.quantityKg.toLocaleString()} Kg</td>
+                    <td className="p-2 border text-center font-bold" style={{ borderColor: '#cbd5e1', color: '#0f172a' }}>{formatNumber(item.quantityKg)} Kg</td>
                   </tr>
                 ))}
               </tbody>
@@ -598,9 +606,10 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
 
             <div className="p-4 rounded border text-right space-y-1 text-xs" style={{ backgroundColor: '#f8fafc', borderColor: '#cbd5e1' }}>
               <div className="text-gray-500 text-[10px]">POIDS TOTAL EXPÉDIÉ</div>
-              <div className="font-bold text-base text-emerald-700">{bl.totalKg.toLocaleString()} Kg</div>
+              <div className="font-bold text-base text-emerald-700">{formatNumber(bl.totalKg)} Kg</div>
             </div>
           </div>
+
 
           {/* Signatures & Stamps Footer */}
           <div className="grid grid-cols-2 gap-6 pt-6 border-t-2 border-gray-800 text-xs font-mono">

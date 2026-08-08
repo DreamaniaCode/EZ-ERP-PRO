@@ -1,7 +1,10 @@
-import jsPDF from 'jspdf';
-import { Invoice, CompanyInfo } from '../types';
+const fmtNum = (val: number | string | null | undefined): string => {
+  if (val === null || val === undefined || isNaN(Number(val))) return '0';
+  return Number(val).toLocaleString('en-US').replace(/,/g, ' ');
+};
 
 export function generateAndDownloadInvoicePdf(invoice: Invoice, companyInfo: CompanyInfo): void {
+
   const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
   const pw = doc.internal.pageSize.getWidth();
   const margin = 14;
@@ -139,10 +142,10 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyInfo: Com
     doc.text(safe(it.productName), colX[1] + 2, y + 4.8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(17, 17, 17);
-    doc.text(`${Number(it.quantityKg || 0).toLocaleString()} Kg`, colX[2] + cols[2] / 2, y + 4.8, { align: 'center' });
-    doc.text(`${Number(it.unitPriceHT || 0).toLocaleString()} DH`, colX[3] + cols[3] / 2, y + 4.8, { align: 'center' });
+    doc.text(`${fmtNum(it.quantityKg)} Kg`, colX[2] + cols[2] / 2, y + 4.8, { align: 'center' });
+    doc.text(`${fmtNum(it.unitPriceHT)} DH`, colX[3] + cols[3] / 2, y + 4.8, { align: 'center' });
     doc.setFont('helvetica', 'bold');
-    doc.text(`${Number(it.totalHT || 0).toLocaleString()} DH`, pw - margin - 2, y + 4.8, { align: 'right' });
+    doc.text(`${fmtNum(it.totalHT)} DH`, pw - margin - 2, y + 4.8, { align: 'right' });
     y += rowH;
   });
   y += 6;
@@ -162,14 +165,14 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyInfo: Com
   doc.text('Total HT:', boxX + 3, y + 7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(17, 17, 17);
-  doc.text(`${totalHT.toLocaleString()} DH`, boxX + boxW - 3, y + 7, { align: 'right' });
+  doc.text(`${fmtNum(totalHT)} DH`, boxX + boxW - 3, y + 7, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(80, 80, 80);
   doc.text('TVA (20%):', boxX + 3, y + 14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(17, 17, 17);
-  doc.text(`${totalVAT.toLocaleString()} DH`, boxX + boxW - 3, y + 14, { align: 'right' });
+  doc.text(`${fmtNum(totalVAT)} DH`, boxX + boxW - 3, y + 14, { align: 'right' });
 
   doc.setDrawColor(17, 17, 17);
   doc.setLineWidth(0.4);
@@ -180,7 +183,8 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyInfo: Com
   doc.setTextColor(17, 17, 17);
   doc.text('NET A PAYER TTC:', boxX + 3, y + 24);
   doc.setTextColor(15, 98, 254);
-  doc.text(`${totalTTC.toLocaleString()} DH`, boxX + boxW - 3, y + 24, { align: 'right' });
+  doc.text(`${fmtNum(totalTTC)} DH`, boxX + boxW - 3, y + 24, { align: 'right' });
+
 
   y += 34;
 
