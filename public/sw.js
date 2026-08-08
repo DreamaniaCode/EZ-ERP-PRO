@@ -1,4 +1,5 @@
-const CACHE_NAME = 'easyerp-pwa-v13-real-name';
+const CACHE_NAME = 'easyerp-pwa-v14-zero-reset';
+
 
 
 

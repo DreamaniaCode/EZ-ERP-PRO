@@ -232,93 +232,103 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
 
   const [products, setProducts] = useState<Product[]>(() => {
+    if (isWiped) return [];
     const saved = localStorage.getItem('erp_products');
     if (saved) return JSON.parse(saved);
-    if (isWiped) return [];
     return INITIAL_PRODUCTS;
   });
 
   const [frigos, setFrigos] = useState<ColdStorageFrigo[]>(() => {
+    if (isWiped) return INITIAL_FRIGOS;
     const saved = localStorage.getItem('erp_frigos');
     if (saved) return JSON.parse(saved);
     return INITIAL_FRIGOS;
   });
 
   const [stocks, setStocks] = useState<FrigoStockLevel[]>(() => {
+    if (isWiped) return [];
     const saved = localStorage.getItem('erp_stocks');
     if (saved) return JSON.parse(saved);
-    if (isWiped) return [];
     return INITIAL_STOCKS;
   });
 
   const [clients, setClients] = useState<Client[]>(() => {
+    if (isWiped) return [];
     const saved = localStorage.getItem('erp_clients');
     if (saved) return JSON.parse(saved);
-    if (isWiped) return [];
     return INITIAL_CLIENTS;
   });
 
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+    if (isWiped) return [];
     const saved = localStorage.getItem('erp_suppliers');
     if (saved) return JSON.parse(saved);
-    if (isWiped) return [];
     return INITIAL_SUPPLIERS;
   });
 
   const [orders, setOrders] = useState<SalesOrder[]>(() => {
+    if (isWiped) return [];
     const saved = localStorage.getItem('erp_orders');
     if (saved) return JSON.parse(saved);
     return [];
   });
 
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteBL[]>(() => {
+    if (isWiped) return [];
     const saved = localStorage.getItem('erp_deliveryNotes') || localStorage.getItem('erp_delivery_notes');
     if (saved) return JSON.parse(saved);
-    if (isWiped) return [];
     return INITIAL_DELIVERY_NOTES;
   });
 
   const [invoices, setInvoices] = useState<Invoice[]>(() => {
+    if (isWiped) return [];
     const saved = localStorage.getItem('erp_invoices');
     if (saved) return JSON.parse(saved);
     return [];
   });
 
   const [chequesEffets, setChequesEffets] = useState<ChequeEffet[]>(() => {
+    if (isWiped) return [];
     const saved = localStorage.getItem('erp_cheques') || localStorage.getItem('erp_cheques_effets');
     if (saved) return JSON.parse(saved);
     return [];
   });
 
   const [treasuryAccounts, setTreasuryAccounts] = useState<TreasuryAccount[]>(() => {
+    if (isWiped) return INITIAL_TREASURY_ACCOUNTS;
     const saved = localStorage.getItem('erp_treasury');
     if (saved) return JSON.parse(saved);
     return INITIAL_TREASURY_ACCOUNTS;
   });
 
   const [expenses, setExpenses] = useState<Expense[]>(() => {
+    if (isWiped) return [];
     const saved = localStorage.getItem('erp_expenses');
     if (saved) return JSON.parse(saved);
     return [];
   });
 
   const [inventoryCounts, setInventoryCounts] = useState<MultiSiteInventoryCount[]>(() => {
+    if (isWiped) return [];
     const saved = localStorage.getItem('erp_inventories');
     if (saved) return JSON.parse(saved);
     return [];
   });
 
   const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseImportInvoice[]>(() => {
+    if (isWiped) return [];
     const saved = localStorage.getItem('erp_purchase_invoices');
     if (saved) return JSON.parse(saved);
     return [];
   });
 
   const [stockMovements, setStockMovements] = useState<ProductStockMovement[]>(() => {
+    if (isWiped) return [];
     const saved = localStorage.getItem('erp_stock_movements');
     if (saved) return JSON.parse(saved);
     return [];
   });
+
 
   useEffect(() => {
     localStorage.setItem('erp_stock_movements', JSON.stringify(stockMovements));
@@ -1345,7 +1355,11 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('erp_system_wiped', 'true');
 
     try {
-      const collectionsToDelete = ['deliveryNotes', 'orders', 'products', 'clients', 'suppliers', 'invoices', 'expenses', 'chequesEffets', 'inventoryCounts', 'stocks'];
+      const collectionsToDelete = [
+        'deliveryNotes', 'orders', 'products', 'clients', 
+        'suppliers', 'invoices', 'expenses', 'chequesEffets', 
+        'inventoryCounts', 'stocks', 'purchase_invoices', 'stock_movements'
+      ];
       for (const colName of collectionsToDelete) {
         const snapshot = await getDocs(collection(db, colName));
         snapshot.forEach(docSnap => {
@@ -1356,19 +1370,29 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       console.warn('Firestore bulk delete skipped:', err);
     }
 
+    if ('caches' in window) {
+      try {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      } catch (e) {}
+    }
+
     setProducts([]);
     setClients([]);
-    setSuppliers(INITIAL_SUPPLIERS);
+    setSuppliers([]);
     setOrders([]);
     setDeliveryNotes([]);
     setInvoices([]);
     setChequesEffets([]);
     setExpenses([]);
     setStocks([]);
-    setFrigos(INITIAL_FRIGOS);
+    setInventoryCounts([]);
+    setPurchaseInvoices([]);
+    setStockMovements([]);
 
     window.location.reload();
   };
+
 
   const addExpense = (expenseData: Omit<Expense, 'id' | 'expenseNumber'>) => {
     const count = expenses.length + 1;
