@@ -1123,7 +1123,15 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     const client = clients.find(c => c.id === bl.clientId);
-    const clientICE = client ? client.ice : '000000000000000';
+    const clientICE = client ? client.ice : '';
+    const companyName = client ? client.companyName : '';
+
+    // TVA Rule: Apply 20% TVA ONLY if ICE exists or companyName exists! Otherwise 0% TVA!
+    const hasIceOrCompany = Boolean(
+      (clientICE && clientICE !== '000000000000000' && clientICE.trim() !== '') || 
+      (companyName && companyName.trim() !== '')
+    );
+    const activeVatRate = hasIceOrCompany ? 0.20 : 0.00;
 
     const invoiceItems = bl.items.map(it => ({
       productId: it.productId,
@@ -1132,14 +1140,15 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       quantityKg: it.quantityKg,
       quantityPallets: it.quantityPallets,
       unitPriceHT: it.unitPriceHT,
-      vatRate: 0.20,
+      vatRate: activeVatRate,
       totalHT: it.totalHT,
-      totalTTC: it.totalHT * 1.20,
+      totalTTC: it.totalHT * (1 + activeVatRate),
     }));
 
     const totalHT = bl.totalHT;
-    const totalVAT = totalHT * 0.20;
+    const totalVAT = totalHT * activeVatRate;
     const totalTTC = totalHT + totalVAT;
+
 
     const newInvoice: Invoice = {
       id: `fac-${Date.now()}`,

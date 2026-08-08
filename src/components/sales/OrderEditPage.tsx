@@ -6,12 +6,13 @@ import { ArrowLeft, Save, X, Plus, Trash2 } from 'lucide-react';
 export const OrderEditPage: React.FC<{ editId: string | null; onBack: () => void }> = ({ editId, onBack }) => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
-  const { clients, products, frigos, orders, createOrder, updateOrder } = useERP();
+  const { clients, products, frigos, stocks, orders, createOrder, updateOrder } = useERP();
 
   const [clientId, setClientId] = useState('');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<any[]>([]);
+
 
   useEffect(() => {
     if (editId && orders) {
@@ -87,8 +88,23 @@ export const OrderEditPage: React.FC<{ editId: string | null; onBack: () => void
   const marginPercentage = totalHT > 0 ? (grossMarginHT / totalHT) * 100 : 0;
 
   const handleSave = () => {
+    // Validate stock availability per item & frigo
+    for (const it of items) {
+      if (!it.productId || !it.frigoId) continue;
+      const stk = stocks?.find(s => s.frigoId === it.frigoId && s.productId === it.productId);
+      const prd = products?.find(p => p.id === it.productId);
+      const frg = frigos?.find(f => f.id === it.frigoId);
+      const availKg = stk ? stk.quantityKg : 0;
+
+      if (it.quantityKg > availKg) {
+        alert(`⚠️ COMMANDE BLOQUÉE - STOCK INSUFFISANT !\n\nLe stock dans l'entrepôt "${frg?.name || 'sélectionné'}" est insuffisant pour le produit "${prd?.name || 'sélectionné'}".\n\n• Stock disponible au frigo : ${availKg.toLocaleString()} Kg\n• Quantité demandée : ${it.quantityKg.toLocaleString()} Kg\n\nVeuillez ajuster la quantité ou approvisionner le frigo.`);
+        return;
+      }
+    }
+
     const client = clients?.find(c => c.id === clientId);
     const payload = {
+
       clientId,
       clientName: client?.name || '',
       clientICE: client?.ice || '',

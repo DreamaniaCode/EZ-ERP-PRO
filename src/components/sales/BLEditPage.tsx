@@ -9,13 +9,14 @@ import { generateWhatsAppBLLink } from '../../utils/whatsappUtils';
 export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }> = ({ editId, onBack }) => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
-  const { clients, frigos, products, deliveryNotes, addBL, updateBL } = useERP();
+  const { clients, frigos, products, stocks, deliveryNotes, addBL, updateBL } = useERP();
 
   const [clientId, setClientId] = useState('');
   const [frigoId, setFrigoId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [items, setItems] = useState<any[]>([]);
   const [showQuickProductModal, setShowQuickProductModal] = useState(false);
+
 
 
   // Load existing BL data when editId is provided
@@ -125,6 +126,17 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
   const selectedFrigo = frigos?.find(f => f.id === frigoId);
 
   const handleSave = () => {
+    // Validate stock availability before creating/saving BL
+    for (const it of items) {
+      if (!it.productId) continue;
+      const stk = stocks?.find(s => s.frigoId === frigoId && s.productId === it.productId);
+      const availKg = stk ? stk.quantityKg : 0;
+      if (it.quantityKg > availKg) {
+        alert(`⚠️ BL BLOQUÉ - STOCK INSUFFISANT !\n\nLe stock dans le frigo "${selectedFrigo?.name || 'sélectionné'}" est insuffisant pour le produit "${it.productName}".\n\n• Stock disponible au frigo : ${availKg.toLocaleString()} Kg\n• Quantité demandée sur le BL : ${it.quantityKg.toLocaleString()} Kg\n\nVeuillez ajuster la quantité ou approvisionner le frigo avant d'émettre le BL.`);
+        return;
+      }
+    }
+
     const payload = {
       clientId,
       clientName: selectedClient ? (selectedClient.name || selectedClient.companyName) : 'Client',
@@ -137,6 +149,7 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
       totalHT,
       totalTTC
     };
+
 
     if (editId) {
       if (updateBL) {
@@ -325,31 +338,51 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item, index) => (
-                    <tr key={item.id || index}>
-                      <td>
-                        <select
-                          value={item.productId}
-                          onChange={(e) => handleItemChange(index, 'productId', e.target.value)}
-                          className="w-full border border-[#e0e0e0] rounded p-1.5 text-xs font-medium focus:ring-1 focus:ring-[#0f62fe]"
-                        >
-                          <option value="">-- Sélectionner Produit --</option>
-                          {products?.map((p: any) => (
-                            <option key={p.id} value={p.id}>{p.name} ({p.sellingPriceHT} DH/kg)</option>
-                          ))}
-                        </select>
-                      </td>
+                  {items.map((item, index) => {
+                    const stk = stocks?.find(s => s.frigoId === frigoId && s.productId === item.productId);
+                    const availKg = stk ? stk.quantityKg : 0;
+                    const isStockOk = item.quantityKg <= availKg;
 
-                      <td>
-                        <input
-                          type="number"
-                          value={item.quantityKg}
-                          onChange={(e) => handleItemChange(index, 'quantityKg', e.target.value)}
-                          className="w-full border border-[#e0e0e0] rounded p-1.5 text-xs font-mono font-bold focus:ring-1 focus:ring-[#0f62fe]"
-                          min="0"
-                          step="1"
-                        />
-                      </td>
+                    return (
+                      <tr key={item.id || index} className={!isStockOk ? 'bg-red-50/70' : ''}>
+                        <td>
+                          <select
+                            value={item.productId}
+                            onChange={(e) => handleItemChange(index, 'productId', e.target.value)}
+                            className="w-full border border-[#e0e0e0] rounded p-1.5 text-xs font-medium focus:ring-1 focus:ring-[#0f62fe]"
+                          >
+                            <option value="">-- Sélectionner Produit --</option>
+                            {products?.map((p: any) => {
+                              const pStk = stocks?.find(s => s.frigoId === frigoId && s.productId === p.id);
+                              const pKg = pStk ? pStk.quantityKg : 0;
+                              return (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} — [Stock Frigo: {pKg.toLocaleString()} Kg] ({p.sellingPriceHT} DH/kg)
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </td>
+
+                        <td>
+                          <input
+                            type="number"
+                            value={item.quantityKg}
+                            onChange={(e) => handleItemChange(index, 'quantityKg', e.target.value)}
+                            className={`w-full border rounded p-1.5 text-xs font-mono font-bold focus:ring-1 ${!isStockOk ? 'border-red-500 text-red-600 bg-red-100/50' : 'border-[#e0e0e0] text-gray-900'}`}
+                            min="0"
+                            step="1"
+                          />
+                          <div className="mt-1 text-[10px] font-mono font-bold flex items-center justify-between">
+                            <span className={isStockOk ? 'text-emerald-700' : 'text-red-600 font-extrabold'}>
+                              Stock Dispo: {availKg.toLocaleString()} Kg
+                            </span>
+                            {!isStockOk && (
+                              <span className="text-red-600 font-bold bg-red-100 px-1 rounded">⚠️ INSUFFISANT</span>
+                            )}
+                          </div>
+                        </td>
+
 
                       <td>
                         <input
@@ -377,7 +410,9 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                         </button>
                       </td>
                     </tr>
-                  ))}
+                  );
+                })}
+
 
                   {items.length === 0 && (
                     <tr>

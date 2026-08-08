@@ -166,12 +166,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, UserPermissions> = {
   },
   RESPONSABLE_FRIGO: {
     BL: ['VIEW', 'EDIT'],
-    INVENTORY: ['VIEW', 'CREATE'],
     FRIGO_MGMT: ['VIEW'],
     PRODUCTS: ['VIEW'],
-    CLIENTS: ['VIEW'],
-    INVOICING: ['VIEW', 'EXPORT'],
   },
+
 
   COMPTABLE_FACTURES: {
     DASHBOARD: ['VIEW', 'EXPORT'],

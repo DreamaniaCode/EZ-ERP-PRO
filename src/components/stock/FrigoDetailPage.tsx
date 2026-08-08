@@ -41,15 +41,17 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
   const frigoBLs = deliveryNotes.filter(bl => bl.frigoId === frigo.id || bl.frigoName === frigo.name);
 
   // Client breakdown
-  const clientVolumeMap: { [clientId: string]: { name: string; kg: number; totalHT: number; count: number } } = {};
+  const clientVolumeMap: { [key: string]: { name: string; kg: number; totalHT: number; count: number } } = {};
   frigoBLs.forEach(bl => {
-    if (!clientVolumeMap[bl.clientId]) {
-      clientVolumeMap[bl.clientId] = { name: bl.clientName, kg: 0, totalHT: 0, count: 0 };
+    const key = bl.clientId || bl.clientName || 'client-inconnu';
+    if (!clientVolumeMap[key]) {
+      clientVolumeMap[key] = { name: bl.clientName || 'Client Inconnu', kg: 0, totalHT: 0, count: 0 };
     }
-    clientVolumeMap[bl.clientId].kg += bl.totalKg;
-    clientVolumeMap[bl.clientId].totalHT += bl.totalHT;
-    clientVolumeMap[bl.clientId].count += 1;
+    clientVolumeMap[key].kg += (bl.totalKg || 0);
+    clientVolumeMap[key].totalHT += (bl.totalHT || 0);
+    clientVolumeMap[key].count += 1;
   });
+
 
   // Totals
   const totalFrigoKg = frigoStocks.reduce((sum, s) => sum + s.quantityKg, 0);

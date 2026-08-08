@@ -74,8 +74,11 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
     currentUser 
   } = useERP();
 
+  const isFrigoRole = currentUser?.role === 'RESPONSABLE_FRIGO';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [frigoFilter, setFrigoFilter] = useState<string>(currentUser.assignedFrigoId || 'ALL');
+
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
   // Modals state
@@ -550,7 +553,8 @@ EasyERP Pro • Logistics Management`;
                       <CheckCircle2 className="w-3.5 h-3.5" /> Livré & Signé Client
                     </span>
                   )}
-                  {(bl.status === 'FACTURÉ' || bl.invoiceId || bl.invoiceNumber) && (
+                  {/* Invoice Badge - Hidden for RESPONSABLE_FRIGO */}
+                  {!isFrigoRole && (bl.status === 'FACTURÉ' || bl.invoiceId || bl.invoiceNumber) && (
                     <button
                       type="button"
                       onClick={() => {
@@ -618,21 +622,25 @@ EasyERP Pro • Logistics Management`;
                           type="button"
                           onClick={() => {
                             const foundPrd = products.find(p => p.id === item.productId || p.code === item.productCode || (p.name || '').toLowerCase() === cleanedName.toLowerCase());
-                            if (foundPrd && onEditProduct) onEditProduct(foundPrd.id);
-                            else if (onEditProduct && item.productId) onEditProduct(item.productId);
+                            if (foundPrd && onEditProduct && !isFrigoRole) onEditProduct(foundPrd.id);
+                            else if (onEditProduct && item.productId && !isFrigoRole) onEditProduct(item.productId);
                           }}
                           className="font-bold text-gray-900 hover:text-[#0f62fe] hover:underline cursor-pointer truncate text-left w-full block uppercase mb-1"
-                          title="Cliquer pour voir/modifier ce produit"
+                          title="Produit à charger"
                         >
                           {cleanedName}
                         </button>
                         <div className="flex justify-between text-gray-600 mt-1">
                           <span>Poids: <b className="text-blue-700">{item.quantityKg.toLocaleString()} Kg</b></span>
-                          <span>Prix: <b className="text-emerald-700">{item.unitPriceHT.toLocaleString()} DH/Kg</b></span>
+                          {!isFrigoRole && (
+                            <span>Prix: <b className="text-emerald-700">{item.unitPriceHT.toLocaleString()} DH/Kg</b></span>
+                          )}
                         </div>
-                        <div className="flex justify-between text-gray-600 mt-1">
-                          <span>Total HT: <b className="text-gray-900">{item.totalHT.toLocaleString()} DH</b></span>
-                        </div>
+                        {!isFrigoRole && (
+                          <div className="flex justify-between text-gray-600 mt-1">
+                            <span>Total HT: <b className="text-gray-900">{item.totalHT.toLocaleString()} DH</b></span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -640,9 +648,12 @@ EasyERP Pro • Logistics Management`;
 
                 <div className="flex justify-between items-center text-xs font-mono font-bold text-gray-800 mt-3 pt-2 border-t border-gray-200">
                   <span>Poids Total: <span className="text-emerald-700 font-extrabold">{bl.totalKg.toLocaleString()} Kg</span></span>
-                  <span>Total HT: {bl.totalHT.toLocaleString()} DH</span>
+                  {!isFrigoRole && (
+                    <span>Total HT: {bl.totalHT.toLocaleString()} DH</span>
+                  )}
                 </div>
               </div>
+
 
               {/* Action Toolbar */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
@@ -754,30 +765,36 @@ EasyERP Pro • Logistics Management`;
                   </button>
 
                   {/* Edit BL & Custom Price */}
-                  <button
-                    onClick={() => onEditBL ? onEditBL(bl.id) : setEditingBL(bl)}
-                    className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 text-xs font-bold rounded flex items-center gap-1 transition-colors"
-                    title="Éditer le BL et les prix personnalisés des lignes"
-                  >
-                    <Edit className="w-3.5 h-3.5" /> Éditer / Prix
-                  </button>
+                  {!isFrigoRole && (
+                    <button
+                      onClick={() => onEditBL ? onEditBL(bl.id) : setEditingBL(bl)}
+                      className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 text-xs font-bold rounded flex items-center gap-1 transition-colors"
+                      title="Éditer le BL et les prix personnalisés des lignes"
+                    >
+                      <Edit className="w-3.5 h-3.5" /> Éditer / Prix
+                    </button>
+                  )}
 
                   {/* Delete BL */}
-                  <button
-                    onClick={() => handleDeleteBLClick(bl)}
-                    className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs rounded transition-colors"
-                    title="Supprimer ce Bon de Livraison"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {!isFrigoRole && (
+                    <button
+                      onClick={() => handleDeleteBLClick(bl)}
+                      className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs rounded transition-colors"
+                      title="Supprimer ce Bon de Livraison"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
 
                   {/* Convert to Invoice */}
-                  {bl.status !== 'FACTURÉ' && (
+                  {!isFrigoRole && bl.status !== 'FACTURÉ' && (
                     <button
-                      onClick={() => handleGenerateInvoice(bl)}
-                      className="carbon-btn-primary text-xs flex items-center gap-1 rounded"
+                      onClick={() => handleCreateInvoice(bl.id)}
+                      className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded flex items-center gap-1 transition-colors shadow-sm"
+                      title="Générer une Facture d'après ce BL"
                     >
-                      <FileText className="w-4 h-4" /> Générer Facture
+                      <FileText className="w-3.5 h-3.5" /> Créer Facture
                     </button>
                   )}
 
