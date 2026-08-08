@@ -1370,11 +1370,18 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       handleFirestoreError(err, OperationType.WRITE, `invoices/${newInvoice.id}`);
     });
 
+    // Safety net: if stock was never properly deducted (old buggy code set stockDecremented but never actually deducted), do it now
+    if (!(bl as any).stockDeductedV2) {
+      deductBLStockHelper(bl);
+    }
+
     // Update BL status to FACTURÉ and save invoice pointers
     const updatedBLData = { 
       status: 'FACTURÉ' as const, 
       invoiceId: newInvoice.id, 
-      invoiceNumber: newInvoice.invoiceNumber 
+      invoiceNumber: newInvoice.invoiceNumber,
+      stockDecremented: true,
+      stockDeductedV2: true
     };
     setDeliveryNotes(prev => prev.map(b => b.id === blId ? { ...b, ...updatedBLData } : b));
     setDoc(doc(db, 'deliveryNotes', blId), updatedBLData, { merge: true }).catch(err => {
@@ -1382,7 +1389,11 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     // Update client balance
-    setClients(prev => prev.map(c => c.id === bl.clientId ? { ...c, currentBalance: (c.currentBalance || 0) + totalTTC } : c));
+    const updatedClient = { currentBalance: (client?.currentBalance || 0) + totalTTC };
+    setClients(prev => prev.map(c => c.id === bl.clientId ? { ...c, ...updatedClient } : c));
+    if (client) {
+      setDoc(doc(db, 'clients', client.id), updatedClient, { merge: true }).catch(() => {});
+    }
 
     return newInvoice;
   };

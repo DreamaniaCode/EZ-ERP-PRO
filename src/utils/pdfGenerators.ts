@@ -111,22 +111,30 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyInfo: Com
 
   y += 36;
 
-  // ── Items Table ──
-  const cols = [30, usable - 30 - 28 - 28, 28, 28];
-  const colX = [margin, margin + cols[0], margin + cols[0] + cols[1], margin + cols[0] + cols[1] + cols[2]];
+  // ── Items Table (5 explicit columns) ──
+  const c1 = 24; // CODE SKU
+  const c3 = 22; // QTE (KG)
+  const c4 = 26; // PU HT
+  const c5 = 30; // MONTANT HT
+  const c2 = usable - c1 - c3 - c4 - c5; // DESIGNATION (flexible)
+  const cx1 = margin;
+  const cx2 = cx1 + c1;
+  const cx3 = cx2 + c2;
+  const cx4 = cx3 + c3;
+  const cx5 = cx4 + c4;
   const rowH = 7;
 
   // Table header
   doc.setFillColor(17, 17, 17);
   doc.rect(margin, y, usable, rowH, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7);
   doc.setTextColor(255, 255, 255);
-  doc.text('CODE SKU', colX[0] + 2, y + 4.8);
-  doc.text('DESIGNATION PRODUIT', colX[1] + 2, y + 4.8);
-  doc.text('QTE (KG)', colX[2] + cols[2] / 2, y + 4.8, { align: 'center' });
-  doc.text('PU HT', colX[3] + cols[3] / 2, y + 4.8, { align: 'center' });
-  doc.text('MONTANT HT', pw - margin - 2, y + 4.8, { align: 'right' });
+  doc.text('CODE SKU', cx1 + 2, y + 4.8);
+  doc.text('DESIGNATION', cx2 + 2, y + 4.8);
+  doc.text('QTE (KG)', cx3 + c3 / 2, y + 4.8, { align: 'center' });
+  doc.text('PU HT', cx4 + c4 / 2, y + 4.8, { align: 'center' });
+  doc.text('MONTANT HT', cx5 + c5 - 2, y + 4.8, { align: 'right' });
   y += rowH;
 
   invoice.items.forEach((it, idx) => {
@@ -138,17 +146,17 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyInfo: Com
     doc.rect(margin, y, usable, rowH, 'S');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(15, 98, 254);
-    doc.text(safe(it.productCode), colX[0] + 2, y + 4.8);
+    doc.text(safe(it.productCode), cx1 + 2, y + 4.8);
     doc.setTextColor(17, 17, 17);
-    doc.text(safe(it.productName), colX[1] + 2, y + 4.8);
+    doc.text(safe(it.productName).substring(0, 30), cx2 + 2, y + 4.8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(17, 17, 17);
-    doc.text(`${fmtNum(it.quantityKg)} Kg`, colX[2] + cols[2] / 2, y + 4.8, { align: 'center' });
-    doc.text(`${fmtNum(it.unitPriceHT)} DH`, colX[3] + cols[3] / 2, y + 4.8, { align: 'center' });
+    doc.text(`${fmtNum(it.quantityKg)}`, cx3 + c3 / 2, y + 4.8, { align: 'center' });
+    doc.text(`${fmtNum(it.unitPriceHT)}`, cx4 + c4 / 2, y + 4.8, { align: 'center' });
     doc.setFont('helvetica', 'bold');
-    doc.text(`${fmtNum(it.totalHT)} DH`, pw - margin - 2, y + 4.8, { align: 'right' });
+    doc.text(`${fmtNum(it.totalHT)} DH`, cx5 + c5 - 2, y + 4.8, { align: 'right' });
     y += rowH;
   });
   y += 6;

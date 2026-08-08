@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easyerp-pwa-v20-real-fixes';
+const CACHE_NAME = 'easyerp-pwa-v21-pdf-cols-stock-safety';
 
 
 
