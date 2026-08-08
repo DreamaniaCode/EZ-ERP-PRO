@@ -29,25 +29,26 @@ export const CompanySettings: React.FC = () => {
   const selectedCompany = companies.find(c => c.id === selectedCompId) || companies[0];
 
   const [formData, setFormData] = useState<CompanyInfo>({
-    name: selectedCompany?.name || companyInfo.name,
-    ice: selectedCompany?.ice || companyInfo.ice,
-    rc: selectedCompany?.rc || companyInfo.rc,
-    if: selectedCompany?.taxId || companyInfo.if,
-    patente: selectedCompany?.patent || companyInfo.patente,
-    cnss: companyInfo.cnss,
-    capital: selectedCompany?.capital || companyInfo.capital,
-    address: selectedCompany?.address || companyInfo.address,
-    city: selectedCompany?.city || companyInfo.city,
-    phone: selectedCompany?.phone || companyInfo.phone,
-    email: selectedCompany?.email || companyInfo.email,
-    website: companyInfo.website,
-    bankName: selectedCompany?.bankName || companyInfo.bankName,
-    rib: selectedCompany?.bankRib || companyInfo.rib,
-    logoUrl: selectedCompany?.logoUrl || companyInfo.logoUrl,
+    name: selectedCompany?.name || companyInfo.name || '',
+    ice: selectedCompany?.ice || companyInfo.ice || '',
+    rc: selectedCompany?.rc || companyInfo.rc || '',
+    if: selectedCompany?.taxId || companyInfo.if || '',
+    patente: selectedCompany?.patent || companyInfo.patente || '',
+    cnss: companyInfo.cnss || '',
+    capital: selectedCompany?.capital || companyInfo.capital || '',
+    address: selectedCompany?.address || companyInfo.address || '',
+    city: selectedCompany?.city || companyInfo.city || '',
+    phone: selectedCompany?.phone || companyInfo.phone || '',
+    email: selectedCompany?.email || companyInfo.email || '',
+    website: companyInfo.website || '',
+    bankName: selectedCompany?.bankName || companyInfo.bankName || '',
+    rib: selectedCompany?.bankRib || companyInfo.rib || '',
+    logoUrl: selectedCompany?.logoUrl || companyInfo.logoUrl || '',
   });
 
   const [blPrefix, setBlPrefix] = useState(selectedCompany?.blPrefix || 'BL-STE1');
   const [invoicePrefix, setInvoicePrefix] = useState(selectedCompany?.invoicePrefix || 'FAC-STE1');
+
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   // Recalculation State
@@ -75,56 +76,75 @@ export const CompanySettings: React.FC = () => {
     const comp = companies.find(c => c.id === compId);
     if (comp) {
       setFormData({
-        name: comp.name,
-        ice: comp.ice,
-        rc: comp.rc,
-        if: comp.taxId,
-        patente: comp.patent,
-        cnss: companyInfo.cnss,
-        capital: comp.capital,
-        address: comp.address,
-        city: comp.city,
-        phone: comp.phone,
-        email: comp.email,
-        website: companyInfo.website,
-        bankName: comp.bankName,
-        rib: comp.bankRib,
-        logoUrl: comp.logoUrl,
+        name: comp.name || '',
+        ice: comp.ice || '',
+        rc: comp.rc || '',
+        if: comp.taxId || '',
+        patente: comp.patent || '',
+        cnss: companyInfo.cnss || '',
+        capital: comp.capital || '',
+        address: comp.address || '',
+        city: comp.city || '',
+        phone: comp.phone || '',
+        email: comp.email || '',
+        website: companyInfo.website || '',
+        bankName: comp.bankName || '',
+        rib: comp.bankRib || '',
+        logoUrl: comp.logoUrl || '',
       });
-      setBlPrefix(comp.blPrefix);
-      setInvoicePrefix(comp.invoicePrefix);
+      setBlPrefix(comp.blPrefix || 'BL-STE1');
+      setInvoicePrefix(comp.invoicePrefix || 'FAC-STE1');
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanFormData: CompanyInfo = {
+      name: formData.name || '',
+      ice: formData.ice || '',
+      rc: formData.rc || '',
+      if: formData.if || '',
+      patente: formData.patente || '',
+      cnss: formData.cnss || '',
+      capital: formData.capital || '',
+      address: formData.address || '',
+      city: formData.city || '',
+      phone: formData.phone || '',
+      email: formData.email || '',
+      website: formData.website || '',
+      bankName: formData.bankName || '',
+      rib: formData.rib || '',
+      logoUrl: formData.logoUrl || '',
+    };
+
     // Update active legacy companyInfo
-    updateCompanyInfo(formData);
+    updateCompanyInfo(cleanFormData);
 
     // Update specific company entity
     if (updateCompanyEntity) {
       updateCompanyEntity(selectedCompId, {
-        name: formData.name,
-        ice: formData.ice,
-        rc: formData.rc,
-        taxId: formData.if,
-        patent: formData.patente,
-        capital: formData.capital,
-        address: formData.address,
-        city: formData.city,
-        phone: formData.phone,
-        email: formData.email,
-        bankName: formData.bankName,
-        bankRib: formData.rib,
-        blPrefix,
-        invoicePrefix,
-        logoUrl: formData.logoUrl,
+        name: cleanFormData.name,
+        ice: cleanFormData.ice,
+        rc: cleanFormData.rc,
+        taxId: cleanFormData.if,
+        patent: cleanFormData.patente,
+        capital: cleanFormData.capital,
+        address: cleanFormData.address,
+        city: cleanFormData.city,
+        phone: cleanFormData.phone,
+        email: cleanFormData.email,
+        bankName: cleanFormData.bankName,
+        bankRib: cleanFormData.rib,
+        blPrefix: blPrefix || 'BL-STE1',
+        invoicePrefix: invoicePrefix || 'FAC-STE1',
+        logoUrl: cleanFormData.logoUrl,
       });
     }
 
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
   };
+
 
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

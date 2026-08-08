@@ -208,9 +208,18 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCompanies(prev => {
       const next = prev.map(c => c.id === id ? { ...c, ...updatedData } : c);
       localStorage.setItem('erp_companies', JSON.stringify(next));
+      
+      const targetComp = next.find(c => c.id === id);
+      if (targetComp) {
+        const cleanData = sanitizeForFirestore(targetComp);
+        setDoc(doc(db, 'companies', id), cleanData).catch(err => {
+          console.warn('Company firestore sync notice:', err);
+        });
+      }
       return next;
     });
   };
+
 
   const activeCompany = companies.find(c => c.id === activeCompanyId) || companies[0];
 
@@ -321,19 +330,25 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return INITIAL_COMPANY_INFO;
   });
 
-  useEffect(() => {
-    localStorage.setItem('erp_company_info', JSON.stringify(companyInfo));
-  }, [companyInfo]);
+  const sanitizeForFirestore = <T extends Record<string, any>>(obj: T): T => {
+    const clean: any = {};
+    Object.keys(obj).forEach(key => {
+      clean[key] = obj[key] === undefined ? '' : obj[key];
+    });
+    return clean;
+  };
 
   const updateCompanyInfo = (info: Partial<CompanyInfo>) => {
     setCompanyInfo(prev => {
       const updated = { ...prev, ...info };
-      setDoc(doc(db, 'settings', 'companyInfo'), updated).catch(err => {
+      const cleanData = sanitizeForFirestore(updated);
+      setDoc(doc(db, 'settings', 'companyInfo'), cleanData).catch(err => {
         handleFirestoreError(err, OperationType.WRITE, 'settings/companyInfo');
       });
       return updated;
     });
   };
+
 
   // Save changes to localStorage & Firebase Firestore
   useEffect(() => {

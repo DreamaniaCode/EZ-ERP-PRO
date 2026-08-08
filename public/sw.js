@@ -1,4 +1,5 @@
-const CACHE_NAME = 'easyerp-pwa-v11-recalc-fix';
+const CACHE_NAME = 'easyerp-pwa-v12-firestore-clean';
+
 
 
 // Install Event - Force immediate activation
