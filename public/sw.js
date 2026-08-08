@@ -1,5 +1,5 @@
-const CACHE_NAME = 'easyerp-pwa-v5';
-const STATIC_CACHE_NAME = 'easyerp-static-v5';
+const CACHE_NAME = 'easyerp-pwa-v6';
+const STATIC_CACHE_NAME = 'easyerp-static-v6';
 
 const PRECACHE_ASSETS = [
   '/',
@@ -13,11 +13,12 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME).then((cache) => {
-      console.log('[PWA SW v5] Pre-caching updated app shell');
+      console.log('[PWA SW v6] Pre-caching updated app shell with Multi-Company support');
       return cache.addAll(PRECACHE_ASSETS);
     })
   );
 });
+
 
 
 // Activate Event - Clean old caches and claim clients
