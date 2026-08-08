@@ -151,6 +151,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, UserPermissions> = {
     FRIGO_MGMT: ['VIEW'],
     CLIENTS: ['VIEW', 'CREATE', 'EXPORT'],
     SUPPLIERS: ['VIEW', 'CREATE', 'EXPORT'],
+    INVOICING: ['VIEW', 'EXPORT'],
     IMPORT_BL: ['VIEW', 'CREATE'],
   },
   COMMERCIAL: {
@@ -168,7 +169,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, UserPermissions> = {
     INVENTORY: ['VIEW', 'CREATE'],
     FRIGO_MGMT: ['VIEW'],
     PRODUCTS: ['VIEW'],
+    CLIENTS: ['VIEW'],
+    INVOICING: ['VIEW', 'EXPORT'],
   },
+
   COMPTABLE_FACTURES: {
     DASHBOARD: ['VIEW', 'EXPORT'],
     PRODUCTS: ['VIEW', 'EXPORT'],

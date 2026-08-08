@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
-import { DeliveryNoteBL, DeliveryNoteItem } from '../../types';
+import { DeliveryNoteBL, DeliveryNoteItem, Invoice } from '../../types';
 import { findMatchingProduct } from '../../utils/productMatcher';
 import { BLSignatureModal } from './BLSignatureModal';
 import { WhatsAppModal } from '../whatsapp/WhatsAppModal';
 import { EmailBLModal } from '../email/EmailBLModal';
 import { BLPdfDocument } from '../pdf/BLPdfDocument';
+import { InvoicePdfDocument } from '../pdf/InvoicePdfDocument';
 import { ExcelVerificationModal } from './ExcelVerificationModal';
 import { ExportButtons } from '../common/ExportButtons';
+
 import { 
   Truck, 
   CheckCircle2, 
@@ -59,6 +61,7 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
     frigos, 
     products,
     clients,
+    invoices,
     addBL,
     updateBL,
     deleteBL,
@@ -80,8 +83,10 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   const [activeWhatsAppBL, setActiveWhatsAppBL] = useState<DeliveryNoteBL | null>(null);
   const [activeEmailBL, setActiveEmailBL] = useState<DeliveryNoteBL | null>(null);
   const [activePdfBL, setActivePdfBL] = useState<DeliveryNoteBL | null>(null);
+  const [activePdfInvoice, setActivePdfInvoice] = useState<Invoice | null>(null);
   const [activeHistoryBL, setActiveHistoryBL] = useState<DeliveryNoteBL | null>(null);
   const [showExcelModal, setShowExcelModal] = useState<boolean>(false);
+
   
   // CRUD BL Modals
   const [showCreateBLModal, setShowCreateBLModal] = useState(false);
@@ -545,11 +550,55 @@ EasyERP Pro • Logistics Management`;
                       <CheckCircle2 className="w-3.5 h-3.5" /> Livré & Signé Client
                     </span>
                   )}
-                  {bl.status === 'FACTURÉ' && (
-                    <span className="text-xs px-2.5 py-1 font-mono font-bold rounded bg-gray-900 text-white font-mono">
-                      FACTURÉ
-                    </span>
+                  {(bl.status === 'FACTURÉ' || bl.invoiceId || bl.invoiceNumber) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const inv = invoices.find(i => i.id === bl.invoiceId || i.invoiceNumber === bl.invoiceNumber || i.blId === bl.id);
+                        if (inv) {
+                          setActivePdfInvoice(inv);
+                        } else {
+                          // Create temporary preview if invoice object not found
+                          const fallbackInv: Invoice = {
+                            id: bl.invoiceId || `fac-${bl.id}`,
+                            invoiceNumber: bl.invoiceNumber || 'FAC-2026-0001',
+                            orderId: bl.orderId,
+                            blId: bl.id,
+                            clientId: bl.clientId,
+                            clientName: bl.clientName,
+                            clientICE: '000000000000000',
+                            clientAddress: bl.clientAddress,
+                            date: bl.date,
+                            dueDate: bl.date,
+                            items: bl.items.map(it => ({
+                              productId: it.productId,
+                              productCode: it.productCode,
+                              productName: it.productName,
+                              quantityKg: it.quantityKg,
+                              quantityPallets: it.quantityPallets,
+                              unitPriceHT: it.unitPriceHT,
+                              vatRate: 0.20,
+                              totalHT: it.totalHT,
+                              totalTTC: it.totalHT * 1.20
+                            })),
+                            totalHT: bl.totalHT,
+                            totalVAT: bl.totalHT * 0.20,
+                            totalTTC: bl.totalTTC || (bl.totalHT * 1.20),
+                            amountPaid: 0,
+                            remainingAmount: bl.totalTTC || (bl.totalHT * 1.20),
+                            status: 'EMISE'
+                          };
+                          setActivePdfInvoice(fallbackInv);
+                        }
+                      }}
+                      className="text-xs px-3 py-1 font-mono font-bold rounded bg-emerald-700 hover:bg-emerald-800 text-white flex items-center gap-1.5 cursor-pointer shadow-sm transition-colors border border-emerald-500"
+                      title="Cliquer pour consulter et télécharger la Facture PDF"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-emerald-200" />
+                      <span>🧾 {bl.invoiceNumber || 'FACTURÉ'} (Voir Facture PDF)</span>
+                    </button>
                   )}
+
                 </div>
               </div>
 
@@ -1268,7 +1317,20 @@ EasyERP Pro • Logistics Management`;
         </div>
       )}
 
+      {/* Invoice PDF Document Modal Overlay */}
+      {activePdfInvoice && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[110] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="max-w-4xl w-full my-8">
+            <InvoicePdfDocument
+              invoice={activePdfInvoice}
+              onClose={() => setActivePdfInvoice(null)}
+            />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
+
 

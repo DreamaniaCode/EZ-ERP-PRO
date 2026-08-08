@@ -19,27 +19,26 @@ export function generateWhatsAppBLLink(
 ): string {
   const directLink = getBLDirectLink(bl.blNumber);
 
-  const messageText = `📦 *ORDRE D'EXPÉDITION / BON DE LIVRAISON* 📦
+  const messageText = `📦 *ORDRE DE CHARGEMENT FRIGO / BL* 📦
 ----------------------------------
-🔹 *N° BL:* ${bl.blNumber} (CMD: ${bl.orderNumber})
+🔹 *N° BL:* ${bl.blNumber} ${bl.orderNumber ? `(CMD: ${bl.orderNumber})` : ''}
 🏭 *Frigo:* ${bl.frigoName}
-👤 *Client:* ${bl.clientName}
-📅 *Date:* ${bl.date}
+👤 *Client Destinataire:* ${bl.clientName}
+📅 *Date d'Émission:* ${bl.date}
 
-📋 *ARTICLES À CHARGER:*
-${bl.items.map(it => `• ${it.productCode} - ${it.productName}: *${it.quantityKg.toLocaleString()} Kg* (${it.unitPriceHT} DH/Kg HT)`).join('\n')}
+📋 *INSTRUCTIONS DE CHARGEMENT (ARTICLES & VOLUMES):*
+${bl.items.map(it => `• ${it.productCode} - ${it.productName}: *${it.quantityKg.toLocaleString()} Kg* ${it.quantityPallets ? `(${it.quantityPallets} Palettes)` : ''}`).join('\n')}
 
-📊 *RÉCAPITULATIF DU CHARGEMENT:*
-👉 Poids Total: *${bl.totalKg.toLocaleString()} Kg*
-👉 Montant HT: *${bl.totalHT.toLocaleString()} DH*
-👉 Total TTC: *${bl.totalTTC.toLocaleString()} DH*
+📊 *RECAPITULATIF LOGISTIQUE:*
+👉 Poids Total à Charger: *${bl.totalKg.toLocaleString()} Kg*
 
 ${bl.frigoEmployeeApproved ? `✅ *STATUT CHARGEMENT:* Approuvé quai par ${bl.frigoApprovedBy} (${bl.frigoApprovedAt})` : `⏳ *STATUT CHARGEMENT:* En attente de validation quai frigo.`}
 
-📄 *ACCÈS DIRECT DOCUMENT BL:*
+📄 *ACCÈS DIRECT DOCUMENT ORDRE DE CHARGEMENT:*
 👉 Consulter BL: ${directLink}
 ----------------------------------
-EasyERP Pro • Logistics & Food Storage`;
+EasyERP Pro • Logistique & Chargement Quai`;
+
 
   const encoded = encodeURIComponent(messageText);
 

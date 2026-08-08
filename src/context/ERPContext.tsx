@@ -1163,13 +1163,22 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setInvoices(prev => [newInvoice, ...prev]);
 
-    // Update BL status to FACTURÉ
-    setDeliveryNotes(prev => prev.map(b => b.id === blId ? { ...b, status: 'FACTURÉ' } : b));
+    // Update BL status to FACTURÉ and save invoice pointers
+    const updatedBLData = { 
+      status: 'FACTURÉ' as const, 
+      invoiceId: newInvoice.id, 
+      invoiceNumber: newInvoice.invoiceNumber 
+    };
+    setDeliveryNotes(prev => prev.map(b => b.id === blId ? { ...b, ...updatedBLData } : b));
+    setDoc(doc(db, 'deliveryNotes', blId), updatedBLData, { merge: true }).catch(err => {
+      handleFirestoreError(err, OperationType.UPDATE, `deliveryNotes/${blId}`);
+    });
 
     // Update client balance
-    setClients(prev => prev.map(c => c.id === bl.clientId ? { ...c, currentBalance: c.currentBalance + totalTTC } : c));
+    setClients(prev => prev.map(c => c.id === bl.clientId ? { ...c, currentBalance: (c.currentBalance || 0) + totalTTC } : c));
 
     return newInvoice;
+
   };
 
   const updateInvoiceStatus = (invoiceId: string, status: Invoice['status'], amountPaid?: number) => {
