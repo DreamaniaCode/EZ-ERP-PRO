@@ -94,6 +94,8 @@ interface ERPContextType {
   setActiveCompanyId: (id: string) => void;
   companies: CompanyEntity[];
   activeCompany: CompanyEntity;
+  updateCompanyEntity: (id: string, updatedData: Partial<CompanyEntity>) => void;
+
   
   products: Product[];
   frigos: ColdStorageFrigo[];
@@ -196,12 +198,26 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return localStorage.getItem('erp_active_company_id') || 'STE_1';
   });
 
-  const companies = DEFAULT_COMPANIES;
+  const [companies, setCompanies] = useState<CompanyEntity[]>(() => {
+    const saved = localStorage.getItem('erp_companies');
+    if (saved) return JSON.parse(saved);
+    return DEFAULT_COMPANIES;
+  });
+
+  const updateCompanyEntity = (id: string, updatedData: Partial<CompanyEntity>) => {
+    setCompanies(prev => {
+      const next = prev.map(c => c.id === id ? { ...c, ...updatedData } : c);
+      localStorage.setItem('erp_companies', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const activeCompany = companies.find(c => c.id === activeCompanyId) || companies[0];
 
   useEffect(() => {
     localStorage.setItem('erp_active_company_id', activeCompanyId);
   }, [activeCompanyId]);
+
 
   const isWiped = typeof window !== 'undefined' && localStorage.getItem('erp_system_wiped') === 'true';
 
@@ -1844,7 +1860,9 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setActiveCompanyId,
     companies,
     activeCompany,
+    updateCompanyEntity,
     products,
+
 
     frigos,
     stocks,

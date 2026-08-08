@@ -23,34 +23,90 @@ import {
 } from 'lucide-react';
 
 export const CompanySettings: React.FC = () => {
-  const { companyInfo, updateCompanyInfo, recalculateAllBLPrices, deliveryNotes } = useERP();
-  const [formData, setFormData] = useState<CompanyInfo>({ ...companyInfo });
+  const { companyInfo, updateCompanyInfo, recalculateAllBLPrices, deliveryNotes, companies, updateCompanyEntity, activeCompanyId, setActiveCompanyId } = useERP();
+  const [selectedCompId, setSelectedCompId] = useState<string>(activeCompanyId !== 'ALL' ? activeCompanyId : companies[0]?.id || 'STE_1');
+
+  const selectedCompany = companies.find(c => c.id === selectedCompId) || companies[0];
+
+  const [formData, setFormData] = useState<CompanyInfo>({
+    name: selectedCompany?.name || companyInfo.name,
+    ice: selectedCompany?.ice || companyInfo.ice,
+    rc: selectedCompany?.rc || companyInfo.rc,
+    if: selectedCompany?.taxId || companyInfo.if,
+    patente: selectedCompany?.patent || companyInfo.patente,
+    cnss: companyInfo.cnss,
+    capital: selectedCompany?.capital || companyInfo.capital,
+    address: selectedCompany?.address || companyInfo.address,
+    city: selectedCompany?.city || companyInfo.city,
+    phone: selectedCompany?.phone || companyInfo.phone,
+    email: selectedCompany?.email || companyInfo.email,
+    website: companyInfo.website,
+    bankName: selectedCompany?.bankName || companyInfo.bankName,
+    rib: selectedCompany?.bankRib || companyInfo.rib,
+    logoUrl: selectedCompany?.logoUrl || companyInfo.logoUrl,
+  });
+
+  const [blPrefix, setBlPrefix] = useState(selectedCompany?.blPrefix || 'BL-STE1');
+  const [invoicePrefix, setInvoicePrefix] = useState(selectedCompany?.invoicePrefix || 'FAC-STE1');
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Recalculation State
-  const [isRecalcModalOpen, setIsRecalcModalOpen] = useState(false);
-  const [isRecalcProcessing, setIsRecalcProcessing] = useState(false);
-  const [recalcReport, setRecalcReport] = useState<RecalculationSummaryReport | null>(null);
-
-  const handleRunRecalculation = async () => {
-    setIsRecalcProcessing(true);
-    setIsRecalcModalOpen(true);
-    try {
-      const report = await recalculateAllBLPrices();
-      setRecalcReport(report);
-    } catch (err) {
-      console.error('Error running recalculation:', err);
-    } finally {
-      setIsRecalcProcessing(false);
+  // Switch edited company
+  const handleSelectCompanyTab = (compId: string) => {
+    setSelectedCompId(compId);
+    const comp = companies.find(c => c.id === compId);
+    if (comp) {
+      setFormData({
+        name: comp.name,
+        ice: comp.ice,
+        rc: comp.rc,
+        if: comp.taxId,
+        patente: comp.patent,
+        cnss: companyInfo.cnss,
+        capital: comp.capital,
+        address: comp.address,
+        city: comp.city,
+        phone: comp.phone,
+        email: comp.email,
+        website: companyInfo.website,
+        bankName: comp.bankName,
+        rib: comp.bankRib,
+        logoUrl: comp.logoUrl,
+      });
+      setBlPrefix(comp.blPrefix);
+      setInvoicePrefix(comp.invoicePrefix);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Update active legacy companyInfo
     updateCompanyInfo(formData);
+
+    // Update specific company entity
+    if (updateCompanyEntity) {
+      updateCompanyEntity(selectedCompId, {
+        name: formData.name,
+        ice: formData.ice,
+        rc: formData.rc,
+        taxId: formData.if,
+        patent: formData.patente,
+        capital: formData.capital,
+        address: formData.address,
+        city: formData.city,
+        phone: formData.phone,
+        email: formData.email,
+        bankName: formData.bankName,
+        bankRib: formData.rib,
+        blPrefix,
+        invoicePrefix,
+        logoUrl: formData.logoUrl,
+      });
+    }
+
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
   };
+
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -105,12 +161,42 @@ export const CompanySettings: React.FC = () => {
         </div>
       </div>
 
+      {/* Multi-Company Entity Selector Tabs */}
+      <div className="bg-[#161616] p-3.5 rounded-lg border border-[#393939] text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+        <div className="flex items-center gap-2.5">
+          <Building2 className="w-5 h-5 text-[#0f62fe] shrink-0" />
+          <div>
+            <span className="font-bold text-xs uppercase tracking-wide text-gray-200">Gestion des Sociétés Sœurs ({companies.length} Entités Configurares)</span>
+            <p className="text-[11px] text-gray-400">Sélectionnez la société dont vous souhaitez modifier le Logo, ICE, Adresse, RIB et Numérotation :</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+          {companies.map(c => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => handleSelectCompanyTab(c.id)}
+              className={`px-3.5 py-2 rounded text-xs font-bold font-mono transition-all flex items-center gap-2 border cursor-pointer ${
+                selectedCompId === c.id
+                  ? 'bg-[#0f62fe] text-white border-blue-400 shadow-md scale-105'
+                  : 'bg-[#262626] text-gray-300 hover:text-white border-[#525252]'
+              }`}
+            >
+              <span>🏢</span>
+              <span>{c.shortName || c.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {savedSuccess && (
         <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 p-3 rounded-lg flex items-center gap-2 text-xs font-semibold shadow-sm">
           <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>Informations de l'entreprise enregistrées avec succès ! Elles seront appliquées sur tous les futurs BL et Factures.</span>
+          <span>Informations pour "{selectedCompany.name}" enregistrées avec succès ! Elles seront appliquées sur tous ses futurs BL et Factures.</span>
         </div>
       )}
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Settings Form */}
@@ -195,8 +281,34 @@ export const CompanySettings: React.FC = () => {
                   className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded text-xs focus:bg-white focus:outline-none focus:border-[#0f62fe]"
                 />
               </div>
+
+              {/* Section: Document Prefixes */}
+              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f4f4f4] p-3 rounded border border-gray-200">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-800 mb-1">Préfixe Numérotation BL (Bons de Livraison)</label>
+                  <input
+                    type="text"
+                    value={blPrefix}
+                    onChange={(e) => setBlPrefix(e.target.value)}
+                    placeholder="ex: BL-STE1"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded font-mono text-xs font-bold text-[#0f62fe] focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-800 mb-1">Préfixe Numérotation Facture</label>
+                  <input
+                    type="text"
+                    value={invoicePrefix}
+                    onChange={(e) => setInvoicePrefix(e.target.value)}
+                    placeholder="ex: FAC-STE1"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded font-mono text-xs font-bold text-emerald-700 focus:outline-none"
+                  />
+                </div>
+              </div>
             </div>
           </div>
+
 
           {/* Section 2: Contact & Address */}
           <div className="space-y-4 pt-4 border-t border-gray-200">

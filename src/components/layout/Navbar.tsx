@@ -135,35 +135,39 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="w-8 h-8 sm:w-9 sm:h-9 p-0.5 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-400 shrink-0 shadow-md">
             <img src="/ez_erp_logo.jpg" alt="Logo" className="w-full h-full rounded object-cover" />
           </div>
-          <div className="hidden min-[380px]:block">
+          
+          <div className="hidden min-[420px]:block">
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-xs sm:text-sm tracking-wide uppercase text-white font-mono">
                 EasyERP <span className="text-[#0f62fe]">PRO</span>
               </span>
               <span className="hidden sm:inline-block text-[9px] bg-[#262626] text-gray-300 border border-[#393939] px-1 py-0.5 rounded font-mono">
-                v2.5 PWA
+                v2.5
               </span>
-            </div>
-
-            {/* Active Company Switcher */}
-            <div className="mt-0.5">
-              <select
-                value={activeCompanyId}
-                onChange={(e) => setActiveCompanyId(e.target.value)}
-                className="bg-[#262626] border border-[#525252] hover:border-[#0f62fe] text-cyan-300 text-[10px] font-bold px-1.5 py-0.5 rounded cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#0f62fe] transition-all font-mono"
-                title="Sélectionner la Société Active pour la facturation et les BL (Clients & Frigos partagés)"
-              >
-                {companies.map(c => (
-                  <option key={c.id} value={c.id}>
-                    🏢 {c.shortName || c.name}
-                  </option>
-                ))}
-                <option value="ALL">🌐 Toutes les Sociétés (Vue Consolidée)</option>
-              </select>
             </div>
           </div>
 
+          {/* Active Company Switcher Dropdown - Always Visible */}
+          <div className="flex items-center gap-1 bg-[#262626] border border-[#0f62fe] px-1.5 sm:px-2 py-1 rounded shadow-sm">
+            <span className="text-xs">🏢</span>
+            <select
+              value={activeCompanyId}
+              onChange={(e) => setActiveCompanyId(e.target.value)}
+              className="bg-transparent text-white text-[11px] sm:text-xs font-bold font-mono cursor-pointer focus:outline-none max-w-[120px] sm:max-w-[190px] truncate"
+              title="Société Active pour les BL et Factures (Clients & Frigos partagés)"
+            >
+              {companies.map(c => (
+                <option key={c.id} value={c.id} className="bg-[#161616] text-white">
+                  {c.shortName || c.name}
+                </option>
+              ))}
+              <option value="ALL" className="bg-[#161616] text-cyan-300">
+                🌐 Toutes (Vue Consolidée)
+              </option>
+            </select>
+          </div>
         </div>
+
 
         {/* Global Quick Search */}
         <div className="flex items-center flex-1 max-w-[140px] sm:max-w-xs md:max-w-md mx-1 sm:mx-4">
