@@ -15,7 +15,9 @@ interface CylinderKpiChartProps {
   data: CylinderDataPoint[];
   unit?: string;
   maxVal?: number;
+  onItemClick?: (item: CylinderDataPoint) => void;
 }
+
 
 export const COLOR_PALETTES = [
   {
@@ -58,7 +60,8 @@ export const CylinderKpiChart: React.FC<CylinderKpiChartProps> = ({
   subtitle,
   data,
   unit = 'DH',
-  maxVal
+  maxVal,
+  onItemClick
 }) => {
   const [selectedPaletteIndex, setSelectedPaletteIndex] = useState(0);
 
@@ -106,7 +109,13 @@ export const CylinderKpiChart: React.FC<CylinderKpiChartProps> = ({
           const heightPct = Math.max(15, Math.min(100, Math.round((item.value / calculatedMax) * 100)));
 
           return (
-            <div key={index} className="flex flex-col items-center group relative w-full max-w-[90px]">
+            <div 
+              key={index} 
+              onClick={() => onItemClick && onItemClick(item)}
+              className={`flex flex-col items-center group relative w-full max-w-[90px] ${onItemClick ? 'cursor-pointer' : ''}`}
+              title={onItemClick ? `Cliquer pour ouvrir ${item.label}` : ''}
+            >
+
               
               {/* Value Floating Badge */}
               <div className="mb-2 text-center transition-all transform group-hover:-translate-y-1">

@@ -28,16 +28,18 @@ interface FrigoManagementProps {
   onEditFrigo?: (id: string) => void;
   onNewFrigo?: () => void;
   onViewFrigoDetail?: (id: string) => void;
+  initialFrigoId?: string | null;
 }
 
-export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, onNewFrigo, onViewFrigoDetail }) => {
+export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, onNewFrigo, onViewFrigoDetail, initialFrigoId }) => {
   const { frigos, stocks, products, deliveryNotes, addFrigo, updateFrigo, deleteFrigo } = useERP();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [editingFrigo, setEditingFrigo] = useState<ColdStorageFrigo | null>(null);
-  const [selectedFrigoDetailId, setSelectedFrigoDetailId] = useState<string | null>(null);
+  const [selectedFrigoDetailId, setSelectedFrigoDetailId] = useState<string | null>(initialFrigoId || null);
+
 
 
 

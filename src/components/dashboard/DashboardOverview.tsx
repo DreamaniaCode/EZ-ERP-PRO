@@ -29,11 +29,13 @@ import { CylinderKpiChart } from './CylinderKpiChart';
 
 interface DashboardOverviewProps {
   onNavigate: (tab: NavTab) => void;
+  onViewFrigoDetail?: (frigoId: string) => void;
 }
 
-export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate }) => {
+export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate, onViewFrigoDetail }) => {
   const { t } = useTranslation();
   const { products, stocks, frigos, orders, deliveryNotes, invoices, chequesEffets, expenses, clients } = useERP();
+
 
   const [quickBlSearch, setQuickBlSearch] = useState('');
   const [blSearchError, setBlSearchError] = useState('');
@@ -358,8 +360,16 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         {/* Chart 2: Real Frigo Volumes in 3D Storage Cylinders */}
         <CylinderKpiChart
           title="Niveaux de Remplissage des Frigos (Entrepôts Réels)"
-          subtitle="Supervision visuelle des volumes stockés en Kg dans vos entrepôts frigorifiques"
+          subtitle="Cliquer sur n'importe quel frigo pour ouvrir immédiatement sa fiche détaillée"
           unit="Kg"
+          onItemClick={(item) => {
+            const foundFrigo = frigos.find(f => f.name.toLowerCase().trim() === item.label.toLowerCase().trim());
+            if (foundFrigo && onViewFrigoDetail) {
+              onViewFrigoDetail(foundFrigo.id);
+            } else {
+              onNavigate('FRIGO_MANAGEMENT');
+            }
+          }}
           data={
             frigos.map(f => {
               const fKg = stocks.filter(s => s.frigoId === f.id).reduce((sum, s) => sum + s.quantityKg, 0);
@@ -374,6 +384,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
             })
           }
         />
+
 
 
       </div>
@@ -454,10 +465,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
               return (
                 <div 
                   key={frigo.id} 
-                  onClick={() => onNavigate('FRIGOS')}
+                  onClick={() => {
+                    if (onViewFrigoDetail) {
+                      onViewFrigoDetail(frigo.id);
+                    } else {
+                      onNavigate('FRIGO_MANAGEMENT');
+                    }
+                  }}
                   className="p-3 bg-gray-50 border border-gray-200 rounded cursor-pointer hover:border-[#0f62fe] hover:bg-blue-50/50 transition-all group"
                   title="Cliquer pour voir la fiche détaillée et la valorisation de ce frigo"
                 >
+
                   <div className="flex justify-between items-start mb-1">
                     <div>
                       <span className="font-bold text-xs text-gray-900 group-hover:text-[#0f62fe] flex items-center gap-1">

@@ -196,7 +196,16 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
 
     switch (activeTab) {
       case 'DASHBOARD':
-        return <DashboardOverview onNavigate={(tab: NavTab) => setNavTab(tab)} />;
+        return (
+          <DashboardOverview 
+            onNavigate={(tab: NavTab) => setNavTab(tab)} 
+            onViewFrigoDetail={(frigoId) => {
+              setEditingEntityId(frigoId);
+              setPreviousTab('DASHBOARD');
+              updateUrlAndTab('FRIGO_MANAGEMENT', frigoId, true);
+            }}
+          />
+        );
       case 'PRODUCTS_STOCK':
         return <ProductsList onEditProduct={(id) => navigateToEdit('PRODUCT_EDIT', id)} onNewProduct={() => navigateToEdit('PRODUCT_EDIT', null)} />;
       case 'DELIVERY_NOTES':
@@ -228,7 +237,14 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
       case 'DIRECTORY':
         return <ClientsSuppliers initialTab="SUPPLIERS" onViewBLPdf={(bl) => setActivePdfBL(bl)} onEditSupplier={(id) => navigateToEdit('SUPPLIER_EDIT', id)} onNewSupplier={() => navigateToEdit('SUPPLIER_EDIT', null)} />;
       case 'FRIGO_MANAGEMENT':
-        return <FrigoManagement onEditFrigo={(id) => navigateToEdit('FRIGO_EDIT', id)} onNewFrigo={() => navigateToEdit('FRIGO_EDIT', null)} />;
+        return (
+          <FrigoManagement 
+            onEditFrigo={(id) => navigateToEdit('FRIGO_EDIT', id)} 
+            onNewFrigo={() => navigateToEdit('FRIGO_EDIT', null)} 
+            initialFrigoId={editingEntityId}
+          />
+        );
+
       case 'COMPANY_INFO':
         return <CompanySettings />;
 
