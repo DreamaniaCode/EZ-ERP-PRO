@@ -192,14 +192,21 @@ EasyERP Pro • Logistics Management`;
   };
 
 
-  const handleGenerateInvoice = (bl: DeliveryNoteBL) => {
+  const handleGenerateInvoice = (target: DeliveryNoteBL | string) => {
     try {
-      const inv = createInvoiceFromBL(bl.id);
-      alert(`Facture N° ${inv.invoiceNumber} générée avec succès depuis le BL ${bl.blNumber} !`);
+      const blId = typeof target === 'string' ? target : target.id;
+      const targetBL = typeof target === 'string' ? deliveryNotes.find(b => b.id === target) : target;
+      
+      const inv = createInvoiceFromBL(blId);
+      setActivePdfInvoice(inv);
+      alert(`✓ Facture N° ${inv.invoiceNumber} générée avec succès depuis le BL ${targetBL?.blNumber || blId} !`);
     } catch (err: any) {
-      alert(err.message);
+      alert('Erreur lors de la création de la facture: ' + (err.message || err));
     }
   };
+
+  const handleCreateInvoice = handleGenerateInvoice;
+
 
   const handleDeleteBLClick = (bl: DeliveryNoteBL) => {
     if (window.confirm(`Voulez-vous vraiment supprimer le Bon de Livraison ${bl.blNumber} ?`)) {

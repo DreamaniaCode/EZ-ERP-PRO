@@ -1,4 +1,5 @@
-const CACHE_NAME = 'easyerp-pwa-v16-clean-numbers';
+const CACHE_NAME = 'easyerp-pwa-v17-create-invoice-fix';
+
 
 
 
