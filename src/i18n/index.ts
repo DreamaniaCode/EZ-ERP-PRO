@@ -1,13 +1,16 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import LanguageDetector from 'i18next-browser-languagedetector';
 import fr from './locales/fr.json';
 import ar from './locales/ar.json';
 
-const initialLang = (typeof window !== 'undefined' && localStorage.getItem('erp_language')) || 'fr';
-if (typeof window !== 'undefined' && !localStorage.getItem('erp_language')) {
+// Default language is strictly French everywhere (Desktop & PWA)
+const savedLang = typeof window !== 'undefined' ? localStorage.getItem('erp_language') : null;
+const initialLang = savedLang === 'ar' ? 'ar' : 'fr';
+
+if (typeof window !== 'undefined' && !savedLang) {
   localStorage.setItem('erp_language', 'fr');
 }
+
 
 i18n
   .use(initReactI18next)

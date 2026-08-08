@@ -1,5 +1,5 @@
-const CACHE_NAME = 'easyerp-pwa-v6';
-const STATIC_CACHE_NAME = 'easyerp-static-v6';
+const CACHE_NAME = 'easyerp-pwa-v7';
+const STATIC_CACHE_NAME = 'easyerp-static-v7';
 
 const PRECACHE_ASSETS = [
   '/',
@@ -13,11 +13,12 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME).then((cache) => {
-      console.log('[PWA SW v6] Pre-caching updated app shell with Multi-Company support');
+      console.log('[PWA SW v7] Pre-caching updated app shell with strict French default language');
       return cache.addAll(PRECACHE_ASSETS);
     })
   );
 });
+
 
 
 
