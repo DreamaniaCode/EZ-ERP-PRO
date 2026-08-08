@@ -50,7 +50,26 @@ export const CompanySettings: React.FC = () => {
   const [invoicePrefix, setInvoicePrefix] = useState(selectedCompany?.invoicePrefix || 'FAC-STE1');
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  // Recalculation State
+  const [isRecalcModalOpen, setIsRecalcModalOpen] = useState(false);
+  const [isRecalcProcessing, setIsRecalcProcessing] = useState(false);
+  const [recalcReport, setRecalcReport] = useState<RecalculationSummaryReport | null>(null);
+
+  const handleRunRecalculation = async () => {
+    setIsRecalcProcessing(true);
+    setIsRecalcModalOpen(true);
+    try {
+      const report = await recalculateAllBLPrices();
+      setRecalcReport(report);
+    } catch (err) {
+      console.error('Error running recalculation:', err);
+    } finally {
+      setIsRecalcProcessing(false);
+    }
+  };
+
   // Switch edited company
+
   const handleSelectCompanyTab = (compId: string) => {
     setSelectedCompId(compId);
     const comp = companies.find(c => c.id === compId);

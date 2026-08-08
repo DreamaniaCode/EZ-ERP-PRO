@@ -1,4 +1,5 @@
-const CACHE_NAME = 'easyerp-pwa-v10-network-first';
+const CACHE_NAME = 'easyerp-pwa-v11-recalc-fix';
+
 
 // Install Event - Force immediate activation
 self.addEventListener('install', (event) => {
