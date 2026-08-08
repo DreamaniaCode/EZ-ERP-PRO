@@ -7,17 +7,21 @@ import { FileText, Search, Filter, CheckCircle, CreditCard, Download, Eye, Messa
 import { generateWhatsAppInvoiceLink } from '../../utils/whatsappUtils';
 
 export const InvoicesList: React.FC = () => {
-  const { invoices, updateInvoiceStatus, addChequeEffet, clients } = useERP();
+  const { invoices, updateInvoiceStatus, addChequeEffet, clients, activeCompanyId, activeCompany } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [activePdfInvoice, setActivePdfInvoice] = useState<Invoice | null>(null);
 
   const filteredInvoices = invoices.filter(inv => {
+    if (activeCompanyId !== 'ALL' && inv.companyId && inv.companyId !== activeCompanyId) {
+      return false;
+    }
     const matchesSearch = inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           inv.clientName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'ALL' || inv.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
 
   const handleMarkPaid = (inv: Invoice) => {
     updateInvoiceStatus(inv.id, 'PAYEE', inv.totalTTC);

@@ -42,9 +42,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   appUser
 }) => {
   const { t, i18n } = useTranslation();
-  const { deliveryNotes, chequesEffets, currentUser, frigos } = useERP();
+  const { deliveryNotes, chequesEffets, currentUser, frigos, activeCompanyId, setActiveCompanyId, companies } = useERP();
 
   const [showNotifications, setShowNotifications] = useState(false);
+
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
   const [isPwaModalOpen, setIsPwaModalOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -140,14 +141,28 @@ export const Navbar: React.FC<NavbarProps> = ({
                 EasyERP <span className="text-[#0f62fe]">PRO</span>
               </span>
               <span className="hidden sm:inline-block text-[9px] bg-[#262626] text-gray-300 border border-[#393939] px-1 py-0.5 rounded font-mono">
-                v2.4 PWA
+                v2.5 PWA
               </span>
             </div>
-            <div className="hidden sm:flex text-[10px] text-gray-400 items-center gap-1">
-              <Snowflake className="w-3 h-3 text-cyan-400 shrink-0" />
-              <span className="truncate">Stock Multi-Frigos & Négoce</span>
+
+            {/* Active Company Switcher */}
+            <div className="mt-0.5">
+              <select
+                value={activeCompanyId}
+                onChange={(e) => setActiveCompanyId(e.target.value)}
+                className="bg-[#262626] border border-[#525252] hover:border-[#0f62fe] text-cyan-300 text-[10px] font-bold px-1.5 py-0.5 rounded cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#0f62fe] transition-all font-mono"
+                title="Sélectionner la Société Active pour la facturation et les BL (Clients & Frigos partagés)"
+              >
+                {companies.map(c => (
+                  <option key={c.id} value={c.id}>
+                    🏢 {c.shortName || c.name}
+                  </option>
+                ))}
+                <option value="ALL">🌐 Toutes les Sociétés (Vue Consolidée)</option>
+              </select>
             </div>
           </div>
+
         </div>
 
         {/* Global Quick Search */}

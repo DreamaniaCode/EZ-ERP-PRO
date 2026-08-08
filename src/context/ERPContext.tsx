@@ -43,10 +43,57 @@ import {
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, getDocs, onSnapshot, writeBatch } from 'firebase/firestore';
 
+export const DEFAULT_COMPANIES: CompanyEntity[] = [
+  {
+    id: 'STE_1',
+    code: 'STE1',
+    name: 'EZ Dattes Négoce SARL',
+    shortName: 'Sté Principale (Dattes)',
+    ice: '001234567000089',
+    taxId: '54321098',
+    rc: '123456',
+    patent: '34567890',
+    capital: '1 000 000 DH',
+    address: 'Avenue Hassan II, Quartier Industriel',
+    city: 'Casablanca',
+    phone: '+212 5 22 33 44 55',
+    email: 'contact@ezdattes.ma',
+    bankName: 'Attijariwafa Bank',
+    bankRib: '007 780 0001234567890123 45',
+    blPrefix: 'BL-STE1',
+    invoicePrefix: 'FAC-STE1'
+  },
+  {
+    id: 'STE_2',
+    code: 'STE2',
+    name: 'EZ Frigo Logistique SARL',
+    shortName: 'Sté Sœur (Logistique)',
+    ice: '009876543000012',
+    taxId: '87654321',
+    rc: '654321',
+    patent: '98765432',
+    capital: '500 000 DH',
+    address: 'Zone Frigorifique Portuaire',
+    city: 'Casablanca',
+    phone: '+212 5 22 88 99 00',
+    email: 'logistique@ezfrigo.ma',
+    bankName: 'BMCE Bank of Africa',
+    bankRib: '011 780 0009876543210987 65',
+    blPrefix: 'BL-STE2',
+    invoicePrefix: 'FAC-STE2'
+  }
+];
+
 interface ERPContextType {
   currentUser: UserProfile;
   setCurrentUser: (user: UserProfile) => void;
   users: UserProfile[];
+  
+  // Multi-Company (Sociétés Sœurs)
+  activeCompanyId: string;
+  setActiveCompanyId: (id: string) => void;
+  companies: CompanyEntity[];
+  activeCompany: CompanyEntity;
   
   products: Product[];
   frigos: ColdStorageFrigo[];
@@ -144,7 +191,20 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return INITIAL_USERS;
   });
 
+  // Active Company (Société Sœur)
+  const [activeCompanyId, setActiveCompanyId] = useState<string>(() => {
+    return localStorage.getItem('erp_active_company_id') || 'STE_1';
+  });
+
+  const companies = DEFAULT_COMPANIES;
+  const activeCompany = companies.find(c => c.id === activeCompanyId) || companies[0];
+
+  useEffect(() => {
+    localStorage.setItem('erp_active_company_id', activeCompanyId);
+  }, [activeCompanyId]);
+
   const isWiped = typeof window !== 'undefined' && localStorage.getItem('erp_system_wiped') === 'true';
+
 
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem('erp_products');
@@ -1118,7 +1178,10 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!bl) throw new Error('BL non trouvé');
 
     const count = invoices.length + 1;
-    const invoiceNumber = `FAC-2026-${String(count).padStart(4, '0')}`;
+    const targetCompId = bl.companyId || activeCompanyId;
+    const targetCompany = companies.find(c => c.id === targetCompId) || activeCompany;
+    const prefix = targetCompany?.invoicePrefix || 'FAC';
+    const invoiceNumber = `${prefix}-2026-${String(count).padStart(4, '0')}`;
     const date = new Date().toISOString().slice(0, 10);
     const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -1149,10 +1212,11 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const totalVAT = totalHT * activeVatRate;
     const totalTTC = totalHT + totalVAT;
 
-
     const newInvoice: Invoice = {
       id: `fac-${Date.now()}`,
+      companyId: targetCompId,
       invoiceNumber,
+
       orderId: bl.orderId,
       blId: bl.id,
       clientId: bl.clientId,
@@ -1776,7 +1840,12 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     currentUser,
     setCurrentUser,
     users,
+    activeCompanyId,
+    setActiveCompanyId,
+    companies,
+    activeCompany,
     products,
+
     frigos,
     stocks,
     stockMovements,

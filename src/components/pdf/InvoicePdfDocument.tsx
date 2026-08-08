@@ -13,11 +13,13 @@ interface InvoicePdfDocumentProps {
 }
 
 export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice, onClose }) => {
-  const { companyInfo, clients } = useERP();
+  const { companyInfo, clients, companies, activeCompany } = useERP();
   const printRef = useRef<HTMLDivElement | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
 
+  const targetCompany = companies.find(c => c.id === invoice.companyId) || activeCompany;
   const client = clients.find(c => c.id === invoice.clientId || c.name === invoice.clientName);
+
 
   useEffect(() => {
     const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'https://easyerp.ma';
@@ -75,17 +77,18 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
               )}
               <div>
                 <div className="text-xl font-black font-sans uppercase tracking-tight text-gray-900" style={{ color: '#111827' }}>
-                  {companyInfo.name}
+                  {targetCompany.name}
                 </div>
                 <div className="text-xs text-gray-600 mt-0.5 font-mono" style={{ color: '#4b5563' }}>
-                  Capital: {companyInfo.capital} • Siège: {companyInfo.address}, {companyInfo.city}
+                  Capital: {targetCompany.capital} • Siège: {targetCompany.address}, {targetCompany.city}
                 </div>
                 <div className="text-[11px] text-gray-500 mt-0.5 font-mono" style={{ color: '#6b7280' }}>
-                  I.C.E: <b>{companyInfo.ice}</b> • R.C: {companyInfo.rc} • I.F: {companyInfo.if} • Patente: {companyInfo.patente}
+                  I.C.E: <b>{targetCompany.ice}</b> • R.C: {targetCompany.rc} • I.F: {targetCompany.taxId} • Patente: {targetCompany.patent}
                 </div>
                 <div className="text-[11px] text-gray-500 font-mono" style={{ color: '#6b7280' }}>
-                  Tél: {companyInfo.phone} • Email: {companyInfo.email}
+                  Tél: {targetCompany.phone} • Email: {targetCompany.email}
                 </div>
+
               </div>
             </div>
 

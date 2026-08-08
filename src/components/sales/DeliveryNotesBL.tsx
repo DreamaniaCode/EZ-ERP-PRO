@@ -71,7 +71,9 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
     sendEmailBL, 
     createInvoiceFromBL,
     syncBLPricesWithProducts,
-    currentUser 
+    currentUser,
+    activeCompanyId,
+    activeCompany
   } = useERP();
 
   const isFrigoRole = currentUser?.role === 'RESPONSABLE_FRIGO';
@@ -91,6 +93,25 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   const [showExcelModal, setShowExcelModal] = useState<boolean>(false);
 
   
+  // Filter BLs by Active Company, User Role, Frigo, Status, Search
+  const filteredBLs = deliveryNotes.filter(bl => {
+    if (activeCompanyId !== 'ALL' && bl.companyId && bl.companyId !== activeCompanyId) {
+      return false;
+    }
+    if (currentUser.role === 'RESPONSABLE_FRIGO') {
+      if (!currentUser.assignedFrigoId || bl.frigoId !== currentUser.assignedFrigoId) {
+        return false;
+      }
+    }
+    const matchesFrigo = frigoFilter === 'ALL' || bl.frigoId === frigoFilter;
+    const matchesStatus = statusFilter === 'ALL' || bl.status === statusFilter;
+    const matchesSearch = bl.blNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          bl.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          bl.clientName.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesFrigo && matchesStatus && matchesSearch;
+  });
+
+
   // CRUD BL Modals
   const [showCreateBLModal, setShowCreateBLModal] = useState(false);
   const [editingBL, setEditingBL] = useState<DeliveryNoteBL | null>(null);
@@ -111,21 +132,6 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
 
   const [selectedBLIds, setSelectedBLIds] = useState<string[]>([]);
 
-  // Filter BLs based on user role & frigo assignment
-  const filteredBLs = deliveryNotes.filter(bl => {
-    // If user is RESPONSABLE_FRIGO, strictly enforce they see ONLY their assigned cold warehouse BLs!
-    if (currentUser.role === 'RESPONSABLE_FRIGO') {
-      if (!currentUser.assignedFrigoId || bl.frigoId !== currentUser.assignedFrigoId) {
-        return false;
-      }
-    }
-    const matchesFrigo = frigoFilter === 'ALL' || bl.frigoId === frigoFilter;
-    const matchesStatus = statusFilter === 'ALL' || bl.status === statusFilter;
-    const matchesSearch = bl.blNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          bl.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          bl.clientName.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesFrigo && matchesStatus && matchesSearch;
-  });
 
   const toggleSelectBL = (id: string) => {
     setSelectedBLIds(prev => 

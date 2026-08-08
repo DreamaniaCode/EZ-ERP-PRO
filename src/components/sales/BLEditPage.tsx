@@ -9,8 +9,9 @@ import { useToast } from '../common/CarbonToastContainer';
 export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }> = ({ editId, onBack }) => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
-  const { clients, frigos, products, stocks, deliveryNotes, addBL, updateBL } = useERP();
+  const { clients, frigos, products, stocks, deliveryNotes, addBL, updateBL, activeCompanyId, activeCompany } = useERP();
   const { notifySuccess, notifyError, notifyWarning } = useToast();
+
 
 
   const [clientId, setClientId] = useState('');
@@ -164,14 +165,17 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
       }
     } else {
       if (addBL) {
-        const blNumber = `BL-2026-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+        const prefix = activeCompany?.blPrefix || 'BL';
+        const blNumber = `${prefix}-2026-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
         const newBL = {
           ...payload,
           id: `bl-${Date.now()}`,
+          companyId: activeCompanyId,
           blNumber,
           orderId: '',
           orderNumber: '',
           status: 'EN_ATTENTE_FRIGO' as const,
+
           frigoEmployeeApproved: false,
           whatsappSent: false,
           emailSent: false,

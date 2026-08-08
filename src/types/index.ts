@@ -204,9 +204,31 @@ export interface DeliveryNoteLog {
   notes?: string;
 }
 
+export interface CompanyEntity {
+  id: string;
+  code: string;
+  name: string;
+  shortName: string;
+  ice: string;
+  taxId: string;
+  rc: string;
+  patent: string;
+  capital: string;
+  address: string;
+  city: string;
+  phone: string;
+  email: string;
+  logoUrl?: string;
+  bankName: string;
+  bankRib: string;
+  blPrefix: string;
+  invoicePrefix: string;
+}
+
 export interface DeliveryNoteBL {
   id: string;
-  blNumber: string; // e.g. BL-2026-0189
+  companyId?: string; // Active company entity (e.g. STE1 or STE2)
+  blNumber: string; // e.g. BL-STE1-2026-0189
   orderId: string;
   orderNumber: string;
   clientId: string;
@@ -222,6 +244,7 @@ export interface DeliveryNoteBL {
   totalPallets: number;
   totalHT: number;
   totalTTC: number;
+
   
   // Multi-frigo approval flow
   frigoEmployeeApproved: boolean;
@@ -271,9 +294,11 @@ export type InvoiceStatus = 'BROUILLON' | 'EMISE' | 'PAYEE_PARTIEL' | 'PAYEE' | 
 
 export interface Invoice {
   id: string;
-  invoiceNumber: string; // e.g. FAC-2026-0098
+  companyId?: string; // Active company entity (e.g. STE1 or STE2)
+  invoiceNumber: string; // e.g. FAC-STE1-2026-0098
   orderId?: string;
   blId?: string;
+
   clientId: string;
   clientName: string;
   clientICE: string;
