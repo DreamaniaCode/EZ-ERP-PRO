@@ -1,5 +1,5 @@
-const CACHE_NAME = 'easyerp-pwa-v4';
-const STATIC_CACHE_NAME = 'easyerp-static-v4';
+const CACHE_NAME = 'easyerp-pwa-v5';
+const STATIC_CACHE_NAME = 'easyerp-static-v5';
 
 const PRECACHE_ASSETS = [
   '/',
@@ -8,16 +8,17 @@ const PRECACHE_ASSETS = [
   '/ez_erp_logo.jpg'
 ];
 
-
 // Install Event - Pre-cache core shell
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME).then((cache) => {
-      console.log('[PWA SW] Pre-caching core app shell');
+      console.log('[PWA SW v5] Pre-caching updated app shell');
       return cache.addAll(PRECACHE_ASSETS);
-    }).then(() => self.skipWaiting())
+    })
   );
 });
+
 
 // Activate Event - Clean old caches and claim clients
 self.addEventListener('activate', (event) => {

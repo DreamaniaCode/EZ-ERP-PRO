@@ -51,7 +51,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       {children}
       
       {/* Carbon Toast Floating Stack */}
-      <div className="fixed top-5 right-5 z-[9999] flex flex-col gap-3 max-w-md w-full pointer-events-none p-2">
+      <div className="fixed top-3 left-3 right-3 sm:left-auto sm:right-5 sm:top-5 z-[9999] flex flex-col gap-3 max-w-md w-auto sm:w-full pointer-events-none p-1 sm:p-2">
+
         {toasts.map(toast => {
           let borderAccent = 'border-l-[#0f62fe]';
           let icon = <Info className="w-5 h-5 text-[#0f62fe] shrink-0" />;

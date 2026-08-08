@@ -335,8 +335,9 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
 
             </div>
             
-            <div className="overflow-x-auto">
-              <table className="w-full carbon-table">
+            <div className="overflow-x-auto border border-gray-200 rounded">
+              <table className="w-full carbon-table min-w-[580px]">
+
                 <thead>
                   <tr>
                     <th>Produit</th>
