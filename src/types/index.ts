@@ -247,7 +247,9 @@ export interface DeliveryNoteBL {
 
   
   // Multi-frigo approval flow
+  stockDecremented?: boolean;
   frigoEmployeeApproved: boolean;
+
   frigoApprovedBy?: string;
   frigoApprovedAt?: string;
 

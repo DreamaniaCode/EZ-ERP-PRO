@@ -1,4 +1,5 @@
-const CACHE_NAME = 'easyerp-pwa-v17-create-invoice-fix';
+const CACHE_NAME = 'easyerp-pwa-v18-stock-deduct-rule';
+
 
 
 

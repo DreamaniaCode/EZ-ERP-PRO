@@ -216,5 +216,30 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyInfo: Com
   doc.setTextColor(160, 160, 160);
   doc.text('CACHET & SIGNATURE SOCIETE', stampX + 25, stampY + 5, { align: 'center' });
 
-  doc.save(`${safe(invoice.invoiceNumber)}_Facture_${safe(invoice.clientName).replace(/\s+/g, '_')}.pdf`);
+  const fileName = `${safe(invoice.invoiceNumber)}_Facture_${safe(invoice.clientName).replace(/\s+/g, '_')}.pdf`;
+  
+  try {
+    doc.save(fileName);
+  } catch (e) {
+    console.warn('Standard doc.save failed, using blob fallback', e);
+  }
+
+  // Fallback for mobile browsers & PWAs where doc.save may be restricted
+  try {
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      try { document.body.removeChild(a); } catch (e) {}
+      URL.revokeObjectURL(url);
+    }, 1500);
+  } catch (err) {
+    console.error('Error generating PDF blob fallback:', err);
+  }
 }
+

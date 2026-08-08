@@ -1063,19 +1063,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl)).catch(err => {
         handleFirestoreError(err, OperationType.WRITE, `deliveryNotes/${bl.id}`);
       });
-
-      // Decrement stock from designated frigo
-      items.forEach(it => {
-        const stock = stocks.find(s => s.frigoId === frigoId && s.productId === it.productId);
-        if (stock) {
-          adjustStock(
-            frigoId,
-            it.productId,
-            Math.max(0, stock.quantityKg - it.quantityKg),
-            Math.max(0, stock.quantityPallets - it.quantityPallets)
-          );
-        }
-      });
+      // Stock will be decremented AFTER stock manager approval OR uploading Bon de Sortie photo
     });
 
     setOrders(prev => [newOrder, ...prev]);
@@ -1099,8 +1087,25 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
     setDeliveryNotes(prev => prev.map(bl => {
       if (bl.id !== blId) return bl;
+
+      // Decrement stock upon frigo manager approval if not already done
+      if (!bl.stockDecremented) {
+        bl.items.forEach(it => {
+          const stock = stocks.find(s => s.frigoId === bl.frigoId && s.productId === it.productId);
+          if (stock) {
+            adjustStock(
+              bl.frigoId,
+              it.productId,
+              Math.max(0, stock.quantityKg - it.quantityKg),
+              Math.max(0, stock.quantityPallets - it.quantityPallets)
+            );
+          }
+        });
+      }
+
       const updated = {
         ...bl,
+        stockDecremented: true,
         frigoEmployeeApproved: true,
         frigoApprovedBy: employeeName,
         frigoApprovedAt: timestamp,
@@ -1110,7 +1115,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           {
             id: `log-${Date.now()}`,
             timestamp,
-            action: `Chargement et palettes approuvés sur le quai du ${bl.frigoName}`,
+            action: `Chargement et palettes approuvés sur le quai du ${bl.frigoName} (Stock décrémenté)`,
             author: employeeName,
           },
         ],
@@ -1121,6 +1126,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return updated;
     }));
   };
+
 
   const signBL = (blId: string, signatureUrl: string, clientName: string) => {
     const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
@@ -1213,13 +1219,36 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateBL = (id: string, updatedData: Partial<DeliveryNoteBL>) => {
     setDeliveryNotes(prev => prev.map(b => {
       if (b.id !== id) return b;
-      const updated = { ...b, ...updatedData };
-      setDoc(doc(db, 'deliveryNotes', id), updated).catch(err => {
+
+      // If uploading bon de sortie or approving frigo and stock not yet decremented, deduct stock now!
+      let shouldDeduct = Boolean((updatedData.bonDeSortiePhotoUrl || updatedData.frigoEmployeeApproved) && !b.stockDecremented);
+      if (shouldDeduct) {
+        b.items.forEach(it => {
+          const stock = stocks.find(s => s.frigoId === b.frigoId && s.productId === it.productId);
+          if (stock) {
+            adjustStock(
+              b.frigoId,
+              it.productId,
+              Math.max(0, stock.quantityKg - it.quantityKg),
+              Math.max(0, stock.quantityPallets - it.quantityPallets)
+            );
+          }
+        });
+      }
+
+      const updated = { 
+        ...b, 
+        ...updatedData,
+        stockDecremented: b.stockDecremented || shouldDeduct
+      };
+
+      setDoc(doc(db, 'deliveryNotes', id), sanitizeForFirestore(updated), { merge: true }).catch(err => {
         handleFirestoreError(err, OperationType.UPDATE, `deliveryNotes/${id}`);
       });
       return updated;
     }));
   };
+
 
   const deleteBL = (id: string) => {
     setDeliveryNotes(prev => prev.filter(b => b.id !== id));
