@@ -64,22 +64,37 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
 
     const safeStr = (s: any) => String(s || '').replace(/[\u0000-\u001F]/g, '');
 
+    const compName = safeStr(targetCompany?.name || companyInfo?.name || 'ENTREPRISE');
+    const compCapital = safeStr(targetCompany?.capital || companyInfo?.capital || '');
+    const compAddress = safeStr(targetCompany?.address || companyInfo?.address || '');
+    const compCity = safeStr(targetCompany?.city || companyInfo?.city || '');
+    const compIce = safeStr(targetCompany?.ice || companyInfo?.ice || '');
+    const compRc = safeStr(targetCompany?.rc || companyInfo?.rc || '');
+    const compTaxId = safeStr(targetCompany?.taxId || (targetCompany as any)?.if || companyInfo?.if || '');
+    const compPatent = safeStr(targetCompany?.patent || (targetCompany as any)?.patente || companyInfo?.patente || '');
+    const compPhone = safeStr(targetCompany?.phone || companyInfo?.phone || '');
+    const compEmail = safeStr(targetCompany?.email || companyInfo?.email || '');
+
     // ── Header: Company name ──
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
+    doc.setFontSize(13);
     doc.setTextColor(17, 17, 17);
-    doc.text(safeStr(companyInfo.name).toUpperCase(), margin, y);
+    doc.text(compName.toUpperCase(), margin, y);
     y += 5;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(80, 80, 80);
-    doc.text(`Capital: ${safeStr(companyInfo.capital)} | Siege: ${safeStr(companyInfo.address)}, ${safeStr(companyInfo.city)}`, margin, y);
+    if (compCapital || compAddress) {
+      doc.text(`Capital: ${compCapital} | Siege: ${compAddress}${compCity ? ', ' + compCity : ''}`, margin, y);
+      y += 4;
+    }
+    doc.text(`I.C.E: ${compIce} | R.C: ${compRc} | I.F: ${compTaxId} | Patente: ${compPatent}`, margin, y);
     y += 4;
-    doc.text(`I.C.E: ${safeStr(companyInfo.ice)} | R.C: ${safeStr(companyInfo.rc)} | I.F: ${safeStr(companyInfo.if)} | Patente: ${safeStr(companyInfo.patente)}`, margin, y);
-    y += 4;
-    doc.text(`Tel: ${safeStr(companyInfo.phone)} | Email: ${safeStr(companyInfo.email)}`, margin, y);
-    y += 4;
+    if (compPhone || compEmail) {
+      doc.text(`Tel: ${compPhone} | Email: ${compEmail}`, margin, y);
+      y += 4;
+    }
 
     // ── BL Badge (right column) ──
     doc.setFillColor(15, 98, 254);

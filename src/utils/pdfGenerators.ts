@@ -6,7 +6,7 @@ const fmtNum = (val: number | string | null | undefined): string => {
   return Number(val).toLocaleString('en-US').replace(/,/g, ' ');
 };
 
-export function generateAndDownloadInvoicePdf(invoice: Invoice, companyInfo: CompanyInfo): void {
+export function generateAndDownloadInvoicePdf(invoice: Invoice, companyData: any): void {
 
   const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
   const pw = doc.internal.pageSize.getWidth();
@@ -19,22 +19,40 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyInfo: Com
   const totalVAT = invoice.totalVAT ?? 0;
   const totalTTC = invoice.totalTTC ?? 0;
 
+  // Resolve company fields dynamically from CompanyEntity or CompanyInfo
+  const compName = safe(companyData?.name || 'ENTREPRISE');
+  const compCapital = safe(companyData?.capital || '');
+  const compAddress = safe(companyData?.address || '');
+  const compCity = safe(companyData?.city || '');
+  const compIce = safe(companyData?.ice || '');
+  const compRc = safe(companyData?.rc || '');
+  const compTaxId = safe(companyData?.taxId || companyData?.if || '');
+  const compPatent = safe(companyData?.patent || companyData?.patente || '');
+  const compPhone = safe(companyData?.phone || '');
+  const compEmail = safe(companyData?.email || '');
+  const compBank = safe(companyData?.bankName || '');
+  const compRib = safe(companyData?.bankRib || companyData?.rib || '');
+
   // ── Company header (left) ──
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
+  doc.setFontSize(13);
   doc.setTextColor(17, 17, 17);
-  doc.text(safe(companyInfo.name).toUpperCase(), margin, y);
+  doc.text(compName.toUpperCase(), margin, y);
   y += 5;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(80, 80, 80);
-  doc.text(`Capital: ${safe(companyInfo.capital)} | Siege: ${safe(companyInfo.address)}, ${safe(companyInfo.city)}`, margin, y);
+  if (compCapital || compAddress) {
+    doc.text(`Capital: ${compCapital} | Siege: ${compAddress}${compCity ? ', ' + compCity : ''}`, margin, y);
+    y += 4;
+  }
+  doc.text(`I.C.E: ${compIce} | R.C: ${compRc} | I.F: ${compTaxId} | Patente: ${compPatent}`, margin, y);
   y += 4;
-  doc.text(`I.C.E: ${safe(companyInfo.ice)} | R.C: ${safe(companyInfo.rc)} | I.F: ${safe(companyInfo.if)} | Patente: ${safe(companyInfo.patente)}`, margin, y);
-  y += 4;
-  doc.text(`Tel: ${safe(companyInfo.phone)} | Email: ${safe(companyInfo.email)}`, margin, y);
-  y += 4;
+  if (compPhone || compEmail) {
+    doc.text(`Tel: ${compPhone} | Email: ${compEmail}`, margin, y);
+    y += 4;
+  }
 
   // ── Invoice badge (right) ──
   doc.setFillColor(17, 17, 17);

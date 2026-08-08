@@ -36,14 +36,24 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
   }, [invoice]);
 
   const handleDownloadPdf = () => {
-    generateAndDownloadInvoicePdf(invoice, companyInfo);
+    generateAndDownloadInvoicePdf(invoice, targetCompany || companyInfo);
   };
 
   const handlePrint = () => {
     window.print();
   };
 
-
+  const compLogo = targetCompany?.logoUrl || companyInfo?.logoUrl;
+  const compName = targetCompany?.name || companyInfo?.name || 'ENTREPRISE';
+  const compCapital = targetCompany?.capital || companyInfo?.capital || '';
+  const compAddress = targetCompany?.address || companyInfo?.address || '';
+  const compCity = targetCompany?.city || companyInfo?.city || '';
+  const compIce = targetCompany?.ice || companyInfo?.ice || '';
+  const compRc = targetCompany?.rc || companyInfo?.rc || '';
+  const compTaxId = targetCompany?.taxId || (targetCompany as any)?.if || companyInfo?.if || '';
+  const compPatent = targetCompany?.patent || (targetCompany as any)?.patente || companyInfo?.patente || '';
+  const compPhone = targetCompany?.phone || companyInfo?.phone || '';
+  const compEmail = targetCompany?.email || companyInfo?.email || '';
 
   return (
     <div className="bg-white w-full rounded-lg shadow-sm overflow-hidden border border-gray-200">
@@ -79,23 +89,22 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
           {/* Header Row: Company Info, Invoice Title & QR Code */}
           <div className="flex justify-between items-start border-b-2 border-gray-900 pb-5" style={{ borderColor: '#111827' }}>
             <div className="flex items-start gap-4">
-              {companyInfo.logoUrl && (
-                <img src={companyInfo.logoUrl} alt="Logo" className="h-12 object-contain shrink-0 mt-1" />
+              {compLogo && (
+                <img src={compLogo} alt="Logo" className="h-12 object-contain shrink-0 mt-1" />
               )}
               <div>
                 <div className="text-xl font-black font-sans uppercase tracking-tight text-gray-900" style={{ color: '#111827' }}>
-                  {targetCompany.name}
+                  {compName}
                 </div>
                 <div className="text-xs text-gray-600 mt-0.5 font-mono" style={{ color: '#4b5563' }}>
-                  Capital: {targetCompany.capital} • Siège: {targetCompany.address}, {targetCompany.city}
+                  Capital: {compCapital} • Siège: {compAddress}{compCity ? `, ${compCity}` : ''}
                 </div>
                 <div className="text-[11px] text-gray-500 mt-0.5 font-mono" style={{ color: '#6b7280' }}>
-                  I.C.E: <b>{targetCompany.ice}</b> • R.C: {targetCompany.rc} • I.F: {targetCompany.taxId} • Patente: {targetCompany.patent}
+                  I.C.E: <b>{compIce}</b> • R.C: {compRc} • I.F: {compTaxId} • Patente: {compPatent}
                 </div>
                 <div className="text-[11px] text-gray-500 font-mono" style={{ color: '#6b7280' }}>
-                  Tél: {targetCompany.phone} • Email: {targetCompany.email}
+                  Tél: {compPhone} • Email: {compEmail}
                 </div>
-
               </div>
             </div>
 
