@@ -1,4 +1,5 @@
-const CACHE_NAME = 'easyerp-pwa-v12-firestore-clean';
+const CACHE_NAME = 'easyerp-pwa-v13-real-name';
+
 
 
 

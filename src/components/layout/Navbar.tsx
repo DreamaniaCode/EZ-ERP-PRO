@@ -158,9 +158,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               {companies.map(c => (
                 <option key={c.id} value={c.id} className="bg-[#161616] text-white">
-                  {c.shortName || c.name}
+                  {c.name || c.shortName}
                 </option>
               ))}
+
               <option value="ALL" className="bg-[#161616] text-cyan-300">
                 🌐 Toutes (Vue Consolidée)
               </option>

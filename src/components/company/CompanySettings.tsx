@@ -124,6 +124,7 @@ export const CompanySettings: React.FC = () => {
     if (updateCompanyEntity) {
       updateCompanyEntity(selectedCompId, {
         name: cleanFormData.name,
+        shortName: cleanFormData.name,
         ice: cleanFormData.ice,
         rc: cleanFormData.rc,
         taxId: cleanFormData.if,
@@ -140,6 +141,7 @@ export const CompanySettings: React.FC = () => {
         logoUrl: cleanFormData.logoUrl,
       });
     }
+
 
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
@@ -223,9 +225,10 @@ export const CompanySettings: React.FC = () => {
               }`}
             >
               <span>🏢</span>
-              <span>{c.shortName || c.name}</span>
+              <span>{c.name || c.shortName}</span>
             </button>
           ))}
+
         </div>
       </div>
 
