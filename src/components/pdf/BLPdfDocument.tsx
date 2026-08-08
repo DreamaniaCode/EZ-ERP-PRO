@@ -173,9 +173,9 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
 
     y += 32;
 
-    // ── Products Table ──
-    const colWidths = [30, usable - 30 - 28, 28];
-    const colX = [margin, margin + colWidths[0], margin + colWidths[0] + colWidths[1]];
+    // ── Products Table (4 columns: SKU, DESIGNATION, CARTONS, QUANTITE KG) ──
+    const colWidths = [26, usable - 26 - 26 - 30, 26, 30];
+    const colX = [margin, margin + colWidths[0], margin + colWidths[0] + colWidths[1], margin + colWidths[0] + colWidths[1] + colWidths[2]];
     const rowH = 7;
 
     // Header row
@@ -185,15 +185,20 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
     doc.setLineWidth(0.3);
     doc.rect(margin, y, usable, rowH, 'S');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(17, 17, 17);
     doc.text('CODE SKU', colX[0] + 2, y + 4.8);
     doc.text('DESIGNATION PRODUIT', colX[1] + 2, y + 4.8);
-    doc.text('QUANTITE (KG)', colX[2] + colWidths[2] / 2, y + 4.8, { align: 'center' });
+    doc.text('CARTONS', colX[2] + colWidths[2] / 2, y + 4.8, { align: 'center' });
+    doc.text('QUANTITE (KG)', colX[3] + colWidths[3] / 2, y + 4.8, { align: 'center' });
     y += rowH;
 
+    let computedTotalCartons = 0;
     bl.items.forEach((item, idx) => {
       const bg = idx % 2 === 0 ? [255, 255, 255] : [248, 250, 252];
+      const cartons = item.quantityCartons || (item.quantityKg ? Math.round(item.quantityKg / 10) : 0);
+      computedTotalCartons += cartons;
+
       doc.setFillColor(bg[0], bg[1], bg[2]);
       doc.rect(margin, y, usable, rowH, 'F');
       doc.setDrawColor(226, 232, 240);
@@ -204,25 +209,36 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
       doc.text(safeStr(item.productCode), colX[0] + 2, y + 4.8);
       doc.setTextColor(17, 17, 17);
       doc.text(safeStr(item.productName), colX[1] + 2, y + 4.8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(180, 83, 9);
+      doc.text(`${formatNumber(cartons)} Ctn`, colX[2] + colWidths[2] / 2, y + 4.8, { align: 'center' });
       doc.setTextColor(17, 17, 17);
-      doc.text(`${formatNumber(item.quantityKg)} Kg`, colX[2] + colWidths[2] / 2, y + 4.8, { align: 'center' });
+      doc.text(`${formatNumber(item.quantityKg)} Kg`, colX[3] + colWidths[3] / 2, y + 4.8, { align: 'center' });
       y += rowH;
     });
     y += 5;
 
+    const displayTotalCartons = bl.totalCartons || computedTotalCartons;
+
     // ── Totals ──
     doc.setFillColor(248, 250, 252);
-    doc.roundedRect(pw - margin - 48, y, 48, 18, 1, 1, 'F');
+    doc.roundedRect(pw - margin - 58, y, 58, 20, 1, 1, 'F');
     doc.setDrawColor(200, 210, 220);
-    doc.roundedRect(pw - margin - 48, y, 48, 18, 1, 1, 'S');
-    doc.setFont('helvetica', 'normal');
+    doc.roundedRect(pw - margin - 58, y, 58, 20, 1, 1, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`TOTAL CARTONS: `, pw - margin - 55, y + 6);
+    doc.setTextColor(180, 83, 9);
+    doc.text(`${formatNumber(displayTotalCartons)} Cartons`, pw - margin - 3, y + 6, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(80, 80, 80);
-    doc.text('POIDS TOTAL EXPEDIE', pw - margin - 24, y + 6, { align: 'center' });
+    doc.text(`POIDS TOTAL: `, pw - margin - 55, y + 14);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
+    doc.setFontSize(10);
     doc.setTextColor(4, 120, 87);
-    doc.text(`${formatNumber(bl.totalKg)} Kg`, pw - margin - 24, y + 14, { align: 'center' });
+    doc.text(`${formatNumber(bl.totalKg)} Kg`, pw - margin - 3, y + 14, { align: 'right' });
 
 
     // Transport notes
@@ -594,17 +610,22 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
                 <tr className="font-bold uppercase text-[11px]" style={{ backgroundColor: '#e2e8f0', color: '#0f172a' }}>
                   <th className="p-2 border" style={{ borderColor: '#cbd5e1' }}>Code SKU</th>
                   <th className="p-2 border" style={{ borderColor: '#cbd5e1' }}>Désignation Produit</th>
+                  <th className="p-2 border text-center" style={{ borderColor: '#cbd5e1' }}>Nombre Cartons</th>
                   <th className="p-2 border text-center" style={{ borderColor: '#cbd5e1' }}>Quantité (Kg)</th>
                 </tr>
               </thead>
               <tbody>
-                {bl.items.map((item, idx) => (
-                  <tr key={idx} className="border-b" style={{ borderColor: '#e2e8f0', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                    <td className="p-2 border font-bold" style={{ borderColor: '#cbd5e1', color: '#0f62fe' }}>{item.productCode}</td>
-                    <td className="p-2 border font-sans font-semibold" style={{ borderColor: '#cbd5e1', color: '#0f172a' }}>{item.productName}</td>
-                    <td className="p-2 border text-center font-bold" style={{ borderColor: '#cbd5e1', color: '#0f172a' }}>{formatNumber(item.quantityKg)} Kg</td>
-                  </tr>
-                ))}
+                {bl.items.map((item, idx) => {
+                  const cartons = item.quantityCartons || (item.quantityKg ? Math.round(item.quantityKg / 10) : 0);
+                  return (
+                    <tr key={idx} className="border-b" style={{ borderColor: '#e2e8f0', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                      <td className="p-2 border font-bold" style={{ borderColor: '#cbd5e1', color: '#0f62fe' }}>{item.productCode}</td>
+                      <td className="p-2 border font-sans font-semibold" style={{ borderColor: '#cbd5e1', color: '#0f172a' }}>{item.productName}</td>
+                      <td className="p-2 border text-center font-bold text-amber-800" style={{ borderColor: '#cbd5e1' }}>{formatNumber(cartons)} Ctn</td>
+                      <td className="p-2 border text-center font-bold" style={{ borderColor: '#cbd5e1', color: '#0f172a' }}>{formatNumber(item.quantityKg)} Kg</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -620,6 +641,10 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
             </div>
 
             <div className="p-4 rounded border text-right space-y-1 text-xs" style={{ backgroundColor: '#f8fafc', borderColor: '#cbd5e1' }}>
+              <div className="text-amber-800 text-[10px] font-bold">TOTAL CARTONS</div>
+              <div className="font-bold text-sm text-amber-900 mb-1">
+                {formatNumber(bl.totalCartons || bl.items.reduce((s, it) => s + (it.quantityCartons || (it.quantityKg ? Math.round(it.quantityKg / 10) : 0)), 0))} Cartons
+              </div>
               <div className="text-gray-500 text-[10px]">POIDS TOTAL EXPÉDIÉ</div>
               <div className="font-bold text-base text-emerald-700">{formatNumber(bl.totalKg)} Kg</div>
             </div>

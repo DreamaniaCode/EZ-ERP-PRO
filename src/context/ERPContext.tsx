@@ -1012,17 +1012,23 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const frigo = frigos.find(f => f.id === frigoId);
       const blNumber = `BL-2026-${String(blCount++).padStart(4, '0')}`;
       
-      const blItems = items.map(it => ({
-        productId: it.productId,
-        productCode: it.productCode,
-        productName: it.productName,
-        quantityKg: it.quantityKg,
-        quantityPallets: it.quantityPallets,
-        unitPriceHT: it.unitPriceHT,
-        totalHT: it.totalHT,
-      }));
+      const blItems = items.map(it => {
+        const prd = products.find(p => p.id === it.productId);
+        const kgCarton = prd?.kgPerCarton || 10;
+        return {
+          productId: it.productId,
+          productCode: it.productCode,
+          productName: it.productName,
+          quantityKg: it.quantityKg,
+          quantityCartons: (it as any).quantityCartons || Math.round(it.quantityKg / kgCarton),
+          quantityPallets: it.quantityPallets,
+          unitPriceHT: it.unitPriceHT,
+          totalHT: it.totalHT,
+        };
+      });
 
       const totalKg = blItems.reduce((acc, i) => acc + i.quantityKg, 0);
+      const totalCartons = blItems.reduce((acc, i) => acc + i.quantityCartons, 0);
       const totalPallets = blItems.reduce((acc, i) => acc + i.quantityPallets, 0);
       const blTotalHT = blItems.reduce((acc, i) => acc + i.totalHT, 0);
       const blTotalTTC = blTotalHT; // Don't add TVA price unless asked
@@ -1042,6 +1048,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         date: new Date().toISOString().slice(0, 10),
         items: blItems,
         totalKg,
+        totalCartons,
         totalPallets,
         totalHT: blTotalHT,
         totalTTC: blTotalTTC,

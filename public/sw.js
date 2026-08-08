@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easyerp-pwa-v22-company-header-fix';
+const CACHE_NAME = 'easyerp-pwa-v23-bl-cartons-calc';
 
 
 

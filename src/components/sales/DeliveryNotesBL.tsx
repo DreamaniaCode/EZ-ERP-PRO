@@ -645,12 +645,11 @@ EasyERP Pro • Logistics Management`;
                         </button>
                         <div className="flex justify-between text-gray-600 mt-1">
                           <span>Poids: <b className="text-blue-700">{item.quantityKg.toLocaleString()} Kg</b></span>
-                          {!isFrigoRole && (
-                            <span>Prix: <b className="text-emerald-700">{item.unitPriceHT.toLocaleString()} DH/Kg</b></span>
-                          )}
+                          <span>Cartons: <b className="text-amber-800">{(item.quantityCartons || (item.quantityKg ? Math.round(item.quantityKg / 10) : 0)).toLocaleString()} Ctn</b></span>
                         </div>
                         {!isFrigoRole && (
                           <div className="flex justify-between text-gray-600 mt-1">
+                            <span>PU HT: <b className="text-emerald-700">{item.unitPriceHT.toLocaleString()} DH</b></span>
                             <span>Total HT: <b className="text-gray-900">{item.totalHT.toLocaleString()} DH</b></span>
                           </div>
                         )}
@@ -660,7 +659,7 @@ EasyERP Pro • Logistics Management`;
                 </div>
 
                 <div className="flex justify-between items-center text-xs font-mono font-bold text-gray-800 mt-3 pt-2 border-t border-gray-200">
-                  <span>Poids Total: <span className="text-emerald-700 font-extrabold">{bl.totalKg.toLocaleString()} Kg</span></span>
+                  <span>Poids Total: <span className="text-emerald-700 font-extrabold">{bl.totalKg.toLocaleString()} Kg</span> • <span className="text-amber-800 font-extrabold">{(bl.totalCartons || bl.items.reduce((sum, it) => sum + (it.quantityCartons || (it.quantityKg ? Math.round(it.quantityKg / 10) : 0)), 0)).toLocaleString()} Cartons</span></span>
                   {!isFrigoRole && (
                     <span>Total HT: {bl.totalHT.toLocaleString()} DH</span>
                   )}

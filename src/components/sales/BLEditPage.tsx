@@ -31,21 +31,27 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
         setClientId(bl.clientId || '');
         setFrigoId(bl.frigoId || '');
         setDate(bl.date || new Date().toISOString().slice(0, 10));
-        setItems(bl.items ? bl.items.map((it: any) => ({
-          ...it,
-          quantityKg: Number(it.quantityKg || 0),
-          quantityPallets: Number(it.quantityPallets || 0),
-          unitPriceHT: Number(it.unitPriceHT || 0),
-          totalHT: Number(it.totalHT || (it.quantityKg * it.unitPriceHT)),
-          totalTTC: Number(it.totalTTC || (it.quantityKg * it.unitPriceHT))
-        })) : []);
+        setItems(bl.items ? bl.items.map((it: any) => {
+          const prd = products?.find(p => p.id === it.productId || p.code === it.productCode);
+          const kgCarton = prd?.kgPerCarton || 10;
+          return {
+            ...it,
+            quantityKg: Number(it.quantityKg || 0),
+            quantityCartons: Number(it.quantityCartons || (it.quantityKg ? Math.round(it.quantityKg / kgCarton) : 0)),
+            quantityPallets: Number(it.quantityPallets || 0),
+            unitPriceHT: Number(it.unitPriceHT || 0),
+            totalHT: Number(it.totalHT || (it.quantityKg * it.unitPriceHT)),
+            totalTTC: Number(it.totalTTC || (it.quantityKg * it.unitPriceHT))
+          };
+        }) : []);
       }
     }
-  }, [editId, deliveryNotes]);
+  }, [editId, deliveryNotes, products]);
 
   const handleAddItem = () => {
     const defaultProduct = products && products.length > 0 ? products[0] : null;
     const initialPrice = defaultProduct ? defaultProduct.sellingPriceHT : 0;
+    const kgCarton = defaultProduct?.kgPerCarton || 10;
     
     setItems([
       ...items,
@@ -55,6 +61,7 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
         productName: defaultProduct ? defaultProduct.name : '',
         productCode: defaultProduct ? defaultProduct.code : '',
         quantityKg: 100,
+        quantityCartons: Math.round(100 / kgCarton),
         quantityPallets: defaultProduct && defaultProduct.kgPerPallet ? Math.ceil(100 / defaultProduct.kgPerPallet) : 1,
         unitPriceHT: initialPrice,
         totalHT: 100 * initialPrice,
@@ -70,23 +77,36 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
   const handleItemChange = (index: number, field: string, value: any) => {
     const newItems = [...items];
     const item = { ...newItems[index], [field]: value };
+    const product = products?.find(p => p.id === item.productId);
+    const kgCarton = product?.kgPerCarton || 10;
 
     if (field === 'productId') {
-      const product = products?.find(p => p.id === value);
       if (product) {
         item.productName = product.name;
         item.productCode = product.code;
         item.unitPriceHT = product.sellingPriceHT || 0;
-        if (item.quantityKg > 0 && product.kgPerPallet) {
-          item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
+        if (item.quantityKg > 0) {
+          item.quantityCartons = Math.round(item.quantityKg / kgCarton);
+          if (product.kgPerPallet) {
+            item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
+          }
         }
       }
     }
 
     if (field === 'quantityKg') {
-      const product = products?.find(p => p.id === item.productId);
+      const kgVal = Number(value) || 0;
+      item.quantityCartons = Math.round(kgVal / kgCarton);
       if (product && product.kgPerPallet) {
-        item.quantityPallets = Math.ceil(Number(value) / product.kgPerPallet);
+        item.quantityPallets = Math.ceil(kgVal / product.kgPerPallet);
+      }
+    }
+
+    if (field === 'quantityCartons') {
+      const cartonsVal = Number(value) || 0;
+      item.quantityKg = cartonsVal * kgCarton;
+      if (product && product.kgPerPallet) {
+        item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
       }
     }
 
@@ -120,8 +140,9 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
     setItems(updatedItems);
   };
 
-  // Totals calculations based on Kg
+  // Totals calculations based on Kg & Cartons
   const totalKg = items.reduce((sum, item) => sum + Number(item.quantityKg || 0), 0);
+  const totalCartons = items.reduce((sum, item) => sum + Number(item.quantityCartons || (item.quantityKg ? Math.round(item.quantityKg / 10) : 0)), 0);
   const totalPallets = items.reduce((sum, item) => sum + Number(item.quantityPallets || 0), 0);
   const totalHT = items.reduce((sum, item) => sum + Number(item.totalHT || 0), 0);
   const totalTTC = items.reduce((sum, item) => sum + Number(item.totalTTC || 0), 0);
@@ -153,6 +174,7 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
       date,
       items,
       totalKg,
+      totalCartons,
       totalPallets,
       totalHT,
       totalTTC
@@ -345,9 +367,10 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                 <thead>
                   <tr>
                     <th>Produit</th>
-                    <th>Quantité (Kg)</th>
-                    <th>Prix Unitaire (DH/Kg)</th>
-                    <th>Montant Total (DH)</th>
+                    <th className="w-32">Nbr Cartons</th>
+                    <th className="w-36">Quantité (Kg)</th>
+                    <th className="w-36">Prix Unitaire (DH/Kg)</th>
+                    <th className="w-40">Montant Total (DH)</th>
                     <th className="w-12"></th>
                   </tr>
                 </thead>
@@ -371,11 +394,23 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                               const pKg = pStk ? pStk.quantityKg : 0;
                               return (
                                 <option key={p.id} value={p.id}>
-                                  {p.name} — [Stock Frigo: {pKg.toLocaleString()} Kg] ({p.sellingPriceHT} DH/kg)
+                                  {p.name} — [Stock: {pKg.toLocaleString()} Kg | {p.kgPerCarton || 10} kg/carton] ({p.sellingPriceHT} DH/kg)
                                 </option>
                               );
                             })}
                           </select>
+                        </td>
+
+                        <td>
+                          <input
+                            type="number"
+                            value={item.quantityCartons || 0}
+                            onChange={(e) => handleItemChange(index, 'quantityCartons', e.target.value)}
+                            className="w-full border border-[#e0e0e0] rounded p-1.5 text-xs font-mono font-bold text-amber-700 focus:ring-1 focus:ring-[#0f62fe]"
+                            min="0"
+                            step="1"
+                            placeholder="Cartons"
+                          />
                         </td>
 
                         <td>
@@ -397,40 +432,38 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                           </div>
                         </td>
 
+                        <td>
+                          <input
+                            type="number"
+                            value={item.unitPriceHT}
+                            onChange={(e) => handleItemChange(index, 'unitPriceHT', e.target.value)}
+                            className="w-full border border-[#e0e0e0] rounded p-1.5 text-xs font-mono font-bold text-[#0f62fe] focus:ring-1 focus:ring-[#0f62fe]"
+                            min="0"
+                            step="0.01"
+                          />
+                        </td>
 
-                      <td>
-                        <input
-                          type="number"
-                          value={item.unitPriceHT}
-                          onChange={(e) => handleItemChange(index, 'unitPriceHT', e.target.value)}
-                          className="w-full border border-[#e0e0e0] rounded p-1.5 text-xs font-mono font-bold text-[#0f62fe] focus:ring-1 focus:ring-[#0f62fe]"
-                          min="0"
-                          step="0.01"
-                        />
-                      </td>
+                        <td className="font-mono font-bold text-gray-900">
+                          {item.totalHT ? item.totalHT.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'} DH
+                        </td>
 
-                      <td className="font-mono font-bold text-gray-900">
-                        {item.totalHT ? item.totalHT.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'} DH
-                      </td>
-
-                      <td className="text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(index)}
-                          className="text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors"
-                          title="Supprimer la ligne"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-
+                        <td className="text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItem(index)}
+                            className="text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors"
+                            title="Supprimer la ligne"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
 
                   {items.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-gray-400 text-sm">
+                      <td colSpan={6} className="py-8 text-center text-gray-400 text-sm">
                         Aucun article ajouté. Cliquez sur "Ajouter une Ligne" ci-dessus.
                       </td>
                     </tr>
@@ -441,7 +474,8 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                   <tfoot className="bg-gray-50 font-semibold border-t-2 border-[#e0e0e0]">
                     <tr>
                       <td className="py-3 px-4 font-bold text-gray-700 uppercase text-xs">Total Général:</td>
-                      <td className="py-3 px-4 font-mono font-bold text-black text-sm">{totalKg.toLocaleString()} Kg</td>
+                      <td className="py-3 px-4 font-mono font-bold text-amber-800 text-sm">{totalCartons.toLocaleString()} Ctn</td>
+                      <td className="py-3 px-4 font-mono font-bold text-black text-sm">{totalKg.toLocaleString()} Kg ({totalPallets.toFixed(1)} Pal)</td>
                       <td className="py-3 px-4"></td>
                       <td className="py-3 px-4 font-mono font-bold text-[#0f62fe] text-base">{totalHT.toLocaleString(undefined, { minimumFractionDigits: 2 })} DH</td>
                       <td></td>

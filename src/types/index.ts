@@ -191,6 +191,7 @@ export interface DeliveryNoteItem {
   productCode: string;
   productName: string;
   quantityKg: number;
+  quantityCartons?: number;
   quantityPallets: number;
   unitPriceHT: number;
   totalHT: number;
@@ -241,6 +242,7 @@ export interface DeliveryNoteBL {
   date: string;
   items: DeliveryNoteItem[];
   totalKg: number;
+  totalCartons?: number;
   totalPallets: number;
   totalHT: number;
   totalTTC: number;
