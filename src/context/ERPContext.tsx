@@ -1083,6 +1083,70 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
+  const deductBLStockHelper = (bl: DeliveryNoteBL) => {
+    const targetFrigo = frigos.find(f => 
+      f.id === bl.frigoId || 
+      f.name.trim().toLowerCase() === (bl.frigoId || '').trim().toLowerCase() ||
+      f.name.trim().toLowerCase() === (bl.frigoName || '').trim().toLowerCase()
+    ) || frigos[0];
+
+    const actualFrigoId = targetFrigo ? targetFrigo.id : (bl.frigoId || 'frigo-1');
+
+    bl.items.forEach(it => {
+      const targetPrd = products.find(p => 
+        p.id === it.productId || 
+        p.code.toLowerCase() === (it.productCode || '').toLowerCase() ||
+        p.code.toLowerCase() === (it.productId || '').toLowerCase() ||
+        p.name.toLowerCase() === (it.productName || '').toLowerCase()
+      );
+
+      const actualProductId = targetPrd ? targetPrd.id : it.productId;
+
+      setStocks(prevStocks => {
+        const idx = prevStocks.findIndex(s => s.frigoId === actualFrigoId && s.productId === actualProductId);
+        const existing = idx !== -1 ? prevStocks[idx] : null;
+
+        const currentKg = existing ? existing.quantityKg : 0;
+        const currentPallets = existing ? existing.quantityPallets : 0;
+
+        const newKg = Math.max(0, currentKg - (it.quantityKg || 0));
+        const newPallets = Math.max(0, currentPallets - (it.quantityPallets || 0));
+
+        logStockMovement(
+          actualProductId,
+          actualFrigoId,
+          'EXPÉDITION_VENTE',
+          it.quantityKg,
+          currentKg,
+          newKg,
+          bl.blNumber
+        );
+
+        if (existing) {
+          const next = [...prevStocks];
+          next[idx] = {
+            ...existing,
+            quantityKg: newKg,
+            quantityPallets: newPallets,
+            lastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' ')
+          };
+          setDoc(doc(db, 'stocks', `${actualFrigoId}_${actualProductId}`), sanitizeForFirestore(next[idx])).catch(() => {});
+          return next;
+        } else {
+          const newStk = {
+            frigoId: actualFrigoId,
+            productId: actualProductId,
+            quantityKg: 0,
+            quantityPallets: 0,
+            lastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' ')
+          };
+          setDoc(doc(db, 'stocks', `${actualFrigoId}_${actualProductId}`), sanitizeForFirestore(newStk)).catch(() => {});
+          return [...prevStocks, newStk];
+        }
+      });
+    });
+  };
+
   const approveFrigoBL = (blId: string, employeeName: string) => {
     const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
     setDeliveryNotes(prev => prev.map(bl => {
@@ -1090,17 +1154,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       // Decrement stock upon frigo manager approval if not already done
       if (!bl.stockDecremented) {
-        bl.items.forEach(it => {
-          const stock = stocks.find(s => s.frigoId === bl.frigoId && s.productId === it.productId);
-          if (stock) {
-            adjustStock(
-              bl.frigoId,
-              it.productId,
-              Math.max(0, stock.quantityKg - it.quantityKg),
-              Math.max(0, stock.quantityPallets - it.quantityPallets)
-            );
-          }
-        });
+        deductBLStockHelper(bl);
       }
 
       const updated = {
@@ -1220,25 +1274,14 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setDeliveryNotes(prev => prev.map(b => {
       if (b.id !== id) return b;
 
-      // If uploading bon de sortie or approving frigo and stock not yet decremented, deduct stock now!
+      const merged = { ...b, ...updatedData };
       let shouldDeduct = Boolean((updatedData.bonDeSortiePhotoUrl || updatedData.frigoEmployeeApproved) && !b.stockDecremented);
       if (shouldDeduct) {
-        b.items.forEach(it => {
-          const stock = stocks.find(s => s.frigoId === b.frigoId && s.productId === it.productId);
-          if (stock) {
-            adjustStock(
-              b.frigoId,
-              it.productId,
-              Math.max(0, stock.quantityKg - it.quantityKg),
-              Math.max(0, stock.quantityPallets - it.quantityPallets)
-            );
-          }
-        });
+        deductBLStockHelper(merged);
       }
 
       const updated = { 
-        ...b, 
-        ...updatedData,
+        ...merged,
         stockDecremented: b.stockDecremented || shouldDeduct
       };
 

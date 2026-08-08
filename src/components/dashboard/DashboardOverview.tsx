@@ -103,7 +103,18 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
   const globalMarginPct = totalSalesHT > 0 ? (grossMarginHT / totalSalesHT) * 100 : 0;
 
   // Receivables (Créances Clients)
-  const totalReceivablesTTC = clients.reduce((acc, c) => acc + c.currentBalance, 0);
+  const invoiceReceivables = (invoices || [])
+    .filter(inv => inv.status !== 'PAYEE')
+    .reduce((acc, inv) => acc + (inv.remainingAmount ?? (inv.totalTTC - (inv.amountPaid || 0))), 0);
+
+  const nonInvoicedBLReceivables = (deliveryNotes || [])
+    .filter(bl => bl.status !== 'FACTURÉ' && !bl.invoiceId && !bl.invoiceNumber)
+    .reduce((acc, bl) => acc + (bl.totalTTC || (bl.totalHT * 1.20)), 0);
+
+  const clientBalanceReceivables = (clients || []).reduce((acc, c) => acc + (c.currentBalance || 0), 0);
+
+  const totalReceivablesTTC = Math.max(clientBalanceReceivables, invoiceReceivables + nonInvoicedBLReceivables);
+
 
   // Cheques due in portfolio
   const chequesInPortfolio = chequesEffets.filter(c => c.status === 'EN_PORTEFEUILLE');

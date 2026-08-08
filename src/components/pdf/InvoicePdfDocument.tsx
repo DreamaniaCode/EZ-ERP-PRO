@@ -40,8 +40,9 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
   };
 
   const handlePrint = () => {
-    handleDownloadPdf();
+    window.print();
   };
+
 
 
   return (

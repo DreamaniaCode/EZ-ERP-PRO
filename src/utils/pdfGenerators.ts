@@ -228,18 +228,22 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyInfo: Com
   try {
     const blob = doc.output('blob');
     const url = URL.createObjectURL(blob);
+    
+    // Create clickable anchor
     const a = document.createElement('a');
     a.href = url;
     a.download = fileName;
     a.target = '_blank';
     document.body.appendChild(a);
     a.click();
+
+    // Secondary popup fallback if download click was blocked
     setTimeout(() => {
       try { document.body.removeChild(a); } catch (e) {}
-      URL.revokeObjectURL(url);
-    }, 1500);
+    }, 1000);
   } catch (err) {
     console.error('Error generating PDF blob fallback:', err);
   }
 }
+
 

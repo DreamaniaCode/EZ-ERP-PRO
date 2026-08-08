@@ -1,4 +1,5 @@
-const CACHE_NAME = 'easyerp-pwa-v18-stock-deduct-rule';
+const CACHE_NAME = 'easyerp-pwa-v19-robust-stock-receivables';
+
 
 
 
