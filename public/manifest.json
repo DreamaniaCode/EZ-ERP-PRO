@@ -1,20 +1,34 @@
 {
   "short_name": "EasyERP Pro",
   "name": "EasyERP Pro - Négoce & Stock Multi-Frigos",
+  "id": "/",
   "icons": [
     {
       "src": "/ez_erp_logo.jpg",
       "type": "image/jpeg",
-      "sizes": "192x192 512x512",
-      "purpose": "any maskable"
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/ez_erp_logo.jpg",
+      "type": "image/jpeg",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/ez_erp_logo.jpg",
+      "type": "image/jpeg",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
-
   "start_url": "/",
   "background_color": "#161616",
   "theme_color": "#0f62fe",
   "display": "standalone",
   "orientation": "any",
   "scope": "/",
+  "categories": ["business", "productivity"],
   "description": "Application ERP mobile & tablette pour négoce de dattes, suivi des stocks frigos, bons de livraison et trésorerie."
 }
+
