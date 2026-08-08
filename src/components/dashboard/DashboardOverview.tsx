@@ -19,18 +19,27 @@ import {
   Search,
   ExternalLink,
   Camera,
-  History
+  History,
+  FileText,
+  CreditCard,
+  DollarSign,
+  Users,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight,
+  PieChart,
+  Layers
 } from 'lucide-react';
 import { NavTab } from '../layout/Sidebar';
 import { QRScannerModal } from '../common/QRScannerModal';
 import { ProductStockHistoryModal } from '../stock/ProductStockHistoryModal';
-import { CylinderKpiChart } from './CylinderKpiChart';
-
+import { StandardKpiBarChart } from './StandardKpiBarChart';
 
 interface DashboardOverviewProps {
   onNavigate: (tab: NavTab) => void;
   onViewFrigoDetail?: (frigoId: string) => void;
 }
+
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate, onViewFrigoDetail }) => {
   const { t } = useTranslation();
@@ -100,8 +109,21 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
   const chequesInPortfolio = chequesEffets.filter(c => c.status === 'EN_PORTEFEUILLE');
   const totalChequesAmount = chequesInPortfolio.reduce((acc, c) => acc + c.amount, 0);
 
+  // Executive Dashboard Data Aggregations
+  const recentBLs = [...deliveryNotes].slice(0, 5);
+  const recentInvoices = [...invoices].slice(0, 5);
+
+  const clientChequesToDeposit = chequesEffets.filter(c => c.direction === 'RECETTE_CLIENT' && c.status === 'EN_PORTEFEUILLE');
+  const supplierChequesToPay = chequesEffets.filter(c => c.direction === 'DEPENSE_FOURNISSEUR' && c.status !== 'ENCAISSE');
+
+  const topDebtorClients = [...clients]
+    .filter(c => c.currentBalance > 0)
+    .sort((a, b) => b.currentBalance - a.currentBalance)
+    .slice(0, 5);
+
   // Pending BLs
   const pendingBLsCount = deliveryNotes.filter(bl => !bl.frigoEmployeeApproved).length;
+
 
   // Category breakdown for margins (100% derived from real database: orders, BLs, stocks)
   const categoryStats: { [cat: string]: { salesHT: number; costHT: number; marginHT: number } } = {};
@@ -331,36 +353,34 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         </div>
       </div>
 
-      {/* 3D Cylinder KPI Growth & Color Customization Stage */}
+      {/* Clean Flat KPI Bar Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Chart 1: Real Sales & Valuation HT by Category */}
-        <CylinderKpiChart
-          title="Valorisation & Chiffre d'Affaires HT par Catégorie Produit (Données Réelles)"
-          subtitle="Données 100% issues de votre base de données (Stocks & Bons de Livraison)"
+        <StandardKpiBarChart
+          title="Valorisation & Chiffre d'Affaires HT par Catégorie"
+          subtitle="Chiffres d'affaires et valorisation réelle des stocks par famille de produit"
           unit="DH"
           data={
             Object.entries(categorySalesStats)
               .filter(([_, st]) => st.salesHT > 0 || st.valuationHT > 0)
               .map(([cat, st]) => {
                 const val = st.salesHT > 0 ? st.salesHT : st.valuationHT;
-                const marginPct = st.salesHT > 0 ? Math.round((st.marginHT / st.salesHT) * 100) : 0;
                 return {
                   label: cat,
                   value: val,
                   subValue: st.salesHT > 0 
                     ? `Marge: ${st.marginHT.toLocaleString()} DH` 
-                    : `Stock: ${st.stockKg.toLocaleString()} Kg`,
-                  growthPct: marginPct
+                    : `Stock: ${st.stockKg.toLocaleString()} Kg`
                 };
               })
           }
         />
 
-        {/* Chart 2: Real Frigo Volumes in 3D Storage Cylinders */}
-        <CylinderKpiChart
-          title="Niveaux de Remplissage des Frigos (Entrepôts Réels)"
-          subtitle="Cliquer sur n'importe quel frigo pour ouvrir immédiatement sa fiche détaillée"
+        {/* Chart 2: Real Frigo Volumes */}
+        <StandardKpiBarChart
+          title="Niveaux de Remplissage des Frigos (Stock en Kg)"
+          subtitle="Cliquer sur un frigo pour ouvrir immédiatement sa fiche détaillée"
           unit="Kg"
           onItemClick={(item) => {
             const foundFrigo = frigos.find(f => f.name.toLowerCase().trim() === item.label.toLowerCase().trim());
@@ -378,60 +398,226 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
               return {
                 label: f.name,
                 value: fKg,
-                subValue: `${fPal} Pal. (${pct}% d'occup.)`,
-                growthPct: pct
+                subValue: `${fPal} Palettes (${pct}% occupation)`
               };
             })
           }
         />
+      </div>
 
+      {/* EXECUTIVE BUSINESS DASHBOARD WIDGETS GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
+        {/* Widget 1: Derniers Bons de Livraison (BL) */}
+        <div className="carbon-card p-5 space-y-3">
+          <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+            <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
+              <Truck className="w-4 h-4 text-[#0f62fe]" />
+              Derniers Bons de Livraison (BL)
+            </h2>
+            <button
+              onClick={() => onNavigate('DELIVERY_NOTES')}
+              className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
+            >
+              <span>Tous les BL</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {recentBLs.length === 0 ? (
+              <p className="text-xs text-gray-400 italic py-4">Aucun Bon de Livraison enregistré.</p>
+            ) : (
+              recentBLs.map(bl => (
+                <div key={bl.id} className="p-2.5 bg-gray-50 border border-gray-200 rounded flex items-center justify-between text-xs font-mono">
+                  <div>
+                    <div className="font-bold text-gray-900 flex items-center gap-1.5">
+                      <span className="text-[#0f62fe]">{bl.blNumber}</span>
+                      <span className="text-gray-400">•</span>
+                      <span className="font-sans text-gray-700">{bl.clientName}</span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 font-sans mt-0.5">
+                      {bl.date} • {bl.frigoName || 'Frigo'}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-emerald-700">{bl.totalKg.toLocaleString()} Kg</div>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded inline-block mt-0.5 ${
+                      bl.frigoEmployeeApproved ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {bl.frigoEmployeeApproved ? 'Quai Validé' : 'En Attente'}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Widget 2: Dernières Factures Émises */}
+        <div className="carbon-card p-5 space-y-3">
+          <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+            <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
+              <FileText className="w-4 h-4 text-emerald-600" />
+              Dernières Factures Émises
+            </h2>
+            <button
+              onClick={() => onNavigate('INVOICING')}
+              className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
+            >
+              <span>Voir Factures</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {recentInvoices.length === 0 ? (
+              <p className="text-xs text-gray-400 italic py-4">Aucune facture récente enregistrée.</p>
+            ) : (
+              recentInvoices.map(inv => (
+                <div key={inv.id} className="p-2.5 bg-gray-50 border border-gray-200 rounded flex items-center justify-between text-xs font-mono">
+                  <div>
+                    <div className="font-bold text-gray-900 flex items-center gap-1.5">
+                      <span className="text-emerald-700">{inv.invoiceNumber}</span>
+                      <span className="text-gray-400">•</span>
+                      <span className="font-sans text-gray-700">{inv.clientName}</span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 font-sans mt-0.5">
+                      Échéance: {inv.dueDate || inv.date}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-gray-900">{inv.totalTTC.toLocaleString()} DH</div>
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 bg-blue-100 text-blue-800 rounded inline-block mt-0.5">
+                      {inv.status}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Widget 3: Chèques Client en Portefeuille (À Déposer) */}
+        <div className="carbon-card p-5 space-y-3">
+          <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+            <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-purple-600" />
+              Chèques Client en Portefeuille (À Déposer)
+            </h2>
+            <button
+              onClick={() => onNavigate('TREASURY_CHEQUES')}
+              className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
+            >
+              <span>Trésorerie</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {clientChequesToDeposit.length === 0 ? (
+              <p className="text-xs text-gray-400 italic py-4">Aucun chèque client en attente de dépôt.</p>
+            ) : (
+              clientChequesToDeposit.slice(0, 5).map(cq => (
+                <div key={cq.id} className="p-2.5 bg-purple-50/40 border border-purple-200 rounded flex items-center justify-between text-xs font-mono">
+                  <div>
+                    <div className="font-bold text-purple-900">
+                      N° {cq.referenceNumber} — {cq.clientName || 'Client'}
+                    </div>
+                    <div className="text-[10px] text-gray-600 font-sans mt-0.5">
+                      Banque: {cq.bankName || 'Maroc'} • Échéance: {cq.dueDate}
+                    </div>
+                  </div>
+                  <div className="font-bold text-purple-700 text-sm">
+                    {cq.amount.toLocaleString()} DH
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Widget 4: Échéances Chèques / Effets Fournisseurs (À Payer) */}
+        <div className="carbon-card p-5 space-y-3">
+          <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+            <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-600" />
+              Échéances Chèques / Effets à Payer
+            </h2>
+            <button
+              onClick={() => onNavigate('TREASURY_CHEQUES')}
+              className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
+            >
+              <span>Voir Échéances</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {supplierChequesToPay.length === 0 ? (
+              <p className="text-xs text-gray-400 italic py-4">Aucun chèque fournisseur à payer en cours.</p>
+            ) : (
+              supplierChequesToPay.slice(0, 5).map(cq => (
+                <div key={cq.id} className="p-2.5 bg-amber-50/40 border border-amber-200 rounded flex items-center justify-between text-xs font-mono">
+                  <div>
+                    <div className="font-bold text-amber-900">
+                      N° {cq.referenceNumber} — {cq.supplierName || 'Fournisseur'}
+                    </div>
+                    <div className="text-[10px] text-gray-600 font-sans mt-0.5">
+                      Banque: {cq.bankName || 'Maroc'} • Échéance: {cq.dueDate}
+                    </div>
+                  </div>
+                  <div className="font-bold text-amber-700 text-sm">
+                    {cq.amount.toLocaleString()} DH
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
 
       </div>
 
-      {/* Main Grid: Margins Analysis & Frigos Occupancy */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Grid: Top Debtor Clients & Detailed Frigos Breakdown with Products */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        
-        {/* Margin Analysis by Category */}
-        <div className="lg:col-span-2 carbon-card p-5 space-y-4">
-          <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-            <div>
-              <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide">
-                {t('dashboard.marginByProduct', 'Analyse des Marges Brutes par Catégorie')}
-              </h2>
-            </div>
+        {/* Widget 5: Clients à Suivre (Créances & Solde Dû le + Élevé) */}
+        <div className="carbon-card p-5 space-y-3">
+          <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+            <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
+              <Users className="w-4 h-4 text-rose-600" />
+              Clients à Suivre (Crédits & Créances les plus élevés)
+            </h2>
+            <button
+              onClick={() => onNavigate('CLIENTS')}
+              className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
+            >
+              <span>Voir Clients</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          <div className="space-y-4">
-            {Object.keys(categoryStats).length === 0 ? (
-              <p className="text-xs text-gray-400 italic py-4">{t('common.noData', 'Aucune commande enregistrée.')}</p>
+          <div className="space-y-2.5">
+            {topDebtorClients.length === 0 ? (
+              <p className="text-xs text-gray-400 italic py-4">Aucun solde client impayé.</p>
             ) : (
-              Object.entries(categoryStats).map(([category, stats]) => {
-                const catMarginPct = stats.salesHT > 0 ? (stats.marginHT / stats.salesHT) * 100 : 0;
+              topDebtorClients.map(c => {
+                const creditRatio = c.creditLimit > 0 ? Math.min(100, Math.round((c.currentBalance / c.creditLimit) * 100)) : 0;
                 return (
-                  <div key={category} className="p-3 bg-gray-50 border border-gray-200 rounded">
-                    <div className="flex justify-between items-center text-xs mb-1.5">
-                      <span className="font-bold text-gray-800">{category}</span>
-                      <span className="font-mono text-emerald-700 font-bold">
-                        {t('products.margin', 'Marge')}: {stats.marginHT.toLocaleString()} DH ({(catMarginPct || 0).toFixed(1)}%)
-                      </span>
+                  <div key={c.id} className="p-3 bg-gray-50 border border-gray-200 rounded font-mono">
+                    <div className="flex justify-between items-center text-xs mb-1">
+                      <span className="font-bold text-gray-900 font-sans">{c.name} {c.companyName ? `(${c.companyName})` : ''}</span>
+                      <span className="font-bold text-rose-600 text-sm">{c.currentBalance.toLocaleString()} DH</span>
                     </div>
-
-                    <div className="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden flex">
+                    <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
                       <div 
-                        className="bg-blue-600 h-full" 
-                        style={{ width: `${Math.min(100, (stats.costHT / (stats.salesHT || 1)) * 100)}%` }}
-                      />
-                      <div 
-                        className="bg-emerald-500 h-full" 
-                        style={{ width: `${Math.min(100, catMarginPct)}%` }}
+                        className={`h-full ${creditRatio > 80 ? 'bg-rose-600' : 'bg-amber-500'}`} 
+                        style={{ width: `${creditRatio}%` }}
                       />
                     </div>
-
-                    <div className="flex justify-between items-center text-[11px] text-gray-500 mt-1.5 font-mono">
-                      <span>{t('sales.totalHT', 'Ventes HT')}: {stats.salesHT.toLocaleString()} DH</span>
-                      <span>{t('products.costPrice', 'Coût HT')}: {stats.costHT.toLocaleString()} DH</span>
+                    <div className="flex justify-between items-center text-[10px] text-gray-500 mt-1 font-sans">
+                      <span>Téléphone: {c.phone || '-'}</span>
+                      <span>Plafond: {c.creditLimit.toLocaleString()} DH ({creditRatio}% utilisé)</span>
                     </div>
                   </div>
                 );
@@ -440,63 +626,70 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           </div>
         </div>
 
-        {/* Cold Storage Frigos Occupancy */}
-        <div className="carbon-card p-5 space-y-4">
-          <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-            <div>
-              <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-1.5">
-                <Building2 className="w-4 h-4 text-[#0f62fe]" />
-                {t('frigos.title', 'État des Frigos')}
-              </h2>
-            </div>
+        {/* Widget 6: État des Frigos (Stock Kg & Détail Produits Stoppés) */}
+        <div className="carbon-card p-5 space-y-3">
+          <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+            <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-[#0f62fe]" />
+              État des Frigos (Stock en Kg & Produits Présents)
+            </h2>
             <button
-              onClick={() => onNavigate('PRODUCTS_STOCK')}
-              className="text-xs text-[#0f62fe] font-semibold hover:underline"
+              onClick={() => onNavigate('FRIGO_MANAGEMENT')}
+              className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
             >
-              {t('nav.stock', 'Stock')}
+              <span>Gestion Frigos</span>
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="space-y-3.5">
+          <div className="space-y-3">
             {frigos.map(frigo => {
-              const frigoStocks = stocks.filter(s => s.frigoId === frigo.id);
+              const frigoStocks = stocks.filter(s => s.frigoId === frigo.id && s.quantityKg > 0);
               const totalKgInFrigo = frigoStocks.reduce((acc, s) => acc + s.quantityKg, 0);
 
               return (
                 <div 
                   key={frigo.id} 
-                  onClick={() => {
-                    if (onViewFrigoDetail) {
-                      onViewFrigoDetail(frigo.id);
-                    } else {
-                      onNavigate('FRIGO_MANAGEMENT');
-                    }
-                  }}
-                  className="p-3 bg-gray-50 border border-gray-200 rounded cursor-pointer hover:border-[#0f62fe] hover:bg-blue-50/50 transition-all group"
-                  title="Cliquer pour voir la fiche détaillée et la valorisation de ce frigo"
+                  onClick={() => onViewFrigoDetail ? onViewFrigoDetail(frigo.id) : onNavigate('FRIGO_MANAGEMENT')}
+                  className="p-3 bg-gray-50 border border-gray-200 rounded cursor-pointer hover:border-[#0f62fe] hover:bg-blue-50/40 transition-all group"
                 >
-
-                  <div className="flex justify-between items-start mb-1">
+                  <div className="flex justify-between items-center mb-1.5">
                     <div>
                       <span className="font-bold text-xs text-gray-900 group-hover:text-[#0f62fe] flex items-center gap-1">
                         {frigo.name}
                         <ExternalLink className="w-3 h-3 text-gray-400 group-hover:text-[#0f62fe]" />
                       </span>
-                      <div className="text-[10px] text-gray-500">{frigo.managerName || 'Responsable Frigo'} ({frigo.managerPhone || '-'})</div>
+                      <div className="text-[10px] text-gray-500">{frigo.location} • Resp: {frigo.managerName || '-'}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-xs text-[#0f62fe] font-mono">{totalKgInFrigo.toLocaleString()} Kg</div>
+                      <div className="text-[10px] text-gray-500 font-mono">{frigoStocks.length} Produits stockés</div>
                     </div>
                   </div>
 
-                  <div className="flex justify-between text-[11px] text-gray-700 font-mono mt-2 font-bold">
-                    <span>{t('stock.logistics', 'Stock Total')}:</span>
-                    <span className="text-[#0f62fe]">{totalKgInFrigo.toLocaleString()} Kg</span>
+                  {/* Products breakdown inside this frigo */}
+                  <div className="mt-2 pt-2 border-t border-gray-200 flex flex-wrap gap-1.5">
+                    {frigoStocks.length === 0 ? (
+                      <span className="text-[10px] text-gray-400 italic">Entrepôt vide (aucun produit en stock)</span>
+                    ) : (
+                      frigoStocks.map(stk => {
+                        const prd = products.find(p => p.id === stk.productId);
+                        return (
+                          <span key={stk.id} className="text-[10px] font-mono px-2 py-0.5 bg-white border border-gray-300 rounded text-gray-800 font-bold">
+                            {prd ? prd.name : 'Produit'}: <b className="text-blue-700">{stk.quantityKg.toLocaleString()} Kg</b>
+                          </span>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
-
         </div>
+
       </div>
+
 
       {/* Top Products Table */}
       <div className="carbon-card p-5 space-y-4">
