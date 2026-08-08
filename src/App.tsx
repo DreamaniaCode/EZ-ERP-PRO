@@ -428,15 +428,20 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
+import { ToastProvider } from './components/common/CarbonToastContainer';
+
 export default function App() {
   return (
     <ErrorBoundary>
-      <ERPProvider>
-        <AuthGuard>
-          {(appUser) => <ERPContent appUser={appUser} />}
-        </AuthGuard>
-      </ERPProvider>
+      <ToastProvider>
+        <ERPProvider>
+          <AuthGuard>
+            {(appUser) => <ERPContent appUser={appUser} />}
+          </AuthGuard>
+        </ERPProvider>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }
+
 

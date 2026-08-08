@@ -2,17 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
 import { ArrowLeft, Save, X, Plus, Trash2 } from 'lucide-react';
+import { useToast } from '../common/CarbonToastContainer';
 
 export const OrderEditPage: React.FC<{ editId: string | null; onBack: () => void }> = ({ editId, onBack }) => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
   const { clients, products, frigos, stocks, orders, createOrder, updateOrder } = useERP();
+  const { notifySuccess, notifyError } = useToast();
 
   const [clientId, setClientId] = useState('');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<any[]>([]);
-
 
   useEffect(() => {
     if (editId && orders) {
@@ -25,6 +26,7 @@ export const OrderEditPage: React.FC<{ editId: string | null; onBack: () => void
       }
     }
   }, [editId, orders]);
+
 
   const handleAddItem = () => {
     setItems([
@@ -97,14 +99,16 @@ export const OrderEditPage: React.FC<{ editId: string | null; onBack: () => void
       const availKg = stk ? stk.quantityKg : 0;
 
       if (it.quantityKg > availKg) {
-        alert(`⚠️ COMMANDE BLOQUÉE - STOCK INSUFFISANT !\n\nLe stock dans l'entrepôt "${frg?.name || 'sélectionné'}" est insuffisant pour le produit "${prd?.name || 'sélectionné'}".\n\n• Stock disponible au frigo : ${availKg.toLocaleString()} Kg\n• Quantité demandée : ${it.quantityKg.toLocaleString()} Kg\n\nVeuillez ajuster la quantité ou approvisionner le frigo.`);
+        notifyError(
+          `Le stock dans "${frg?.name || 'sélectionné'}" est insuffisant pour "${prd?.name || 'sélectionné'}".\n• Disponible: ${availKg.toLocaleString()} Kg\n• Demandé: ${it.quantityKg.toLocaleString()} Kg`,
+          'Commande Bloquée — Stock Insuffisant'
+        );
         return;
       }
     }
 
     const client = clients?.find(c => c.id === clientId);
     const payload = {
-
       clientId,
       clientName: client?.name || '',
       clientICE: client?.ice || '',
@@ -123,6 +127,7 @@ export const OrderEditPage: React.FC<{ editId: string | null; onBack: () => void
 
     if (editId) {
       if (updateOrder) updateOrder(editId, payload);
+      notifySuccess('Commande mise à jour avec succès', 'Modifications Enregistrées');
     } else {
       if (createOrder) {
         createOrder({
@@ -132,10 +137,12 @@ export const OrderEditPage: React.FC<{ editId: string | null; onBack: () => void
           status: 'NOUVEAU',
           date: new Date().toISOString()
         });
+        notifySuccess('Nouvelle Commande enregistrée & BLs générés !', 'Commande Créée');
       }
     }
     onBack();
   };
+
 
   return (
     <div className="flex flex-col h-full bg-[#f4f4f4]">

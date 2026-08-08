@@ -3,19 +3,22 @@ import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
 import { ArrowLeft, Save, X, Plus, Trash2, RefreshCw, Sparkles, Truck } from 'lucide-react';
 import { QuickProductModal } from '../stock/QuickProductModal';
-
 import { generateWhatsAppBLLink } from '../../utils/whatsappUtils';
+import { useToast } from '../common/CarbonToastContainer';
 
 export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }> = ({ editId, onBack }) => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
   const { clients, frigos, products, stocks, deliveryNotes, addBL, updateBL } = useERP();
+  const { notifySuccess, notifyError, notifyWarning } = useToast();
+
 
   const [clientId, setClientId] = useState('');
   const [frigoId, setFrigoId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [items, setItems] = useState<any[]>([]);
   const [showQuickProductModal, setShowQuickProductModal] = useState(false);
+
 
 
 
@@ -132,10 +135,14 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
       const stk = stocks?.find(s => s.frigoId === frigoId && s.productId === it.productId);
       const availKg = stk ? stk.quantityKg : 0;
       if (it.quantityKg > availKg) {
-        alert(`⚠️ BL BLOQUÉ - STOCK INSUFFISANT !\n\nLe stock dans le frigo "${selectedFrigo?.name || 'sélectionné'}" est insuffisant pour le produit "${it.productName}".\n\n• Stock disponible au frigo : ${availKg.toLocaleString()} Kg\n• Quantité demandée sur le BL : ${it.quantityKg.toLocaleString()} Kg\n\nVeuillez ajuster la quantité ou approvisionner le frigo avant d'émettre le BL.`);
+        notifyError(
+          `Le stock dans le frigo "${selectedFrigo?.name || 'sélectionné'}" est insuffisant pour "${it.productName}".\n• Stock disponible: ${availKg.toLocaleString()} Kg\n• Demandé: ${it.quantityKg.toLocaleString()} Kg`,
+          'BL Bloqué — Stock Insuffisant'
+        );
         return;
       }
     }
+
 
     const payload = {
       clientId,
@@ -176,6 +183,7 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
           }]
         };
         addBL(newBL);
+        notifySuccess(`Bon de Livraison ${blNumber} créé avec succès !`, 'BL Enregistré');
 
         const waLink = generateWhatsAppBLLink(newBL, selectedFrigo?.whatsappGroup);
         if (window.confirm(`Bon de Livraison ${blNumber} créé avec succès !\n\nVoulez-vous transmettre l'ordre de chargement au groupe WhatsApp du frigo "${selectedFrigo?.name}" dès maintenant ?`)) {
@@ -185,6 +193,7 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
     }
     onBack();
   };
+
 
   return (
     <div className="flex flex-col h-full bg-[#f4f4f4] text-[#161616]">
