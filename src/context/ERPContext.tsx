@@ -365,11 +365,8 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('erp_current_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
-  // Firestore Real-Time Listeners
-  // Firestore Real-Time Syncing (allowing real deletions)
+  // Firestore Real-Time Syncing (Bidirectional Live Sync Desktop <-> Mobile PWA)
   useEffect(() => {
-    if (isWiped) return;
-
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => {
         const data = docSnap.data();
@@ -382,78 +379,68 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           avatar: data.avatar
         } as UserProfile;
       });
-      if (docs.length > 0) {
-        setUsers(prev => {
-          const map = new Map<string, UserProfile>();
-          docs.forEach(u => map.set(u.id, u));
-          prev.forEach(u => { if (!map.has(u.id)) map.set(u.id, u); });
-          return Array.from(map.values());
-        });
-      }
+      if (docs.length > 0) setUsers(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'users'));
 
     const unsubClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Client);
-      if (docs.length > 0) {
-        setClients(prev => {
-          const map = new Map<string, Client>();
-          docs.forEach(c => map.set(c.id, c));
-          prev.forEach(c => { if (!map.has(c.id)) map.set(c.id, c); });
-          return Array.from(map.values());
-        });
-      } else if (localStorage.getItem('erp_system_wiped') === 'true') {
-        setClients([]);
-      }
+      setClients(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
 
     const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Product);
-      if (docs.length > 0) {
-        setProducts(prev => {
-          const map = new Map<string, Product>();
-          docs.forEach(p => map.set(p.id, p));
-          prev.forEach(p => { if (!map.has(p.id)) map.set(p.id, p); });
-          return Array.from(map.values());
-        });
-      } else if (localStorage.getItem('erp_system_wiped') === 'true') {
-        setProducts([]);
-      }
+      setProducts(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'products'));
+
+    const unsubSuppliers = onSnapshot(collection(db, 'suppliers'), (snapshot) => {
+      const docs = snapshot.docs.map(docSnap => docSnap.data() as Supplier);
+      setSuppliers(docs);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'suppliers'));
 
     const unsubFrigos = onSnapshot(collection(db, 'frigos'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as ColdStorageFrigo);
-      if (docs.length > 0) {
-        setFrigos(prev => {
-          const map = new Map<string, ColdStorageFrigo>();
-          docs.forEach(f => map.set(f.id, f));
-          prev.forEach(f => { if (!map.has(f.id)) map.set(f.id, f); });
-          return Array.from(map.values());
-        });
-      }
+      if (docs.length > 0) setFrigos(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'frigos'));
 
     const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as DeliveryNoteBL);
-      if (docs.length > 0) {
-        setDeliveryNotes(prev => {
-          const map = new Map<string, DeliveryNoteBL>();
-          docs.forEach(d => map.set(d.id, d));
-          prev.forEach(d => { if (!map.has(d.id)) map.set(d.id, d); });
-          return Array.from(map.values());
-        });
-      } else if (localStorage.getItem('erp_system_wiped') === 'true') {
-        setDeliveryNotes([]);
-      }
+      setDeliveryNotes(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'deliveryNotes'));
+
+    const unsubInvoices = onSnapshot(collection(db, 'invoices'), (snapshot) => {
+      const docs = snapshot.docs.map(docSnap => docSnap.data() as Invoice);
+      setInvoices(docs);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'invoices'));
+
+    const unsubExpenses = onSnapshot(collection(db, 'expenses'), (snapshot) => {
+      const docs = snapshot.docs.map(docSnap => docSnap.data() as Expense);
+      setExpenses(docs);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'expenses'));
+
+    const unsubCheques = onSnapshot(collection(db, 'chequesEffets'), (snapshot) => {
+      const docs = snapshot.docs.map(docSnap => docSnap.data() as ChequeEffet);
+      setChequesEffets(docs);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'chequesEffets'));
+
+    const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
+      const docs = snapshot.docs.map(docSnap => docSnap.data() as SalesOrder);
+      setOrders(docs);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'orders'));
 
     return () => {
       unsubUsers();
       unsubClients();
       unsubProducts();
+      unsubSuppliers();
       unsubFrigos();
       unsubDeliveryNotes();
+      unsubInvoices();
+      unsubExpenses();
+      unsubCheques();
+      unsubOrders();
     };
-  }, [isWiped]);
+  }, []);
+
 
 
   useEffect(() => {
@@ -1073,6 +1060,9 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       };
 
       generatedBLs.push(bl);
+      setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl)).catch(err => {
+        handleFirestoreError(err, OperationType.WRITE, `deliveryNotes/${bl.id}`);
+      });
 
       // Decrement stock from designated frigo
       items.forEach(it => {
@@ -1088,6 +1078,11 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
     });
 
+    setOrders(prev => [newOrder, ...prev]);
+    setDoc(doc(db, 'orders', newOrder.id), sanitizeForFirestore(newOrder)).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `orders/${newOrder.id}`);
+    });
+
     setDeliveryNotes(prev => [...generatedBLs, ...prev]);
 
     return newOrder;
@@ -1095,18 +1090,21 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateOrderStatus = (orderId: string, status: OrderStatus) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    setDoc(doc(db, 'orders', orderId), { status }, { merge: true }).catch(err => {
+      handleFirestoreError(err, OperationType.UPDATE, `orders/${orderId}`);
+    });
   };
 
   const approveFrigoBL = (blId: string, employeeName: string) => {
     const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
     setDeliveryNotes(prev => prev.map(bl => {
       if (bl.id !== blId) return bl;
-      return {
+      const updated = {
         ...bl,
         frigoEmployeeApproved: true,
         frigoApprovedBy: employeeName,
         frigoApprovedAt: timestamp,
-        status: 'APPROUVÉ_FRIGO',
+        status: 'APPROUVÉ_FRIGO' as const,
         logs: [
           ...bl.logs,
           {
@@ -1117,6 +1115,10 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           },
         ],
       };
+      setDoc(doc(db, 'deliveryNotes', blId), sanitizeForFirestore(updated), { merge: true }).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `deliveryNotes/${blId}`);
+      });
+      return updated;
     }));
   };
 
@@ -1124,12 +1126,12 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
     setDeliveryNotes(prev => prev.map(bl => {
       if (bl.id !== blId) return bl;
-      return {
+      const updated = {
         ...bl,
         clientSignatureUrl: signatureUrl,
         signedByName: clientName,
         signedAt: timestamp,
-        status: 'LIVRÉ',
+        status: 'LIVRÉ' as const,
         logs: [
           ...bl.logs,
           {
@@ -1140,6 +1142,10 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           },
         ],
       };
+      setDoc(doc(db, 'deliveryNotes', blId), sanitizeForFirestore(updated), { merge: true }).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `deliveryNotes/${blId}`);
+      });
+      return updated;
     }));
   };
 
@@ -1147,7 +1153,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
     setDeliveryNotes(prev => prev.map(bl => {
       if (bl.id !== blId) return bl;
-      return {
+      const updated = {
         ...bl,
         whatsappSent: true,
         whatsappSentAt: timestamp,
@@ -1161,6 +1167,10 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           },
         ],
       };
+      setDoc(doc(db, 'deliveryNotes', blId), sanitizeForFirestore(updated), { merge: true }).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `deliveryNotes/${blId}`);
+      });
+      return updated;
     }));
   };
 
@@ -1168,7 +1178,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
     setDeliveryNotes(prev => prev.map(bl => {
       if (bl.id !== blId) return bl;
-      return {
+      const updated = {
         ...bl,
         emailSent: true,
         emailSentAt: timestamp,
@@ -1183,8 +1193,13 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           },
         ],
       };
+      setDoc(doc(db, 'deliveryNotes', blId), sanitizeForFirestore(updated), { merge: true }).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `deliveryNotes/${blId}`);
+      });
+      return updated;
     }));
   };
+
 
 
   const addBL = (blData: DeliveryNoteBL) => {
@@ -1276,6 +1291,9 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     setInvoices(prev => [newInvoice, ...prev]);
+    setDoc(doc(db, 'invoices', newInvoice.id), sanitizeForFirestore(newInvoice)).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `invoices/${newInvoice.id}`);
+    });
 
     // Update BL status to FACTURÉ and save invoice pointers
     const updatedBLData = { 
@@ -1292,7 +1310,6 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setClients(prev => prev.map(c => c.id === bl.clientId ? { ...c, currentBalance: (c.currentBalance || 0) + totalTTC } : c));
 
     return newInvoice;
-
   };
 
   const updateInvoiceStatus = (invoiceId: string, status: Invoice['status'], amountPaid?: number) => {
@@ -1300,12 +1317,16 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (inv.id !== invoiceId) return inv;
       const newPaid = amountPaid !== undefined ? amountPaid : (status === 'PAYEE' ? inv.totalTTC : inv.amountPaid);
       const remaining = inv.totalTTC - newPaid;
-      return {
+      const updated = {
         ...inv,
         status,
         amountPaid: newPaid,
         remainingAmount: remaining,
       };
+      setDoc(doc(db, 'invoices', invoiceId), sanitizeForFirestore(updated), { merge: true }).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `invoices/${invoiceId}`);
+      });
+      return updated;
     }));
   };
 
@@ -1315,6 +1336,9 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       id: `chq-${Date.now()}`,
     };
     setChequesEffets(prev => [newCheque, ...prev]);
+    setDoc(doc(db, 'chequesEffets', newCheque.id), sanitizeForFirestore(newCheque)).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `chequesEffets/${newCheque.id}`);
+    });
   };
 
   const deleteChequeEffet = (id: string) => {
@@ -1325,6 +1349,9 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     }
     setChequesEffets(prev => prev.filter(c => c.id !== id));
+    deleteDoc(doc(db, 'chequesEffets', id)).catch(err => {
+      handleFirestoreError(err, OperationType.DELETE, `chequesEffets/${id}`);
+    });
   };
 
   const updateChequeEffet = (id: string, chequeData: Partial<ChequeEffet>) => {
@@ -1336,6 +1363,9 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const diff = chequeData.amount - oldCheque.amount;
         setClients(clientsPrev => clientsPrev.map(cl => cl.id === oldCheque.partyId ? { ...cl, currentBalance: Math.max(0, cl.currentBalance - diff) } : cl));
       }
+      setDoc(doc(db, 'chequesEffets', id), sanitizeForFirestore(updated), { merge: true }).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `chequesEffets/${id}`);
+      });
       return updated;
     }));
   };
@@ -1346,6 +1376,9 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const updated = { ...chq, status };
       if (status === 'DEPOSE') updated.depositDate = new Date().toISOString().slice(0, 10);
       if (status === 'ENCAISSE') updated.clearedDate = new Date().toISOString().slice(0, 10);
+      setDoc(doc(db, 'chequesEffets', chequeId), sanitizeForFirestore(updated), { merge: true }).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `chequesEffets/${chequeId}`);
+      });
       return updated;
     }));
   };
@@ -1403,6 +1436,9 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       expenseNumber,
     };
     setExpenses(prev => [newExp, ...prev]);
+    setDoc(doc(db, 'expenses', newExp.id), sanitizeForFirestore(newExp)).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `expenses/${newExp.id}`);
+    });
   };
 
   const addClient = (clientData: Omit<Client, 'id' | 'code' | 'currentBalance'>) => {
@@ -1415,7 +1451,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       currentBalance: 0,
     };
     setClients(prev => [newClient, ...prev]);
-    setDoc(doc(db, 'clients', newClient.id), newClient).catch(err => {
+    setDoc(doc(db, 'clients', newClient.id), sanitizeForFirestore(newClient)).catch(err => {
       handleFirestoreError(err, OperationType.WRITE, `clients/${newClient.id}`);
     });
   };
@@ -1424,7 +1460,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setClients(prev => prev.map(c => {
       if (c.id !== id) return c;
       const updated = { ...c, ...clientData };
-      setDoc(doc(db, 'clients', id), updated).catch(err => {
+      setDoc(doc(db, 'clients', id), sanitizeForFirestore(updated), { merge: true }).catch(err => {
         handleFirestoreError(err, OperationType.UPDATE, `clients/${id}`);
       });
       return updated;
@@ -1448,15 +1484,29 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       currentBalance: 0,
     };
     setSuppliers(prev => [newSupplier, ...prev]);
+    setDoc(doc(db, 'suppliers', newSupplier.id), sanitizeForFirestore(newSupplier)).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `suppliers/${newSupplier.id}`);
+    });
   };
 
   const updateSupplier = (id: string, supplierData: Partial<Supplier>) => {
-    setSuppliers(prev => prev.map(s => (s.id === id ? { ...s, ...supplierData } : s)));
+    setSuppliers(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      const updated = { ...s, ...supplierData };
+      setDoc(doc(db, 'suppliers', id), sanitizeForFirestore(updated), { merge: true }).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `suppliers/${id}`);
+      });
+      return updated;
+    }));
   };
 
   const deleteSupplier = (id: string) => {
     setSuppliers(prev => prev.filter(s => s.id !== id));
+    deleteDoc(doc(db, 'suppliers', id)).catch(err => {
+      handleFirestoreError(err, OperationType.DELETE, `suppliers/${id}`);
+    });
   };
+
 
   const saveInventoryCount = (countData: Omit<MultiSiteInventoryCount, 'id' | 'countNumber'>, applyStockAdjust: boolean) => {
     const count = inventoryCounts.length + 1;
