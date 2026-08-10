@@ -48,6 +48,8 @@
     "close": "Fermer",
     "back": "Retour",
     "search": "Rechercher",
+    "select": "Sélectionner...",
+    "optional": "Optionnel",
     "filter": "Filtrer",
     "export": "Exporter",
     "import": "Importer",
@@ -570,5 +572,27 @@
     "fr": "Français",
     "ar": "العربية",
     "switch": "Changer la langue"
+  },
+  "finance": {
+    "newCheque": "Nouveau Chèque / Effet",
+    "editCheque": "Modifier le Chèque / Effet",
+    "type": "Type de Titre",
+    "cheque": "Chèque",
+    "effet": "Effet / LCN",
+    "direction": "Sens du Titre",
+    "receipt": "Recette Client (Reçu)",
+    "payment": "Dépense Fournisseur (Émis)",
+    "supplier": "Fournisseur",
+    "supplierName": "Nom du Fournisseur",
+    "reference": "N° Référence / Chèque",
+    "bank": "Banque",
+    "amount": "Montant (DH)",
+    "issueDate": "Date d'Émission",
+    "dueDate": "Date d'Échéance",
+    "invoiceLink": "Facture Associée",
+    "status_EN_PORTEFEUILLE": "En Portefeuille",
+    "status_DEPOSE": "Déposé en Banque",
+    "status_ENCAISSE": "Encaissé",
+    "status_IMPAYE_REJETE": "Impayé / Rejeté"
   }
 }

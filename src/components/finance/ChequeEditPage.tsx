@@ -55,21 +55,21 @@ export const ChequeEditPage: React.FC<{ editId: string | null; onBack: () => voi
             <ArrowLeft className={`w-5 h-5 ${isRTL ? 'rotate-180' : ''}`} />
           </button>
           <h1 className="text-2xl font-semibold text-gray-900">
-            {editId ? t('finance.editCheque') : t('finance.newCheque')}
+            {editId ? t('finance.editCheque', 'Modifier le Chèque / Effet') : t('finance.newCheque', 'Nouveau Chèque / Effet')}
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 flex items-center gap-2">
+          <button onClick={onBack} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 flex items-center gap-2 font-bold">
             <X className="w-4 h-4" />
-            {t('common.cancel')}
+            {t('common.cancel', 'Annuler')}
           </button>
           <button
             onClick={handleSave}
             disabled={!reference || !amount}
-            className="px-4 py-2 bg-[#0f62fe] text-white rounded-md hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 bg-[#0f62fe] text-white rounded-md hover:bg-blue-700 flex items-center gap-2 font-bold disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
-            {t('common.save')}
+            {t('common.save', 'Enregistrer')}
           </button>
         </div>
       </div>
@@ -80,28 +80,28 @@ export const ChequeEditPage: React.FC<{ editId: string | null; onBack: () => voi
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('finance.type')}</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{t('finance.type', 'Type de Titre')}</label>
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 font-bold text-sm">
                     <input type="radio" checked={type === 'CHEQUE'} onChange={() => setType('CHEQUE')} className="text-blue-600" />
-                    <span>{t('finance.cheque')}</span>
+                    <span>{t('finance.cheque', 'Chèque')}</span>
                   </label>
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 font-bold text-sm">
                     <input type="radio" checked={type === 'EFFET'} onChange={() => setType('EFFET')} className="text-blue-600" />
-                    <span>{t('finance.effet')}</span>
+                    <span>{t('finance.effet', 'Effet / LCN')}</span>
                   </label>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('finance.direction')}</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{t('finance.direction', 'Sens du Titre')}</label>
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 font-bold text-sm">
                     <input type="radio" checked={direction === 'RECETTE_CLIENT'} onChange={() => setDirection('RECETTE_CLIENT')} className="text-blue-600" />
-                    <span>{t('finance.receipt')}</span>
+                    <span>{t('finance.receipt', 'Recette Client (Reçu)')}</span>
                   </label>
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 font-bold text-sm">
                     <input type="radio" checked={direction === 'DEPENSE_FOURNISSEUR'} onChange={() => setDirection('DEPENSE_FOURNISSEUR')} className="text-blue-600" />
-                    <span>{t('finance.payment')}</span>
+                    <span>{t('finance.payment', 'Dépense Fournisseur (Émis)')}</span>
                   </label>
                 </div>
               </div>
@@ -110,59 +110,59 @@ export const ChequeEditPage: React.FC<{ editId: string | null; onBack: () => voi
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {direction === 'RECETTE_CLIENT' ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('sales.client')}</label>
-                  <select value={partyId} onChange={(e) => setPartyId(e.target.value)} className="w-full border border-gray-300 rounded-md p-2">
-                    <option value="">{t('common.select')}</option>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">{t('sales.client', 'Client')}</label>
+                  <select value={partyId} onChange={(e) => setPartyId(e.target.value)} className="w-full border border-gray-300 rounded-md p-2 text-sm font-bold">
+                    <option value="">{t('common.select', 'Sélectionner...')}</option>
                     {clients?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
               ) : (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('finance.supplier')}</label>
-                  <input type="text" value={partyId} onChange={(e) => setPartyId(e.target.value)} placeholder={t('finance.supplierName')} className="w-full border border-gray-300 rounded-md p-2" />
+                  <label className="block text-sm font-bold text-gray-700 mb-1">{t('finance.supplier', 'Fournisseur')}</label>
+                  <input type="text" value={partyId} onChange={(e) => setPartyId(e.target.value)} placeholder={t('finance.supplierName', 'Nom du Fournisseur')} className="w-full border border-gray-300 rounded-md p-2 text-sm" />
                 </div>
               )}
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('finance.reference')}</label>
-                <input type="text" value={reference} onChange={(e) => setReference(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t('finance.reference', 'N° Référence / Chèque')}</label>
+                <input type="text" value={reference} onChange={(e) => setReference(e.target.value)} className="w-full border border-gray-300 rounded-md p-2 text-sm font-mono font-bold" />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('finance.bank')}</label>
-                <input type="text" value={bank} onChange={(e) => setBank(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t('finance.bank', 'Banque')}</label>
+                <input type="text" value={bank} onChange={(e) => setBank(e.target.value)} className="w-full border border-gray-300 rounded-md p-2 text-sm font-bold" />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('finance.amount')}</label>
-                <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="w-full border border-gray-300 rounded-md p-2" min="0" step="0.01" />
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t('finance.amount', 'Montant (DH)')}</label>
+                <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="w-full border border-gray-300 rounded-md p-2 text-sm font-mono font-bold" min="0" step="0.01" />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('finance.issueDate')}</label>
-                <input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t('finance.issueDate', "Date d'Émission")}</label>
+                <input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} className="w-full border border-gray-300 rounded-md p-2 text-sm font-mono font-bold" />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('finance.dueDate')}</label>
-                <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full border border-gray-300 rounded-md p-2" />
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t('finance.dueDate', "Date d'Échéance")}</label>
+                <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full border border-gray-300 rounded-md p-2 text-sm font-mono font-bold" />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.status')}</label>
-                <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full border border-gray-300 rounded-md p-2">
-                  {statuses.map(s => <option key={s} value={s}>{t(`finance.status_${s}`)}</option>)}
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t('common.status', 'Statut')}</label>
+                <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full border border-gray-300 rounded-md p-2 text-sm font-bold">
+                  {statuses.map(s => <option key={s} value={s}>{t(`finance.status_${s}`, s.replace('_', ' '))}</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('finance.invoiceLink')}</label>
-                <input type="text" value={invoiceLink} onChange={(e) => setInvoiceLink(e.target.value)} placeholder={t('common.optional')} className="w-full border border-gray-300 rounded-md p-2" />
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t('finance.invoiceLink', 'Facture Associée')}</label>
+                <input type="text" value={invoiceLink} onChange={(e) => setInvoiceLink(e.target.value)} placeholder={t('common.optional', 'Optionnel')} className="w-full border border-gray-300 rounded-md p-2 text-sm" />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.notes')}</label>
-                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full border border-gray-300 rounded-md p-2" />
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t('common.notes', 'Notes & Observations')}</label>
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full border border-gray-300 rounded-md p-2 text-sm" />
               </div>
             </div>
           </div>

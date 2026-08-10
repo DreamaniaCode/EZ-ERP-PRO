@@ -48,6 +48,8 @@
     "close": "إغلاق",
     "back": "رجوع",
     "search": "بحث",
+    "select": "اختر...",
+    "optional": "اختياري",
     "filter": "تصفية",
     "export": "تصدير",
     "import": "استيراد",
@@ -570,5 +572,27 @@
     "fr": "Français",
     "ar": "العربية",
     "switch": "تغيير اللغة"
+  },
+  "finance": {
+    "newCheque": "شيك / كمبيالة جديدة",
+    "editCheque": "تعديل الشيك / الكمبيالة",
+    "type": "نوع الورقة المالية",
+    "cheque": "شيك",
+    "effet": "كمبيالة / LCN",
+    "direction": "اتجاه العملية",
+    "receipt": "قبوضات عميل (مقبوض)",
+    "payment": "مدفوعات للمورد (صادر)",
+    "supplier": "المورد",
+    "supplierName": "اسم المورد",
+    "reference": "رقم الشيك / الكمبيالة / المرجع",
+    "bank": "البنك",
+    "amount": "المبلغ (درهم)",
+    "issueDate": "تاريخ الإصدار",
+    "dueDate": "تاريخ الاستحقاق",
+    "invoiceLink": "الفاتورة المرتبطة",
+    "status_EN_PORTEFEUILLE": "في المحفظة",
+    "status_DEPOSE": "مودع في البنك",
+    "status_ENCAISSE": "تم تحصيله",
+    "status_IMPAYE_REJETE": "مرفوض / غير مدفوع"
   }
 }
