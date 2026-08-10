@@ -4,10 +4,11 @@ import { Invoice } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
 import { InvoicePdfDocument } from '../pdf/InvoicePdfDocument';
 import { FileText, Search, Filter, CheckCircle, CreditCard, Download, Eye, MessageSquare, Trash2 } from 'lucide-react';
+import { generateAndDownloadInvoicePdf } from '../../utils/pdfGenerators';
 import { generateWhatsAppInvoiceLink } from '../../utils/whatsappUtils';
 
 export const InvoicesList: React.FC = () => {
-  const { invoices, updateInvoiceStatus, deleteInvoice, addChequeEffet, clients, activeCompanyId, activeCompany } = useERP();
+  const { invoices, updateInvoiceStatus, deleteInvoice, addChequeEffet, clients, companies, activeCompany, companyInfo, activeCompanyId } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [activePdfInvoice, setActivePdfInvoice] = useState<Invoice | null>(null);
@@ -33,6 +34,11 @@ export const InvoicesList: React.FC = () => {
       deleteInvoice(inv.id);
       alert(`Facture N° ${inv.invoiceNumber} supprimée avec succès.`);
     }
+  };
+
+  const handleDirectDownloadPdf = (inv: Invoice) => {
+    const targetComp = companies.find(c => c.id === inv.companyId) || activeCompany;
+    generateAndDownloadInvoicePdf(inv, targetComp || companyInfo);
   };
 
   const handleSendInvoiceWhatsApp = (inv: Invoice) => {
@@ -145,11 +151,18 @@ export const InvoicesList: React.FC = () => {
                         {inv.status}
                       </span>
                       <button
+                        onClick={() => handleDirectDownloadPdf(inv)}
+                        className="px-2.5 py-1 bg-[#0f62fe] hover:bg-blue-700 text-white text-[11px] font-bold font-mono rounded flex items-center gap-1 shadow-sm transition-colors"
+                        title="Télécharger directement la facture en PDF"
+                      >
+                        <Download className="w-3.5 h-3.5 text-white" /> Télécharger PDF
+                      </button>
+                      <button
                         onClick={() => setActivePdfInvoice(inv)}
                         className="px-2.5 py-1 bg-gray-900 hover:bg-black text-white text-[11px] font-bold font-mono rounded flex items-center gap-1 shadow-sm"
-                        title="Visualiser et Télécharger la Facture PDF"
+                        title="Visualiser la Facture dans la fenêtre d'aperçu"
                       >
-                        <Eye className="w-3.5 h-3.5 text-[#0f62fe]" /> Facture PDF
+                        <Eye className="w-3.5 h-3.5 text-[#0f62fe]" /> Voir PDF
                       </button>
                       {inv.status !== 'PAYEE' && (
                         <button

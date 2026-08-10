@@ -40,12 +40,8 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
       generateAndDownloadInvoicePdf(invoice, targetCompany || companyInfo);
     } catch (err) {
       console.error('Erreur lors de la génération PDF:', err);
-      window.print();
+      alert('Impossible d\'exporter la facture en PDF. Veuillez vérifier vos données.');
     }
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   const compLogo = targetCompany?.logoUrl || companyInfo?.logoUrl;
@@ -61,25 +57,20 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
   const compEmail = targetCompany?.email || companyInfo?.email || '';
 
   return (
-    <div className="bg-white w-full rounded-lg shadow-sm overflow-hidden border border-gray-200">
+    <div className="bg-white w-full rounded-lg shadow-sm overflow-hidden border border-gray-200 relative">
       
-      {/* Action Bar */}
-      <div className="bg-[#161616] text-white px-4 py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 print:hidden border-b border-[#393939]">
+      {/* Sticky Action Bar */}
+      <div className="sticky top-0 z-50 bg-[#161616] text-white px-4 py-3.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-[#393939] shadow-md">
         <div className="font-mono text-xs sm:text-sm font-bold flex items-center gap-2">
-          <span className="text-[#0f62fe]">FACTURE PDF</span> PREVIEW - N° {invoice.invoiceNumber}
+          <span className="text-[#0f62fe] font-black">FACTURE PDF</span> N° {invoice.invoiceNumber}
         </div>
         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
           <button
-            onClick={handlePrint}
-            className="flex-1 sm:flex-initial px-3 py-1.5 bg-[#262626] hover:bg-[#393939] text-white text-xs font-semibold rounded flex items-center justify-center gap-1.5 border border-[#525252]"
-          >
-            <Printer className="w-4 h-4 text-emerald-400" /> Imprimer
-          </button>
-          <button
+            type="button"
             onClick={handleDownloadPdf}
-            className="flex-1 sm:flex-initial carbon-btn-primary text-xs flex items-center justify-center gap-1.5 rounded"
+            className="flex-1 sm:flex-initial px-5 py-2 bg-[#0f62fe] hover:bg-blue-700 text-white text-xs font-black rounded-md flex items-center justify-center gap-2 shadow-md transition-colors"
           >
-            <Download className="w-4 h-4" /> Télécharger FACTURE (.PDF)
+            <Download className="w-4 h-4 text-white" /> Télécharger FACTURE (PDF)
           </button>
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white shrink-0">
             <X className="w-5 h-5" />
@@ -203,6 +194,17 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
 
         </div>
       </div>
+
+      {/* Floating Always-Visible Download PDF Button */}
+      <button
+        type="button"
+        onClick={handleDownloadPdf}
+        className="fixed bottom-6 right-6 z-50 px-5 py-3 bg-[#0f62fe] hover:bg-blue-700 text-white font-black font-mono text-xs sm:text-sm rounded-full shadow-2xl flex items-center gap-2.5 border-2 border-white cursor-pointer active:scale-95 transition-all"
+        title="Télécharger la Facture au format PDF"
+      >
+        <Download className="w-5 h-5 text-white" />
+        <span>Télécharger FACTURE (PDF)</span>
+      </button>
     </div>
   );
 };

@@ -448,10 +448,10 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
   };
 
   return (
-    <div className="bg-white w-full rounded-lg shadow-sm overflow-hidden border border-gray-200">
+    <div className="bg-white w-full rounded-lg shadow-sm overflow-hidden border border-gray-200 relative">
       
-      {/* Action Bar */}
-      <div className="bg-[#161616] text-white px-3 sm:px-4 py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 print:hidden border-b border-[#393939]">
+      {/* Sticky Action Bar */}
+      <div className="sticky top-0 z-50 bg-[#161616] text-white px-3 sm:px-4 py-3.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-[#393939] shadow-md">
         <div className="font-mono text-xs sm:text-sm font-bold flex items-center justify-between w-full sm:w-auto">
           <div className="flex items-center gap-2">
             <span className="text-[#0f62fe]">PDF</span> BL {bl.blNumber}
@@ -764,6 +764,17 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
 
         </div>
       </div>
+
+      {/* Floating Always-Visible Download PDF Button */}
+      <button
+        type="button"
+        onClick={handleDownloadPdf}
+        className="fixed bottom-6 right-6 z-50 px-5 py-3 bg-[#0f62fe] hover:bg-blue-700 text-white font-black font-mono text-xs sm:text-sm rounded-full shadow-2xl flex items-center gap-2.5 border-2 border-white cursor-pointer active:scale-95 transition-all"
+        title="Télécharger le Bon de Livraison au format PDF"
+      >
+        <Download className="w-5 h-5 text-white" />
+        <span>Télécharger BL (PDF)</span>
+      </button>
     </div>
   );
 };
