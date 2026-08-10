@@ -322,7 +322,30 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
     doc.text('Emplacement pour cachet et signature du magasinier', margin + 3, y + sigH - 3);
     doc.text('Signature avec mention "Recu conforme"', margin + sigW + 8, y + sigH - 3);
 
-    doc.save(`${safeStr(bl.blNumber)}_BL_${safeStr(bl.clientName).replace(/\s+/g, '_')}.pdf`);
+    const fileName = `${safeStr(bl.blNumber || 'BL')}_BL_${safeStr(bl.clientName || 'Client').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    try {
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        if (a.parentNode) {
+          a.parentNode.removeChild(a);
+        }
+      }, 1500);
+    } catch (err) {
+      console.warn('Blob download failed, falling back to doc.save', err);
+      try {
+        doc.save(fileName);
+      } catch (e) {
+        console.error('doc.save failed:', e);
+      }
+    }
   };
 
   const handlePrint = () => {

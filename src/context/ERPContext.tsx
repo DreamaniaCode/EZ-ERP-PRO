@@ -385,17 +385,17 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Client);
-      setClients(docs);
+      if (docs.length > 0) setClients(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
 
     const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Product);
-      setProducts(docs);
+      if (docs.length > 0) setProducts(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'products'));
 
     const unsubSuppliers = onSnapshot(collection(db, 'suppliers'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Supplier);
-      setSuppliers(docs);
+      if (docs.length > 0) setSuppliers(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'suppliers'));
 
     const unsubFrigos = onSnapshot(collection(db, 'frigos'), (snapshot) => {
@@ -403,30 +403,45 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (docs.length > 0) setFrigos(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'frigos'));
 
+    const unsubStocks = onSnapshot(collection(db, 'stocks'), (snapshot) => {
+      const docs = snapshot.docs.map(docSnap => docSnap.data() as FrigoStockLevel);
+      if (docs.length > 0) setStocks(docs);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'stocks'));
+
     const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as DeliveryNoteBL);
-      setDeliveryNotes(docs);
+      if (docs.length > 0) setDeliveryNotes(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'deliveryNotes'));
 
     const unsubInvoices = onSnapshot(collection(db, 'invoices'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Invoice);
-      setInvoices(docs);
+      if (docs.length > 0) setInvoices(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'invoices'));
 
     const unsubExpenses = onSnapshot(collection(db, 'expenses'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Expense);
-      setExpenses(docs);
+      if (docs.length > 0) setExpenses(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'expenses'));
 
     const unsubCheques = onSnapshot(collection(db, 'chequesEffets'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as ChequeEffet);
-      setChequesEffets(docs);
+      if (docs.length > 0) setChequesEffets(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'chequesEffets'));
 
     const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as SalesOrder);
-      setOrders(docs);
+      if (docs.length > 0) setOrders(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'orders'));
+
+    const unsubPurchaseInvoices = onSnapshot(collection(db, 'purchase_invoices'), (snapshot) => {
+      const docs = snapshot.docs.map(docSnap => docSnap.data() as PurchaseImportInvoice);
+      if (docs.length > 0) setPurchaseInvoices(docs);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'purchase_invoices'));
+
+    const unsubStockMovements = onSnapshot(collection(db, 'stock_movements'), (snapshot) => {
+      const docs = snapshot.docs.map(docSnap => docSnap.data() as ProductStockMovement);
+      if (docs.length > 0) setStockMovements(docs);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'stock_movements'));
 
     return () => {
       unsubUsers();
@@ -434,11 +449,14 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       unsubProducts();
       unsubSuppliers();
       unsubFrigos();
+      unsubStocks();
       unsubDeliveryNotes();
       unsubInvoices();
       unsubExpenses();
       unsubCheques();
       unsubOrders();
+      unsubPurchaseInvoices();
+      unsubStockMovements();
     };
   }, []);
 

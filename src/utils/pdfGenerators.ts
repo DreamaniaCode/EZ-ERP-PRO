@@ -245,33 +245,30 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyData: any
   doc.setTextColor(160, 160, 160);
   doc.text('CACHET & SIGNATURE SOCIETE', stampX + 25, stampY + 5, { align: 'center' });
 
-  const fileName = `${safe(invoice.invoiceNumber)}_Facture_${safe(invoice.clientName).replace(/\s+/g, '_')}.pdf`;
+  const fileName = `${safe(invoice.invoiceNumber || 'Facture')}_${safe(invoice.clientName || 'Client').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
   
-  try {
-    doc.save(fileName);
-  } catch (e) {
-    console.warn('Standard doc.save failed, using blob fallback', e);
-  }
-
-  // Fallback for mobile browsers & PWAs where doc.save may be restricted
   try {
     const blob = doc.output('blob');
     const url = URL.createObjectURL(blob);
-    
-    // Create clickable anchor
     const a = document.createElement('a');
     a.href = url;
     a.download = fileName;
-    a.target = '_blank';
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
-
-    // Secondary popup fallback if download click was blocked
     setTimeout(() => {
-      try { document.body.removeChild(a); } catch (e) {}
-    }, 1000);
+      URL.revokeObjectURL(url);
+      if (a.parentNode) {
+        a.parentNode.removeChild(a);
+      }
+    }, 1500);
   } catch (err) {
-    console.error('Error generating PDF blob fallback:', err);
+    console.warn('Blob download failed, falling back to doc.save', err);
+    try {
+      doc.save(fileName);
+    } catch (e) {
+      console.error('doc.save failed:', e);
+    }
   }
 }
 
