@@ -3,11 +3,11 @@ import { useERP } from '../../context/ERPContext';
 import { Invoice } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
 import { InvoicePdfDocument } from '../pdf/InvoicePdfDocument';
-import { FileText, Search, Filter, CheckCircle, CreditCard, Download, Eye, MessageSquare } from 'lucide-react';
+import { FileText, Search, Filter, CheckCircle, CreditCard, Download, Eye, MessageSquare, Trash2 } from 'lucide-react';
 import { generateWhatsAppInvoiceLink } from '../../utils/whatsappUtils';
 
 export const InvoicesList: React.FC = () => {
-  const { invoices, updateInvoiceStatus, addChequeEffet, clients, activeCompanyId, activeCompany } = useERP();
+  const { invoices, updateInvoiceStatus, deleteInvoice, addChequeEffet, clients, activeCompanyId, activeCompany } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [activePdfInvoice, setActivePdfInvoice] = useState<Invoice | null>(null);
@@ -26,6 +26,13 @@ export const InvoicesList: React.FC = () => {
   const handleMarkPaid = (inv: Invoice) => {
     updateInvoiceStatus(inv.id, 'PAYEE', inv.totalTTC);
     alert(`Facture ${inv.invoiceNumber} marquée comme entièrement PAYÉE !`);
+  };
+
+  const handleDeleteInvoice = (inv: Invoice) => {
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer définitivement la Facture N° ${inv.invoiceNumber} (${inv.clientName}) ?`)) {
+      deleteInvoice(inv.id);
+      alert(`Facture N° ${inv.invoiceNumber} supprimée avec succès.`);
+    }
   };
 
   const handleSendInvoiceWhatsApp = (inv: Invoice) => {
@@ -158,6 +165,14 @@ export const InvoicesList: React.FC = () => {
                         title="Transmettre la facture au client par WhatsApp"
                       >
                         <MessageSquare className="w-3.5 h-3.5" /> WhatsApp
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteInvoice(inv)}
+                        className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded flex items-center gap-1 shadow-sm transition-colors"
+                        title="Supprimer définitivement la facture"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-white" /> Supprimer
                       </button>
                     </div>
                   </td>

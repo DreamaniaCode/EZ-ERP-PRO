@@ -147,6 +147,7 @@ interface ERPContextType {
   // Finance Actions
   createInvoiceFromBL: (blId: string) => Invoice;
   updateInvoiceStatus: (invoiceId: string, status: Invoice['status'], amountPaid?: number) => void;
+  deleteInvoice: (id: string) => void;
   addChequeEffet: (cheque: Omit<ChequeEffet, 'id'>) => void;
   updateChequeEffet: (id: string, chequeData: Partial<ChequeEffet>) => void;
   deleteChequeEffet: (id: string) => void;
@@ -1423,6 +1424,48 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
+  const deleteInvoice = (id: string) => {
+    const targetInv = invoices.find(i => i.id === id);
+    setInvoices(prev => prev.filter(i => i.id !== id));
+    deleteDoc(doc(db, 'invoices', id)).catch(err => {
+      handleFirestoreError(err, OperationType.DELETE, `invoices/${id}`);
+    });
+
+    if (targetInv) {
+      // Unlink invoice from associated BL if blId exists
+      if (targetInv.blId) {
+        setDeliveryNotes(prev => prev.map(bl => {
+          if (bl.id === targetInv.blId || bl.invoiceId === id) {
+            const updated = {
+              ...bl,
+              status: 'APPROUVÉ_FRIGO' as const,
+              invoiceId: '',
+              invoiceNumber: '',
+            };
+            setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(updated), { merge: true }).catch(() => {});
+            return updated;
+          }
+          return bl;
+        }));
+      }
+
+      // Re-adjust client balance
+      if (targetInv.clientId) {
+        const remainingBal = targetInv.remainingAmount !== undefined ? targetInv.remainingAmount : (targetInv.totalTTC - (targetInv.amountPaid || 0));
+        if (remainingBal > 0) {
+          setClients(prev => prev.map(c => {
+            if (c.id === targetInv.clientId) {
+              const newBal = Math.max(0, c.currentBalance - remainingBal);
+              setDoc(doc(db, 'clients', c.id), { currentBalance: newBal }, { merge: true }).catch(() => {});
+              return { ...c, currentBalance: newBal };
+            }
+            return c;
+          }));
+        }
+      }
+    }
+  };
+
   const addChequeEffet = (chequeData: Omit<ChequeEffet, 'id'>) => {
     const newCheque: ChequeEffet = {
       ...chequeData,
@@ -2083,6 +2126,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     sendEmailBL,
     createInvoiceFromBL,
     updateInvoiceStatus,
+    deleteInvoice,
     addChequeEffet,
     updateChequeEffet,
     deleteChequeEffet,
@@ -2168,6 +2212,7 @@ const defaultFallbackContext: ERPContextType = {
   sendEmailBL: () => {},
   createInvoiceFromBL: () => ({ id: '', invoiceNumber: '', blIds: [], clientId: '', clientName: '', date: '', dueDate: '', items: [], totalHT: 0, vatAmount: 0, totalTTC: 0, paidAmount: 0, remainingBalance: 0, status: 'BROUILLON' }),
   updateInvoiceStatus: () => {},
+  deleteInvoice: () => {},
   addChequeEffet: () => {},
   updateChequeEffet: () => {},
   deleteChequeEffet: () => {},
