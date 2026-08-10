@@ -360,7 +360,6 @@ const buildHistoricalPDFBLs = (): DeliveryNoteBL[] => {
 };
 
 export const INITIAL_DELIVERY_NOTES: DeliveryNoteBL[] = [
-  ...buildHistoricalPDFBLs(),
   {
     id: 'bl-1001',
     blNumber: 'BL-2026-1001',
