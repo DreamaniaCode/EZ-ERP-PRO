@@ -168,7 +168,199 @@ export const INITIAL_CLIENTS: Client[] = [
 
 export const INITIAL_ORDERS: SalesOrder[] = [];
 
+const RAW_HISTORICAL_PDF_ROWS = [
+  // STD 5 KG
+  { DATE: '2026-03-28', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'AYOUB KENI', 'N DE BON': '47154' },
+  { DATE: '2026-03-28', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '47153' },
+  { DATE: '2026-03-30', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '47162' },
+  { DATE: '2026-04-01', DESIGNATION: 'STD 5 KG', QUANTITE: 3000, CLIENT: 'HACHEM', 'N DE BON': '89' },
+  { DATE: '2026-04-01', DESIGNATION: 'STD 5 KG', QUANTITE: 2000, CLIENT: 'HACHEM', 'N DE BON': '90' },
+  { DATE: '2026-04-01', DESIGNATION: 'STD 5 KG', QUANTITE: 300, CLIENT: 'KHALED LIBI', 'N DE BON': '91' },
+  { DATE: '2026-04-01', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'SOUFIANE BARGAM', 'N DE BON': '94' },
+  { DATE: '2026-04-02', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'SOUFIANE BARGAM', 'N DE BON': '34' },
+  { DATE: '2026-04-02', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'HACHEM', 'N DE BON': '35' },
+  { DATE: '2026-04-02', DESIGNATION: 'STD 5 KG', QUANTITE: 2000, CLIENT: 'SOUFIANE BARGAM', 'N DE BON': '37' },
+  { DATE: '2026-04-04', DESIGNATION: 'STD 5 KG', QUANTITE: 2000, CLIENT: 'BILAL TOUNSIE', 'N DE BON': '95' },
+  { DATE: '2026-04-04', DESIGNATION: 'STD 5 KG', QUANTITE: 2000, CLIENT: 'SOUFIANE BARGAM', 'N DE BON': '41' },
+  { DATE: '2026-04-04', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'SOUFIANE BARGAM', 'N DE BON': '43' },
+  { DATE: '2026-04-06', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '46' },
+  { DATE: '2026-04-08', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '89' },
+  { DATE: '2026-04-09', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'HACHEM', 'N DE BON': '90' },
+  { DATE: '2026-04-13', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'HACHEM', 'N DE BON': '95' },
+  { DATE: '2026-04-13', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'BILAL TOUNSSI', 'N DE BON': '96' },
+  { DATE: '2026-04-15', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', 'N DE BON': '64' },
+  { DATE: '2026-04-15', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '22' },
+  { DATE: '2026-04-16', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'HACHEM', 'N DE BON': '65' },
+  { DATE: '2026-04-16', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '66' },
+  { DATE: '2026-04-18', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '67' },
+  { DATE: '2026-04-21', DESIGNATION: 'STD 5 KG', QUANTITE: 300, CLIENT: 'MUSTAPHA KHALID', 'N DE BON': '70' },
+  { DATE: '2026-04-22', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'LAAROUSI RACHID', 'N DE BON': '71' },
+  { DATE: '2026-04-27', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '56' },
+  { DATE: '2026-04-30', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '58' },
+  { DATE: '2026-05-05', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '65' },
+  { DATE: '2026-05-11', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'BILAL TOUNSIE', 'N DE BON': '47169' },
+  { DATE: '2026-05-12', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'OMAR QESSAB', 'N DE BON': '47170' },
+  { DATE: '2026-05-14', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'SOUFIANE BARGAM', 'N DE BON': '73' },
+  { DATE: '2026-05-16', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'SOUFIANE BARGAM', 'N DE BON': '54' },
+  { DATE: '2026-05-16', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'SOUFIANE BARGAM', 'N DE BON': '55' },
+  { DATE: '2026-06-04', DESIGNATION: 'STD 5 KG', QUANTITE: 770, CLIENT: 'SOUFIANE BARGAM', 'N DE BON': '96' },
+
+  // BR 5 KG
+  { DATE: '2026-03-28', DESIGNATION: 'BR 5 KG', QUANTITE: 1500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '47153' },
+  { DATE: '2026-03-30', DESIGNATION: 'BR 5 KG', QUANTITE: 1500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '47152' },
+  { DATE: '2026-04-02', DESIGNATION: 'BR 5 KG', QUANTITE: 1500, CLIENT: 'HACHEM', 'N DE BON': '35' },
+  { DATE: '2026-04-02', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '36' },
+  { DATE: '2026-04-03', DESIGNATION: 'BR 5 KG', QUANTITE: 1500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '45' },
+  { DATE: '2026-04-06', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '46' },
+  { DATE: '2026-04-08', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '89' },
+  { DATE: '2026-04-09', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', 'N DE BON': '90' },
+  { DATE: '2026-04-09', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '91' },
+  { DATE: '2026-04-10', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', 'N DE BON': '52' },
+  { DATE: '2026-04-11', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '92' },
+  { DATE: '2026-04-13', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', 'N DE BON': '95' },
+  { DATE: '2026-04-13', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '97' },
+  { DATE: '2026-04-15', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', 'N DE BON': '64' },
+  { DATE: '2026-04-15', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '22' },
+  { DATE: '2026-04-16', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '66' },
+  { DATE: '2026-04-18', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '67' },
+  { DATE: '2026-04-20', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '49' },
+  { DATE: '2026-04-21', DESIGNATION: 'BR 5 KG', QUANTITE: 800, CLIENT: 'LAAROUSI RACHID', 'N DE BON': '69' },
+  { DATE: '2026-04-22', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'MUSTAPHA KHALID', 'N DE BON': '53' },
+  { DATE: '2026-04-22', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', 'N DE BON': '72' },
+  { DATE: '2026-04-23', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', 'N DE BON': '54' },
+  { DATE: '2026-04-24', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '95' },
+  { DATE: '2026-04-25', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', 'N DE BON': '73' },
+  { DATE: '2026-04-27', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '56' },
+  { DATE: '2026-04-28', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', 'N DE BON': '75' },
+  { DATE: '2026-04-28', DESIGNATION: 'BR 5 KG', QUANTITE: 1500, CLIENT: 'HACHEM', 'N DE BON': '47164' },
+  { DATE: '2026-05-11', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', 'N DE BON': '94' },
+  { DATE: '2026-05-11', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'BILAL TOUNSI', 'N DE BON': '13' },
+  { DATE: '2026-05-12', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'BILAL TOUNSSI', 'N DE BON': '88' },
+  { DATE: '2026-05-14', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', 'N DE BON': '74' },
+  { DATE: '2026-06-03', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', 'N DE BON': '53' },
+  { DATE: '2026-06-04', DESIGNATION: 'BR 5 KG', QUANTITE: 3000, CLIENT: 'HACHEM', 'N DE BON': '90' },
+  { DATE: '2026-06-05', DESIGNATION: 'BR 5 KG', QUANTITE: 1500, CLIENT: 'HACHEM', 'N DE BON': '63' },
+  { DATE: '2026-06-05', DESIGNATION: 'BR 5 KG', QUANTITE: 300, CLIENT: 'AABIDA', 'N DE BON': '65' },
+  { DATE: '2026-06-06', DESIGNATION: 'BR 5 KG', QUANTITE: 2500, CLIENT: 'HACHEM', 'N DE BON': '99' },
+  { DATE: '2026-06-08', DESIGNATION: 'BR 5 KG', QUANTITE: 2500, CLIENT: 'HACHEM', 'N DE BON': '86' },
+  { DATE: '2026-06-09', DESIGNATION: 'BR 5 KG', QUANTITE: 2500, CLIENT: 'LAAROUSI RACHID', 'N DE BON': '88' },
+  { DATE: '2026-06-09', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'AABIDA', 'N DE BON': '83' },
+  { DATE: '2026-06-11', DESIGNATION: 'BR 5 KG', QUANTITE: 2500, CLIENT: 'HACHEM', 'N DE BON': '90' },
+  { DATE: '2026-06-22', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'LAAROUSI RACHID', 'N DE BON': '79' },
+  { DATE: '2026-06-24', DESIGNATION: 'BR 5 KG', QUANTITE: 2000, CLIENT: 'LAAROUSI RACHID', 'N DE BON': '89' },
+  { DATE: '2026-06-29', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'LAAROUSI RACHID', 'N DE BON': '41' },
+
+  // BR 2 KG
+  { DATE: '2026-03-28', DESIGNATION: 'BR 2 KG', QUANTITE: 2000, CLIENT: 'AYOUB KENI', 'N DE BON': '47154' },
+  { DATE: '2026-04-08', DESIGNATION: 'BR 2 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '89' },
+  { DATE: '2026-04-13', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'HACHEM', 'N DE BON': '95' },
+  { DATE: '2026-04-13', DESIGNATION: 'BR 2 KG', QUANTITE: 500, CLIENT: 'BILAL TOUNSSI', 'N DE BON': '96' },
+  { DATE: '2026-04-18', DESIGNATION: 'BR 2 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '67' },
+  { DATE: '2026-04-20', DESIGNATION: 'BR 2 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', 'N DE BON': '49' },
+  { DATE: '2026-04-29', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'AYOUB KENI', 'N DE BON': '76' },
+  { DATE: '2026-05-13', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'BILAL TOUNSSI', 'N DE BON': '47171' },
+  { DATE: '2026-05-19', DESIGNATION: 'BR 2 KG', QUANTITE: 500, CLIENT: 'AYOUB KENI', 'N DE BON': '64' },
+  { DATE: '2026-05-21', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'BILAL TOUNSSI', 'N DE BON': '72' },
+  { DATE: '2026-06-02', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'AYOUB KENI', 'N DE BON': '80' },
+  { DATE: '2026-06-02', DESIGNATION: 'BR 2 KG', QUANTITE: 2000, CLIENT: 'BILAL TOUNSSI', 'N DE BON': '74' },
+  { DATE: '2026-06-04', DESIGNATION: 'BR 2 KG', QUANTITE: 500, CLIENT: 'BILAL TOUNSSI', 'N DE BON': '94' },
+  { DATE: '2026-06-05', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'AYOUB KENI', 'N DE BON': '95' },
+  { DATE: '2026-06-05', DESIGNATION: 'BR 2 KG', QUANTITE: 300, CLIENT: 'AABIDA', 'N DE BON': '65' },
+  { DATE: '2026-06-09', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'AABIDA', 'N DE BON': '83' }
+];
+
+const buildHistoricalPDFBLs = (): DeliveryNoteBL[] => {
+  const groups = new Map<string, any[]>();
+
+  RAW_HISTORICAL_PDF_ROWS.forEach(row => {
+    const key = `${row.CLIENT}_${row['N DE BON']}_${row.DATE}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(row);
+  });
+
+  const result: DeliveryNoteBL[] = [];
+  let index = 1;
+
+  groups.forEach((rows) => {
+    const first = rows[0];
+    const blNum = first['N DE BON'].startsWith('BL') ? first['N DE BON'] : `BL-2026-${first['N DE BON']}`;
+    const date = first.DATE;
+    const clientName = first.CLIENT;
+
+    let totalKg = 0;
+    let totalPallets = 0;
+    let totalHT = 0;
+
+    const items = rows.map((r, itemIdx) => {
+      const qtyKg = r.QUANTITE;
+      const prdCode = r.DESIGNATION;
+      const prdName = r.DESIGNATION === 'STD 5 KG' ? 'Dattes Standard 5 KG' :
+                      r.DESIGNATION === 'BR 5 KG' ? 'Dattes Branche 5 KG' :
+                      r.DESIGNATION === 'BR 2 KG' ? 'Dattes Branche 2 KG' : r.DESIGNATION;
+      const unitPrice = prdName.includes('2 KG') ? 60 : 50;
+      const lineHT = qtyKg * unitPrice;
+      const palletRatio = prdName.includes('2 KG') ? 200 : 500;
+      const pallets = Math.ceil(qtyKg / palletRatio);
+
+      totalKg += qtyKg;
+      totalPallets += pallets;
+      totalHT += lineHT;
+
+      return {
+        id: `item-pdf-${index}-${itemIdx}`,
+        productId: `prd-${prdCode.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+        productCode: prdCode,
+        productName: prdName,
+        quantityKg: qtyKg,
+        quantityPallets: pallets,
+        unitPriceHT: unitPrice,
+        totalHT: lineHT,
+        totalTTC: lineHT * 1.20,
+      };
+    });
+
+    const totalTTC = totalHT * 1.20;
+
+    result.push({
+      id: `bl-pdf-${index}`,
+      blNumber: blNum,
+      orderId: '',
+      orderNumber: '',
+      clientId: `clt-${clientName.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+      clientName: clientName,
+      frigoId: 'frigo-1',
+      frigoName: 'Frigo MFADEL',
+      date: date,
+      items: items,
+      totalKg: totalKg,
+      totalPallets: totalPallets,
+      totalHT: totalHT,
+      totalTTC: totalTTC,
+      frigoEmployeeApproved: true,
+      frigoApprovedBy: 'Agent Frigo MFADEL',
+      signedByClient: true,
+      signatureDate: date,
+      whatsappSent: true,
+      emailSent: false,
+      status: 'LIVRÉ',
+      logs: [
+        {
+          id: `log-pdf-${index}`,
+          timestamp: `${date} 09:00`,
+          action: 'Bon de Livraison Historique Client (Logistique)',
+          author: 'Super Admin',
+        }
+      ]
+    });
+
+    index++;
+  });
+
+  return result;
+};
+
 export const INITIAL_DELIVERY_NOTES: DeliveryNoteBL[] = [
+  ...buildHistoricalPDFBLs(),
   {
     id: 'bl-1001',
     blNumber: 'BL-2026-1001',

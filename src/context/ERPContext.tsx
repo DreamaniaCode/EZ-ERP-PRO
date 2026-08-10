@@ -375,6 +375,24 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('erp_current_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
+  // Auto-seed historical BLs if state contains fewer items than initial dataset
+  useEffect(() => {
+    if (deliveryNotes.length < INITIAL_DELIVERY_NOTES.length && !isWiped) {
+      setDeliveryNotes(prev => {
+        const map = new Map<string, DeliveryNoteBL>();
+        INITIAL_DELIVERY_NOTES.forEach(d => map.set(d.id, d));
+        (prev || []).forEach(d => map.set(d.id, d));
+        const merged = Array.from(map.values());
+
+        merged.forEach(bl => {
+          setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl), { merge: true }).catch(() => {});
+        });
+
+        return merged;
+      });
+    }
+  }, [deliveryNotes.length, isWiped]);
+
   // Firestore Real-Time Syncing (Bidirectional Live Sync Desktop <-> Mobile PWA)
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
@@ -2014,7 +2032,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const updated = [...filteredNew, ...prev];
       
       filteredNew.forEach(bl => {
-        setDoc(doc(db, 'deliveryNotes', bl.id), bl).catch(err => {
+        setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl)).catch(err => {
           handleFirestoreError(err, OperationType.WRITE, `deliveryNotes/${bl.id}`);
         });
       });
