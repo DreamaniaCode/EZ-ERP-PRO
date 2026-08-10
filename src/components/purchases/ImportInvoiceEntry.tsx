@@ -27,12 +27,18 @@ export const ImportInvoiceEntry: React.FC = () => {
   // Items
   const [purchaseItems, setPurchaseItems] = useState<{
     productId: string;
+    quantityCartons: number;
+    theoreticalKg: number;
+    weighedKg: number | '';
     quantityKg: number;
     quantityPallets: number;
     purchaseUnitPriceHT: number;
   }[]>([
     {
       productId: products[1]?.id || products[0]?.id || '',
+      quantityCartons: 900,
+      theoreticalKg: 9000,
+      weighedKg: 9000,
       quantityKg: 9000,
       quantityPallets: 10,
       purchaseUnitPriceHT: 28,
@@ -40,13 +46,20 @@ export const ImportInvoiceEntry: React.FC = () => {
   ]);
 
   const handleAddItem = () => {
+    const defaultPrd = products[0];
+    const kgCarton = defaultPrd?.kgPerCarton || 10;
+    const initialCartons = 800;
+    const initialTheoKg = initialCartons * kgCarton;
     setPurchaseItems(prev => [
       ...prev,
       {
-        productId: products[0].id,
-        quantityKg: 8000,
-        quantityPallets: 10,
-        purchaseUnitPriceHT: 35,
+        productId: defaultPrd ? defaultPrd.id : '',
+        quantityCartons: initialCartons,
+        theoreticalKg: initialTheoKg,
+        weighedKg: initialTheoKg,
+        quantityKg: initialTheoKg,
+        quantityPallets: defaultPrd && defaultPrd.kgPerPallet ? Math.ceil(initialTheoKg / defaultPrd.kgPerPallet) : 10,
+        purchaseUnitPriceHT: defaultPrd ? (defaultPrd.unitCostHT || 35) : 35,
       },
     ]);
   };
@@ -60,8 +73,26 @@ export const ImportInvoiceEntry: React.FC = () => {
       if (idx !== index) return item;
       const updated = { ...item, [field]: val };
       const prd = products.find(p => p.id === updated.productId);
-      const kgPerPallet = prd ? prd.kgPerPallet : 800;
-      if (field === 'quantityKg') {
+      const kgCarton = prd ? (prd.kgPerCarton || 10) : 10;
+      const kgPerPallet = prd ? (prd.kgPerPallet || 800) : 800;
+
+      if (field === 'productId') {
+        const cartons = Number(updated.quantityCartons) || 0;
+        updated.theoreticalKg = cartons * kgCarton;
+        const weighed = updated.weighedKg !== '' ? Number(updated.weighedKg) : updated.theoreticalKg;
+        updated.quantityKg = weighed > 0 ? weighed : updated.theoreticalKg;
+        updated.quantityPallets = Math.ceil(updated.quantityKg / kgPerPallet);
+      } else if (field === 'quantityCartons') {
+        const cartons = Number(val) || 0;
+        updated.theoreticalKg = cartons * kgCarton;
+        const weighed = updated.weighedKg !== '' ? Number(updated.weighedKg) : updated.theoreticalKg;
+        updated.quantityKg = weighed > 0 ? weighed : updated.theoreticalKg;
+        updated.quantityPallets = Math.ceil(updated.quantityKg / kgPerPallet);
+      } else if (field === 'weighedKg') {
+        const weighed = val !== '' ? Number(val) : 0;
+        updated.quantityKg = weighed > 0 ? weighed : updated.theoreticalKg;
+        updated.quantityPallets = Math.ceil(updated.quantityKg / kgPerPallet);
+      } else if (field === 'quantityKg') {
         updated.quantityPallets = Math.ceil(Number(val) / kgPerPallet);
       }
       return updated;
@@ -90,6 +121,10 @@ export const ImportInvoiceEntry: React.FC = () => {
         productId: prd.id,
         productName: prd.name,
         productCode: prd.code,
+        quantityCartons: Number(it.quantityCartons || 0),
+        theoreticalKg: Number(it.theoreticalKg || it.quantityKg),
+        weighedKg: it.weighedKg !== '' ? Number(it.weighedKg) : undefined,
+        isWeighed: it.weighedKg !== '' && Number(it.weighedKg) > 0,
         quantityKg: Number(it.quantityKg),
         quantityPallets: Number(it.quantityPallets),
         purchaseUnitPriceHT: Number(it.purchaseUnitPriceHT),
@@ -115,7 +150,7 @@ export const ImportInvoiceEntry: React.FC = () => {
     });
 
     setShowAddModal(false);
-    alert(`Facture Achat / Conteneur ${invoiceNumber} enregistrée avec succès ! Le stock a été directement injecté dans le frigo sélectionné.`);
+    alert(`Facture Achat / Conteneur ${invoiceNumber} enregistrée avec succès ! Le stock pesé a été directement injecté dans le frigo sélectionné.`);
   };
 
   return (
@@ -297,7 +332,7 @@ export const ImportInvoiceEntry: React.FC = () => {
             {/* Items */}
             <div className="space-y-3 pt-2">
               <div className="flex justify-between items-center border-b pb-2">
-                <span className="text-xs font-bold text-gray-900 uppercase">Produits Reçus dans le Conteneur (Saisie en Kg)</span>
+                <span className="text-xs font-bold text-gray-900 uppercase">Produits Reçus (Saisie en Cartons & Poids Pesé)</span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -321,58 +356,86 @@ export const ImportInvoiceEntry: React.FC = () => {
               </div>
 
 
-              {purchaseItems.map((item, idx) => (
-                <div key={idx} className="p-3 bg-gray-50 border border-gray-300 rounded grid grid-cols-1 sm:grid-cols-4 gap-3 items-center">
-                  <div>
-                    <label className="block text-[10px] text-gray-500 uppercase font-semibold mb-0.5">Produit</label>
-                    <select
-                      value={item.productId}
-                      onChange={e => handleItemChange(idx, 'productId', e.target.value)}
-                      className="w-full carbon-input text-xs font-mono font-bold"
-                    >
-                      {products.map(p => (
-                        <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
-                      ))}
-                    </select>
-                  </div>
+              {purchaseItems.map((item, idx) => {
+                const prd = products.find(p => p.id === item.productId);
+                const kgCartonRatio = prd ? (prd.kgPerCarton || 10) : 10;
+                const weightDiff = item.weighedKg !== '' ? (Number(item.weighedKg) - item.theoreticalKg) : 0;
 
-                  <div>
-                    <label className="block text-[10px] text-gray-500 uppercase font-semibold mb-0.5">Poids Reçu (Quantité en Kg) *</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.quantityKg}
-                      onChange={e => handleItemChange(idx, 'quantityKg', Number(e.target.value))}
-                      className="w-full carbon-input font-mono text-xs font-bold text-emerald-700"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-gray-500 uppercase font-semibold mb-0.5">Prix Achat HT / Kg (DH) *</label>
-                    <input
-                      type="number"
-                      value={item.purchaseUnitPriceHT}
-                      onChange={e => handleItemChange(idx, 'purchaseUnitPriceHT', Number(e.target.value))}
-                      className="w-full carbon-input font-mono text-xs font-bold text-blue-700"
-                    />
-                  </div>
-
-                  <div className="text-right flex items-center justify-between sm:justify-end gap-3">
-                    <div>
-                      <div className="text-[10px] text-gray-500 uppercase font-semibold">Total HT</div>
-                      <div className="font-mono text-xs font-bold text-gray-900">{(item.quantityKg * item.purchaseUnitPriceHT).toLocaleString()} DH</div>
+                return (
+                  <div key={idx} className="p-3 bg-gray-50 border border-gray-300 rounded grid grid-cols-1 sm:grid-cols-6 gap-3 items-center">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] text-gray-500 uppercase font-semibold mb-0.5">Produit</label>
+                      <select
+                        value={item.productId}
+                        onChange={e => handleItemChange(idx, 'productId', e.target.value)}
+                        className="w-full carbon-input text-xs font-mono font-bold"
+                      >
+                        {products.map(p => (
+                          <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
+                        ))}
+                      </select>
+                      <div className="text-[10px] text-gray-500 mt-0.5">Ratio: {kgCartonRatio} kg / carton</div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveItem(idx)}
-                      className="text-red-600 hover:text-red-800 p-1 text-xs font-bold"
-                      title="Supprimer la ligne"
-                    >
-                      ✕
-                    </button>
+
+                    <div>
+                      <label className="block text-[10px] text-gray-500 uppercase font-semibold mb-0.5">Cartons / Colis</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantityCartons}
+                        onChange={e => handleItemChange(idx, 'quantityCartons', Number(e.target.value))}
+                        className="w-full carbon-input font-mono text-xs font-bold text-blue-800"
+                      />
+                      <div className="text-[10px] text-gray-500 mt-0.5">Estimé: {item.theoreticalKg.toLocaleString()} Kg</div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-gray-700 uppercase font-bold mb-0.5 flex items-center justify-between">
+                        <span>Poids Pesé (Kg)</span>
+                        {item.weighedKg !== '' && weightDiff !== 0 && (
+                          <span className={`text-[10px] font-bold px-1 rounded ${weightDiff < 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                            {weightDiff > 0 ? `+${weightDiff}` : weightDiff} kg
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        placeholder={`${item.theoreticalKg} Kg`}
+                        value={item.weighedKg}
+                        onChange={e => handleItemChange(idx, 'weighedKg', e.target.value)}
+                        className="w-full carbon-input font-mono text-xs font-bold text-emerald-700 border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-gray-500 uppercase font-semibold mb-0.5">Prix Achat HT / Kg (DH)</label>
+                      <input
+                        type="number"
+                        value={item.purchaseUnitPriceHT}
+                        onChange={e => handleItemChange(idx, 'purchaseUnitPriceHT', Number(e.target.value))}
+                        className="w-full carbon-input font-mono text-xs font-bold text-blue-700"
+                      />
+                    </div>
+
+                    <div className="text-right flex items-center justify-between sm:justify-end gap-3">
+                      <div>
+                        <div className="text-[10px] text-gray-500 uppercase font-semibold">Total HT (Pesé)</div>
+                        <div className="font-mono text-xs font-bold text-gray-900">{(item.quantityKg * item.purchaseUnitPriceHT).toLocaleString()} DH</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(idx)}
+                        className="text-red-600 hover:text-red-800 p-1 text-xs font-bold"
+                        title="Supprimer la ligne"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="pt-3 border-t border-gray-200 flex justify-end gap-2 shrink-0">

@@ -138,6 +138,10 @@ export interface PurchaseImportInvoice {
     productName: string;
     productCode: string;
     quantityKg: number;
+    quantityCartons?: number;
+    theoreticalKg?: number;
+    weighedKg?: number;
+    isWeighed?: boolean;
     quantityPallets: number;
     purchaseUnitPriceHT: number;
     landedCostPerKgHT: number;
@@ -154,6 +158,10 @@ export interface OrderItem {
   category: ProductCategory;
   frigoId: string; // Designated cold storage for this item
   quantityKg: number;
+  quantityCartons?: number;
+  theoreticalKg?: number;
+  weighedKg?: number;
+  isWeighed?: boolean;
   quantityPallets: number;
   unitPriceHT: number;
   vatRate: number;
@@ -192,6 +200,9 @@ export interface DeliveryNoteItem {
   productName: string;
   quantityKg: number;
   quantityCartons?: number;
+  theoreticalKg?: number;
+  weighedKg?: number;
+  isWeighed?: boolean;
   quantityPallets: number;
   unitPriceHT: number;
   totalHT: number;

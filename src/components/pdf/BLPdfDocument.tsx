@@ -194,10 +194,13 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
     y += rowH;
 
     let computedTotalCartons = 0;
+    let anyWeighed = false;
     bl.items.forEach((item, idx) => {
       const bg = idx % 2 === 0 ? [255, 255, 255] : [248, 250, 252];
       const cartons = item.quantityCartons || (item.quantityKg ? Math.round(item.quantityKg / 10) : 0);
       computedTotalCartons += cartons;
+      const isItemWeighed = Boolean(item.isWeighed || (item.weighedKg !== undefined && item.weighedKg !== null && Number(item.weighedKg) > 0));
+      if (isItemWeighed) anyWeighed = true;
 
       doc.setFillColor(bg[0], bg[1], bg[2]);
       doc.rect(margin, y, usable, rowH, 'F');
@@ -212,8 +215,16 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(180, 83, 9);
       doc.text(`${formatNumber(cartons)} Ctn`, colX[2] + colWidths[2] / 2, y + 4.8, { align: 'center' });
-      doc.setTextColor(17, 17, 17);
-      doc.text(`${formatNumber(item.quantityKg)} Kg`, colX[3] + colWidths[3] / 2, y + 4.8, { align: 'center' });
+
+      if (isItemWeighed) {
+        doc.setTextColor(4, 120, 87);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${formatNumber(item.quantityKg)} Kg`, colX[3] + colWidths[3] / 2, y + 4.8, { align: 'center' });
+      } else {
+        doc.setTextColor(100, 116, 139);
+        doc.setFont('helvetica', 'italic');
+        doc.text(`À Peser (Sortie)`, colX[3] + colWidths[3] / 2, y + 4.8, { align: 'center' });
+      }
       y += rowH;
     });
     y += 5;
@@ -222,23 +233,29 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
 
     // ── Totals ──
     doc.setFillColor(248, 250, 252);
-    doc.roundedRect(pw - margin - 58, y, 58, 20, 1, 1, 'F');
+    doc.roundedRect(pw - margin - 65, y, 65, 20, 1, 1, 'F');
     doc.setDrawColor(200, 210, 220);
-    doc.roundedRect(pw - margin - 58, y, 58, 20, 1, 1, 'S');
+    doc.roundedRect(pw - margin - 65, y, 65, 20, 1, 1, 'S');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(80, 80, 80);
-    doc.text(`TOTAL CARTONS: `, pw - margin - 55, y + 6);
+    doc.text(`TOTAL COLIS: `, pw - margin - 62, y + 6);
     doc.setTextColor(180, 83, 9);
     doc.text(`${formatNumber(displayTotalCartons)} Cartons`, pw - margin - 3, y + 6, { align: 'right' });
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(80, 80, 80);
-    doc.text(`POIDS TOTAL: `, pw - margin - 55, y + 14);
+    doc.text(`POIDS TOTAL: `, pw - margin - 62, y + 14);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(4, 120, 87);
-    doc.text(`${formatNumber(bl.totalKg)} Kg`, pw - margin - 3, y + 14, { align: 'right' });
+    if (anyWeighed) {
+      doc.setFontSize(9.5);
+      doc.setTextColor(4, 120, 87);
+      doc.text(`${formatNumber(bl.totalKg)} Kg (Pesé)`, pw - margin - 3, y + 14, { align: 'right' });
+    } else {
+      doc.setFontSize(7.5);
+      doc.setTextColor(180, 83, 9);
+      doc.text(`À Peser à la sortie`, pw - margin - 3, y + 14, { align: 'right' });
+    }
 
 
     // Transport notes

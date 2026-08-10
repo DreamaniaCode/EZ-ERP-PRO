@@ -85,28 +85,42 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
         item.productName = product.name;
         item.productCode = product.code;
         item.unitPriceHT = product.sellingPriceHT || 0;
-        if (item.quantityKg > 0) {
-          item.quantityCartons = Math.round(item.quantityKg / kgCarton);
-          if (product.kgPerPallet) {
-            item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
-          }
+        const cartons = Number(item.quantityCartons) || 0;
+        item.theoreticalKg = cartons * kgCarton;
+        item.quantityKg = (item.weighedKg !== undefined && item.weighedKg !== '' && Number(item.weighedKg) > 0) ? Number(item.weighedKg) : item.theoreticalKg;
+        if (product.kgPerPallet) {
+          item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
         }
-      }
-    }
-
-    if (field === 'quantityKg') {
-      const kgVal = Number(value) || 0;
-      item.quantityCartons = Math.round(kgVal / kgCarton);
-      if (product && product.kgPerPallet) {
-        item.quantityPallets = Math.ceil(kgVal / product.kgPerPallet);
       }
     }
 
     if (field === 'quantityCartons') {
       const cartonsVal = Number(value) || 0;
-      item.quantityKg = cartonsVal * kgCarton;
+      item.quantityCartons = cartonsVal;
+      item.theoreticalKg = cartonsVal * kgCarton;
+      item.quantityKg = (item.weighedKg !== undefined && item.weighedKg !== '' && Number(item.weighedKg) > 0) ? Number(item.weighedKg) : item.theoreticalKg;
       if (product && product.kgPerPallet) {
         item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
+      }
+    }
+
+    if (field === 'weighedKg') {
+      const weighedVal = value !== '' ? Number(value) : undefined;
+      item.weighedKg = weighedVal;
+      item.isWeighed = weighedVal !== undefined && weighedVal > 0;
+      const cartonsVal = Number(item.quantityCartons) || 0;
+      item.theoreticalKg = cartonsVal * kgCarton;
+      item.quantityKg = (weighedVal !== undefined && weighedVal > 0) ? weighedVal : (item.theoreticalKg || Number(item.quantityKg));
+      if (product && product.kgPerPallet) {
+        item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
+      }
+    }
+
+    if (field === 'quantityKg') {
+      const kgVal = Number(value) || 0;
+      item.quantityKg = kgVal;
+      if (product && product.kgPerPallet) {
+        item.quantityPallets = Math.ceil(kgVal / product.kgPerPallet);
       }
     }
 
@@ -363,12 +377,11 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
             
             <div className="overflow-x-auto border border-gray-200 rounded">
               <table className="w-full carbon-table min-w-[580px]">
-
                 <thead>
                   <tr>
                     <th>Produit</th>
                     <th className="w-32">Nbr Cartons</th>
-                    <th className="w-36">Quantité (Kg)</th>
+                    <th className="w-44">Poids Pesé Réel (Kg)</th>
                     <th className="w-36">Prix Unitaire (DH/Kg)</th>
                     <th className="w-40">Montant Total (DH)</th>
                     <th className="w-12"></th>
@@ -378,6 +391,12 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                   {items.map((item, index) => {
                     const stk = stocks?.find(s => s.frigoId === frigoId && s.productId === item.productId);
                     const availKg = stk ? stk.quantityKg : 0;
+                    const prd = products?.find(p => p.id === item.productId);
+                    const kgCarton = prd?.kgPerCarton || 10;
+                    const cartons = Number(item.quantityCartons) || 0;
+                    const theoreticalKg = item.theoreticalKg || (cartons * kgCarton);
+                    const isWeighed = item.weighedKg !== undefined && item.weighedKg !== '' && Number(item.weighedKg) > 0;
+                    const weightDiff = isWeighed ? (Number(item.weighedKg) - theoreticalKg) : 0;
                     const isStockOk = item.quantityKg <= availKg;
 
                     return (
@@ -404,24 +423,35 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                         <td>
                           <input
                             type="number"
-                            value={item.quantityCartons || 0}
+                            value={item.quantityCartons || ''}
                             onChange={(e) => handleItemChange(index, 'quantityCartons', e.target.value)}
-                            className="w-full border border-[#e0e0e0] rounded p-1.5 text-xs font-mono font-bold text-amber-700 focus:ring-1 focus:ring-[#0f62fe]"
+                            className="w-full border border-[#e0e0e0] rounded p-1.5 text-xs font-mono font-bold text-amber-800 focus:ring-1 focus:ring-[#0f62fe]"
                             min="0"
                             step="1"
                             placeholder="Cartons"
                           />
+                          <div className="mt-0.5 text-[10px] text-gray-500 font-mono">
+                            Théorique: {theoreticalKg.toLocaleString()} Kg
+                          </div>
                         </td>
 
                         <td>
-                          <input
-                            type="number"
-                            value={item.quantityKg}
-                            onChange={(e) => handleItemChange(index, 'quantityKg', e.target.value)}
-                            className={`w-full border rounded p-1.5 text-xs font-mono font-bold focus:ring-1 ${!isStockOk ? 'border-red-500 text-red-600 bg-red-100/50' : 'border-[#e0e0e0] text-gray-900'}`}
-                            min="0"
-                            step="1"
-                          />
+                          <div className="relative">
+                            <input
+                              type="number"
+                              placeholder={`${theoreticalKg} Kg`}
+                              value={item.weighedKg !== undefined ? item.weighedKg : ''}
+                              onChange={(e) => handleItemChange(index, 'weighedKg', e.target.value)}
+                              className={`w-full border rounded p-1.5 text-xs font-mono font-bold focus:ring-1 ${!isStockOk ? 'border-red-500 text-red-600 bg-red-100/50' : 'border-emerald-500 text-emerald-800 bg-emerald-50/40'}`}
+                              min="0"
+                              step="0.1"
+                            />
+                            {isWeighed && weightDiff !== 0 && (
+                              <span className={`text-[9px] font-bold px-1 py-0.2 rounded inline-block mt-0.5 ${weightDiff < 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                Écart: {weightDiff > 0 ? `+${weightDiff}` : weightDiff} Kg
+                              </span>
+                            )}
+                          </div>
                           <div className="mt-1 text-[10px] font-mono font-bold flex items-center justify-between">
                             <span className={isStockOk ? 'text-emerald-700' : 'text-red-600 font-extrabold'}>
                               Stock Dispo: {availKg.toLocaleString()} Kg

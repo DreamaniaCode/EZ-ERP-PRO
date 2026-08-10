@@ -32,7 +32,8 @@ import {
   Trash2,
   Camera,
   Image as ImageIcon,
-  Upload
+  Upload,
+  Scale
 } from 'lucide-react';
 
 
@@ -90,6 +91,7 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   const [activePdfBL, setActivePdfBL] = useState<DeliveryNoteBL | null>(null);
   const [activePdfInvoice, setActivePdfInvoice] = useState<Invoice | null>(null);
   const [activeHistoryBL, setActiveHistoryBL] = useState<DeliveryNoteBL | null>(null);
+  const [activeWeighingBL, setActiveWeighingBL] = useState<DeliveryNoteBL | null>(null);
   const [showExcelModal, setShowExcelModal] = useState<boolean>(false);
 
   
@@ -716,6 +718,16 @@ EasyERP Pro • Logistics Management`;
                       <span className="text-[10px] font-mono text-emerald-900 font-bold">Photo Bon Sortie ✓</span>
                     </div>
                   )}
+
+                  {/* Step 0: Saisie & Rapprochement de la Pesée Frigo (Quai Balance) */}
+                  <button
+                    onClick={() => setActiveWeighingBL(bl)}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded flex items-center gap-1.5 transition-colors shadow-sm border border-amber-500 cursor-pointer"
+                    title="Saisir et ajuster le poids pesé réel sur balance à la sortie du frigo avant facturation"
+                  >
+                    <Scale className="w-4 h-4 text-amber-200" />
+                    <span>{bl.items.some(i => i.isWeighed) ? '⚖️ Pesée Validée (Modifier)' : '⚖️ Saisir Pesée Frigo (Kg)'}</span>
+                  </button>
 
                   {/* Step 1: Quai Approval Button for Frigo Manager */}
                   {!bl.frigoEmployeeApproved && (
@@ -1358,6 +1370,248 @@ EasyERP Pro • Logistics Management`;
         </div>
       )}
 
+      {/* Saisie & Rapprochement de Pesée Frigo Modal */}
+      {activeWeighingBL && (
+        <FrigoWeighingModal
+          bl={activeWeighingBL}
+          products={products}
+          currentUser={currentUser}
+          onClose={() => setActiveWeighingBL(null)}
+          onSave={(updatedBLItems, totalKg, totalHT, totalTTC) => {
+            const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+            const totalDiff = updatedBLItems.reduce((acc, it) => {
+              const theo = it.theoreticalKg || (it.quantityCartons ? it.quantityCartons * 10 : it.quantityKg);
+              return acc + ((it.weighedKg !== undefined ? it.weighedKg : it.quantityKg) - theo);
+            }, 0);
+            
+            const newLog = {
+              id: `log-${Date.now()}`,
+              timestamp,
+              action: `Pesée sortie frigo enregistrée : Poids pesé total ${totalKg.toLocaleString()} Kg (Écart: ${totalDiff > 0 ? '+' : ''}${totalDiff} Kg)`,
+              author: currentUser.name,
+            };
+
+            updateBL(activeWeighingBL.id, {
+              items: updatedBLItems,
+              totalKg,
+              totalHT,
+              totalTTC,
+              logs: [...activeWeighingBL.logs, newLog]
+            });
+
+            setActiveWeighingBL(null);
+            alert(`Pesée du Frigo enregistrée avec succès pour le BL ${activeWeighingBL.blNumber} ! Le poids pesé de ${totalKg.toLocaleString()} Kg a été enregistré.`);
+          }}
+        />
+      )}
+
+    </div>
+  );
+};
+
+// Modal dédié à la saisie de pesée sur balance du Frigo (Sortie Quai)
+const FrigoWeighingModal: React.FC<{
+  bl: DeliveryNoteBL;
+  products: any[];
+  currentUser: any;
+  onClose: () => void;
+  onSave: (items: DeliveryNoteItem[], totalKg: number, totalHT: number, totalTTC: number) => void;
+}> = ({ bl, products, currentUser, onClose, onSave }) => {
+  const [items, setItems] = useState<DeliveryNoteItem[]>(() => {
+    return bl.items.map(it => {
+      const prd = products.find(p => p.id === it.productId || p.code === it.productCode);
+      const kgCarton = prd?.kgPerCarton || 10;
+      const cartons = it.quantityCartons || (it.quantityKg ? Math.round(it.quantityKg / kgCarton) : 0);
+      const theoKg = it.theoreticalKg || (cartons * kgCarton);
+      const weighedKg = it.weighedKg !== undefined ? it.weighedKg : it.quantityKg;
+      return {
+        ...it,
+        quantityCartons: cartons,
+        theoreticalKg: theoKg,
+        weighedKg: weighedKg,
+        quantityKg: weighedKg,
+        unitPriceHT: it.unitPriceHT,
+        totalHT: weighedKg * it.unitPriceHT,
+      };
+    });
+  });
+
+  const handleWeighedKgChange = (index: number, valStr: string) => {
+    const updated = [...items];
+    const val = valStr !== '' ? Number(valStr) : 0;
+    const item = { ...updated[index] };
+    item.weighedKg = val;
+    item.isWeighed = val > 0;
+    item.quantityKg = val > 0 ? val : (item.theoreticalKg || item.quantityKg);
+    item.totalHT = item.quantityKg * item.unitPriceHT;
+    updated[index] = item;
+    setItems(updated);
+  };
+
+  const handleCartonsChange = (index: number, valNum: number) => {
+    const updated = [...items];
+    const item = { ...updated[index] };
+    const prd = products.find(p => p.id === item.productId || p.code === item.productCode);
+    const kgCarton = prd?.kgPerCarton || 10;
+    item.quantityCartons = valNum;
+    item.theoreticalKg = valNum * kgCarton;
+    if (!item.weighedKg || item.weighedKg === item.theoreticalKg) {
+      item.weighedKg = item.theoreticalKg;
+      item.quantityKg = item.theoreticalKg;
+    }
+    item.totalHT = item.quantityKg * item.unitPriceHT;
+    updated[index] = item;
+    setItems(updated);
+  };
+
+  const totalTheoKg = items.reduce((acc, i) => acc + (i.theoreticalKg || 0), 0);
+  const totalWeighedKg = items.reduce((acc, i) => acc + Number(i.quantityKg || 0), 0);
+  const totalCartonsSum = items.reduce((acc, i) => acc + Number(i.quantityCartons || 0), 0);
+  const totalDiffKg = totalWeighedKg - totalTheoKg;
+  const totalHTSum = items.reduce((acc, i) => acc + Number(i.totalHT || 0), 0);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(items, totalWeighedKg, totalHTSum, totalHTSum);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[120] flex items-center justify-center p-4 overflow-y-auto font-mono">
+      <div className="bg-white border-2 border-amber-500 rounded-xl shadow-2xl max-w-4xl w-full p-6 space-y-5">
+        
+        {/* Header */}
+        <div className="flex justify-between items-start border-b border-gray-200 pb-3">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 uppercase flex items-center gap-2">
+              <Scale className="w-5 h-5 text-amber-600" />
+              Saisie et Rapprochement de la Pesée Frigo (Sortie Balance)
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Renseignez le poids pesé réel sur balance à la sortie du frigo avant validation et facturation au client.
+            </p>
+          </div>
+          <button onClick={onClose} className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded">
+            ✕ Fermer
+          </button>
+        </div>
+
+        {/* BL Metadata Badge */}
+        <div className="bg-amber-50 border border-amber-200 p-3 rounded grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div>
+            <span className="text-gray-500 text-[10px] block uppercase">N° Bon de Livraison</span>
+            <span className="font-bold text-amber-900">{bl.blNumber}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 text-[10px] block uppercase">Client</span>
+            <span className="font-bold text-gray-900">{bl.clientName}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 text-[10px] block uppercase">Frigo d'Expédition</span>
+            <span className="font-bold text-emerald-800">{bl.frigoName}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 text-[10px] block uppercase">Date</span>
+            <span className="font-bold text-gray-800">{bl.date}</span>
+          </div>
+        </div>
+
+        {/* Table of Articles */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="overflow-x-auto border border-gray-200 rounded">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-gray-100 uppercase text-[10px] text-gray-700 font-bold border-b">
+                <tr>
+                  <th className="p-2.5">Produit</th>
+                  <th className="p-2.5 text-center">Colis (Cartons)</th>
+                  <th className="p-2.5 text-center">Poids Théorique</th>
+                  <th className="p-2.5 text-center bg-emerald-100 text-emerald-900">Poids Pesé Réel (Kg) *</th>
+                  <th className="p-2.5 text-center">Écart Pesée</th>
+                  <th className="p-2.5 text-right">PU HT / Kg</th>
+                  <th className="p-2.5 text-right">Total HT (Pesé)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {items.map((it, idx) => {
+                  const diff = (it.weighedKg || it.quantityKg) - (it.theoreticalKg || 0);
+                  return (
+                    <tr key={idx} className="hover:bg-amber-50/40">
+                      <td className="p-2.5 font-bold text-gray-900">
+                        <div>{it.productName}</div>
+                        <div className="text-[10px] text-gray-400 font-mono">{it.productCode}</div>
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <input
+                          type="number"
+                          min="1"
+                          value={it.quantityCartons || ''}
+                          onChange={e => handleCartonsChange(idx, Number(e.target.value))}
+                          className="w-20 carbon-input text-center font-bold text-amber-800"
+                        />
+                      </td>
+                      <td className="p-2.5 text-center text-gray-500 font-semibold">
+                        {(it.theoreticalKg || 0).toLocaleString()} Kg
+                      </td>
+                      <td className="p-2.5 text-center bg-emerald-50/50">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          required
+                          value={it.weighedKg !== undefined ? it.weighedKg : ''}
+                          onChange={e => handleWeighedKgChange(idx, e.target.value)}
+                          className="w-28 carbon-input text-center font-bold text-emerald-800 border-2 border-emerald-500 bg-white"
+                        />
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${diff === 0 ? 'bg-gray-100 text-gray-600' : diff < 0 ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-100 text-emerald-900 border border-emerald-300'}`}>
+                          {diff > 0 ? `+${diff}` : diff} Kg
+                        </span>
+                      </td>
+                      <td className="p-2.5 text-right font-bold text-blue-700">
+                        {it.unitPriceHT.toLocaleString()} DH
+                      </td>
+                      <td className="p-2.5 text-right font-bold text-gray-900">
+                        {(it.quantityKg * it.unitPriceHT).toLocaleString(undefined, { minimumFractionDigits: 2 })} DH
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-gray-100 font-bold border-t text-xs">
+                <tr>
+                  <td className="p-2.5 text-gray-800 uppercase">Totaux Général:</td>
+                  <td className="p-2.5 text-center text-amber-900">{totalCartonsSum.toLocaleString()} Ctn</td>
+                  <td className="p-2.5 text-center text-gray-600">{totalTheoKg.toLocaleString()} Kg</td>
+                  <td className="p-2.5 text-center text-emerald-800 text-sm font-extrabold">{totalWeighedKg.toLocaleString()} Kg</td>
+                  <td className="p-2.5 text-center">
+                    <span className={`px-2 py-0.5 rounded ${totalDiffKg === 0 ? 'text-gray-600' : totalDiffKg < 0 ? 'text-amber-800' : 'text-emerald-800'}`}>
+                      {totalDiffKg > 0 ? `+${totalDiffKg}` : totalDiffKg} Kg
+                    </span>
+                  </td>
+                  <td></td>
+                  <td className="p-2.5 text-right text-emerald-700 text-sm">{totalHTSum.toLocaleString(undefined, { minimumFractionDigits: 2 })} DH</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div className="pt-3 border-t flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded text-xs font-semibold hover:bg-gray-50"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-md transition-colors"
+            >
+              <Scale className="w-4 h-4" /> Enregistrer & Mettre à jour le BL
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
