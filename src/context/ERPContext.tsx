@@ -1317,8 +1317,13 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addBL = (blData: DeliveryNoteBL) => {
     autoCreateMissingClient(blData.clientName, blData.clientPhone, blData.clientEmail, blData.clientAddress);
-    setDeliveryNotes(prev => [blData, ...prev]);
-    setDoc(doc(db, 'deliveryNotes', blData.id), blData).catch(err => {
+
+    // Immediately decrement stock at BL creation time (not at frigo approval) to avoid race conditions
+    const blWithFlag = { ...blData, stockDeductedV2: true, stockDecremented: true };
+    deductBLStockHelper(blData);
+
+    setDeliveryNotes(prev => [blWithFlag, ...prev]);
+    setDoc(doc(db, 'deliveryNotes', blData.id), sanitizeForFirestore(blWithFlag)).catch(err => {
       handleFirestoreError(err, OperationType.WRITE, `deliveryNotes/${blData.id}`);
     });
   };
@@ -1328,16 +1333,17 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (b.id !== id) return b;
 
       const merged = { ...b, ...updatedData };
-      // Use stockDeductedV2 flag - old stockDecremented was set by buggy code
-      let shouldDeduct = Boolean((updatedData.bonDeSortiePhotoUrl || updatedData.frigoEmployeeApproved) && !(b as any).stockDeductedV2);
-      if (shouldDeduct) {
+
+      // stockDeductedV2 is now set at addBL creation time. Only deduct if somehow missed (legacy BLs).
+      const alreadyDeducted = Boolean((b as any).stockDeductedV2);
+      if (!alreadyDeducted && (updatedData.bonDeSortiePhotoUrl || updatedData.frigoEmployeeApproved)) {
         deductBLStockHelper(merged);
       }
 
       const updated = { 
         ...merged,
-        stockDecremented: (b as any).stockDecremented || shouldDeduct,
-        stockDeductedV2: (b as any).stockDeductedV2 || shouldDeduct
+        stockDecremented: true,
+        stockDeductedV2: true
       };
 
       setDoc(doc(db, 'deliveryNotes', id), sanitizeForFirestore(updated), { merge: true }).catch(err => {
