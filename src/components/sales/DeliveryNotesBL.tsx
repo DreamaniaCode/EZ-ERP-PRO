@@ -103,7 +103,16 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
     if (activeCompanyId !== 'ALL' && bl.companyId) {
       const normActive = activeCompanyId.toLowerCase().replace(/[^a-z0-9]/g, '');
       const normBLComp = bl.companyId.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (normBLComp !== normActive && !normBLComp.includes(normActive) && !normActive.includes(normBLComp)) {
+      
+      const isLegacyMatch1 = 
+        (normActive.includes('ste1') || normActive.includes('comp1') || normActive.includes('company1')) &&
+        (normBLComp.includes('ste1') || normBLComp.includes('comp1') || normBLComp.includes('company1'));
+        
+      const isLegacyMatch2 = 
+        (normActive.includes('ste2') || normActive.includes('comp2') || normActive.includes('company2')) &&
+        (normBLComp.includes('ste2') || normBLComp.includes('comp2') || normBLComp.includes('company2'));
+
+      if (normBLComp !== normActive && !normBLComp.includes(normActive) && !normActive.includes(normBLComp) && !isLegacyMatch1 && !isLegacyMatch2) {
         return false;
       }
     }
@@ -167,7 +176,7 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   // Reset to page 1 whenever filters change
   React.useEffect(() => {
