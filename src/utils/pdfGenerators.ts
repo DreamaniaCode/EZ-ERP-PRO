@@ -155,7 +155,7 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyData: any
   doc.text('MONTANT HT', cx5 + c5 - 2, y + 4.8, { align: 'right' });
   y += rowH;
 
-  invoice.items.forEach((it, idx) => {
+  (invoice.items || []).forEach((it, idx) => {
     const bg = idx % 2 === 0 ? [255, 255, 255] : [249, 250, 251];
     doc.setFillColor(bg[0], bg[1], bg[2]);
     doc.rect(margin, y, usable, rowH, 'F');

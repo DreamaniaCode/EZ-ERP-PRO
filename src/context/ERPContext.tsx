@@ -405,7 +405,14 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubStocks = onSnapshot(collection(db, 'stocks'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as FrigoStockLevel);
-      if (docs.length > 0) setStocks(docs);
+      if (docs.length > 0) {
+        setStocks(prev => {
+          const map = new Map<string, FrigoStockLevel>();
+          prev.forEach(s => map.set(`${s.frigoId}_${s.productId}`, s));
+          docs.forEach(d => map.set(`${d.frigoId}_${d.productId}`, d));
+          return Array.from(map.values());
+        });
+      }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'stocks'));
 
     const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
@@ -879,29 +886,22 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       logStockMovement(productId, frigoId, type, Math.abs(newKg - prevKg), prevKg, newKg, referenceDoc);
 
+      const updatedStockItem: FrigoStockLevel = {
+        frigoId,
+        productId,
+        quantityKg: newKg,
+        quantityPallets: newPallets,
+        lastUpdated: timestamp,
+      };
+
+      setDoc(doc(db, 'stocks', `${frigoId}_${productId}`), sanitizeForFirestore(updatedStockItem), { merge: true }).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `stocks/${frigoId}_${productId}`);
+      });
+
       if (existing) {
-        return prev.map(s => {
-          if (s.frigoId === frigoId && s.productId === productId) {
-            return {
-              ...s,
-              quantityKg: newKg,
-              quantityPallets: newPallets,
-              lastUpdated: timestamp,
-            };
-          }
-          return s;
-        });
+        return prev.map(s => (s.frigoId === frigoId && s.productId === productId) ? updatedStockItem : s);
       } else {
-        return [
-          ...prev,
-          {
-            frigoId,
-            productId,
-            quantityKg: newKg,
-            quantityPallets: newPallets,
-            lastUpdated: timestamp,
-          },
-        ];
+        return [...prev, updatedStockItem];
       }
     });
   };
@@ -916,23 +916,29 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     logStockMovement(productId, sourceFrigoId, 'TRANSFERT_INTER_FRIGO', kg, sourcePrevKg, Math.max(0, sourcePrevKg - kg), `Vers ${targetFrigoId}`);
     logStockMovement(productId, targetFrigoId, 'TRANSFERT_INTER_FRIGO', kg, targetPrevKg, targetPrevKg + kg, `Depuis ${sourceFrigoId}`);
 
+    const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+
     setStocks(prev => {
       return prev.map(s => {
         if (s.frigoId === sourceFrigoId && s.productId === productId) {
-          return {
+          const updated = {
             ...s,
             quantityKg: Math.max(0, s.quantityKg - kg),
             quantityPallets: Math.max(0, s.quantityPallets - pallets),
-            lastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' '),
+            lastUpdated: timestamp,
           };
+          setDoc(doc(db, 'stocks', `${sourceFrigoId}_${productId}`), sanitizeForFirestore(updated), { merge: true }).catch(() => {});
+          return updated;
         }
         if (s.frigoId === targetFrigoId && s.productId === productId) {
-          return {
+          const updated = {
             ...s,
             quantityKg: s.quantityKg + kg,
             quantityPallets: s.quantityPallets + pallets,
-            lastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' '),
+            lastUpdated: timestamp,
           };
+          setDoc(doc(db, 'stocks', `${targetFrigoId}_${productId}`), sanitizeForFirestore(updated), { merge: true }).catch(() => {});
+          return updated;
         }
         return s;
       });
@@ -947,18 +953,38 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       id,
     };
     setPurchaseInvoices(prev => [newPur, ...prev]);
+    setDoc(doc(db, 'purchase_invoices', id), sanitizeForFirestore(newPur)).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `purchase_invoices/${id}`);
+    });
 
     // Update target frigo stock
     newPur.items.forEach(item => {
-      const existing = stocks.find(s => s.frigoId === newPur.targetFrigoId && s.productId === item.productId);
-      const currentKg = existing ? existing.quantityKg : 0;
-      const currentPallets = existing ? existing.quantityPallets : 0;
-      adjustStock(
-        newPur.targetFrigoId,
-        item.productId,
-        currentKg + item.quantityKg,
-        currentPallets + item.quantityPallets
-      );
+      setStocks(prevStocks => {
+        const existing = prevStocks.find(s => s.frigoId === newPur.targetFrigoId && s.productId === item.productId);
+        const currentKg = existing ? existing.quantityKg : 0;
+        const currentPallets = existing ? existing.quantityPallets : 0;
+        const newKg = currentKg + item.quantityKg;
+        const newPallets = currentPallets + item.quantityPallets;
+        const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+
+        logStockMovement(item.productId, newPur.targetFrigoId, 'ENTRÉE_ACHAT', item.quantityKg, currentKg, newKg, newPur.invoiceNumber);
+
+        const updatedStockItem: FrigoStockLevel = {
+          frigoId: newPur.targetFrigoId,
+          productId: item.productId,
+          quantityKg: newKg,
+          quantityPallets: newPallets,
+          lastUpdated: timestamp,
+        };
+
+        setDoc(doc(db, 'stocks', `${newPur.targetFrigoId}_${item.productId}`), sanitizeForFirestore(updatedStockItem), { merge: true }).catch(() => {});
+
+        if (existing) {
+          return prevStocks.map(s => (s.frigoId === newPur.targetFrigoId && s.productId === item.productId) ? updatedStockItem : s);
+        } else {
+          return [...prevStocks, updatedStockItem];
+        }
+      });
 
       // Update unit Cost HT on product if landed cost updated
       if (item.landedCostPerKgHT > 0) {
@@ -969,10 +995,12 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Update Supplier balance
     setSuppliers(prev => prev.map(sup => {
       if (sup.id === newPur.supplierId) {
-        return {
+        const updated = {
           ...sup,
           currentBalance: sup.currentBalance + newPur.totalLandedCostHT,
         };
+        setDoc(doc(db, 'suppliers', sup.id), sanitizeForFirestore(updated), { merge: true }).catch(() => {});
+        return updated;
       }
       return sup;
     }));
@@ -1117,20 +1145,22 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     ) || frigos[0];
 
     const actualFrigoId = targetFrigo ? targetFrigo.id : (bl.frigoId || 'frigo-1');
+    const timestamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
 
-    bl.items.forEach(it => {
-      const targetPrd = products.find(p => 
-        p.id === it.productId || 
-        p.code.toLowerCase() === (it.productCode || '').toLowerCase() ||
-        p.code.toLowerCase() === (it.productId || '').toLowerCase() ||
-        p.name.toLowerCase() === (it.productName || '').toLowerCase()
-      );
+    setStocks(prevStocks => {
+      let currentStocksList = [...prevStocks];
 
-      const actualProductId = targetPrd ? targetPrd.id : it.productId;
+      (bl.items || []).forEach(it => {
+        const targetPrd = products.find(p => 
+          p.id === it.productId || 
+          p.code.toLowerCase() === (it.productCode || '').toLowerCase() ||
+          p.code.toLowerCase() === (it.productId || '').toLowerCase() ||
+          p.name.toLowerCase() === (it.productName || '').toLowerCase()
+        );
 
-      setStocks(prevStocks => {
-        const idx = prevStocks.findIndex(s => s.frigoId === actualFrigoId && s.productId === actualProductId);
-        const existing = idx !== -1 ? prevStocks[idx] : null;
+        const actualProductId = targetPrd ? targetPrd.id : it.productId;
+        const idx = currentStocksList.findIndex(s => s.frigoId === actualFrigoId && s.productId === actualProductId);
+        const existing = idx !== -1 ? currentStocksList[idx] : null;
 
         const currentKg = existing ? existing.quantityKg : 0;
         const currentPallets = existing ? existing.quantityPallets : 0;
@@ -1148,28 +1178,24 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           bl.blNumber
         );
 
-        if (existing) {
-          const next = [...prevStocks];
-          next[idx] = {
-            ...existing,
-            quantityKg: newKg,
-            quantityPallets: newPallets,
-            lastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' ')
-          };
-          setDoc(doc(db, 'stocks', `${actualFrigoId}_${actualProductId}`), sanitizeForFirestore(next[idx])).catch(() => {});
-          return next;
+        const updatedStockItem: FrigoStockLevel = {
+          frigoId: actualFrigoId,
+          productId: actualProductId,
+          quantityKg: newKg,
+          quantityPallets: newPallets,
+          lastUpdated: timestamp,
+        };
+
+        if (idx !== -1) {
+          currentStocksList[idx] = updatedStockItem;
         } else {
-          const newStk = {
-            frigoId: actualFrigoId,
-            productId: actualProductId,
-            quantityKg: 0,
-            quantityPallets: 0,
-            lastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' ')
-          };
-          setDoc(doc(db, 'stocks', `${actualFrigoId}_${actualProductId}`), sanitizeForFirestore(newStk)).catch(() => {});
-          return [...prevStocks, newStk];
+          currentStocksList.push(updatedStockItem);
         }
+
+        setDoc(doc(db, 'stocks', `${actualFrigoId}_${actualProductId}`), sanitizeForFirestore(updatedStockItem), { merge: true }).catch(() => {});
       });
+
+      return currentStocksList;
     });
   };
 

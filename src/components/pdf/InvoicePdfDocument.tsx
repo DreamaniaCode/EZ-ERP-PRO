@@ -36,7 +36,12 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
   }, [invoice]);
 
   const handleDownloadPdf = () => {
-    generateAndDownloadInvoicePdf(invoice, targetCompany || companyInfo);
+    try {
+      generateAndDownloadInvoicePdf(invoice, targetCompany || companyInfo);
+    } catch (err) {
+      console.error('Erreur lors de la génération PDF:', err);
+      window.print();
+    }
   };
 
   const handlePrint = () => {
