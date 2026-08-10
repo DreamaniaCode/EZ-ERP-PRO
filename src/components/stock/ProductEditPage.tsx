@@ -52,10 +52,14 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanData = {
+      ...formData,
+      unitCostHT: Math.round(Number(formData.unitCostHT) || 0),
+    };
     if (editId) {
-      updateProduct({ id: editId, ...formData });
+      updateProduct({ id: editId, ...cleanData });
     } else {
-      addProduct({ id: Date.now().toString(), ...formData });
+      addProduct({ id: Date.now().toString(), ...cleanData });
     }
     onBack();
   };

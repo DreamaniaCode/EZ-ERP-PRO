@@ -153,7 +153,7 @@ export const ImportInvoiceEntry: React.FC = () => {
         quantityKg: kg,
         quantityPallets: Number(it.quantityPallets || 1),
         purchaseUnitPriceHT: price,
-        landedCostPerKgHT: Math.round(landedCostPerKgHT * 100) / 100,
+        landedCostPerKgHT: Math.round(landedCostPerKgHT),
         totalHT,
       };
     });
@@ -548,7 +548,7 @@ export const ImportInvoiceEntry: React.FC = () => {
                                     <td className="py-1 text-center font-bold text-blue-900">{it.quantityCartons?.toLocaleString() || '0'} Colis</td>
                                     <td className="py-1 text-center font-bold text-emerald-700">{it.quantityKg.toLocaleString()} Kg</td>
                                     <td className="py-1 text-center">{it.purchaseUnitPriceHT} DH</td>
-                                    <td className="py-1 text-center font-bold text-indigo-700">{it.landedCostPerKgHT} DH</td>
+                                    <td className="py-1 text-center font-bold text-indigo-700">{Math.round(it.landedCostPerKgHT || 0)} DH</td>
                                     <td className="py-1 text-right font-bold">{it.totalHT.toLocaleString()} DH</td>
                                   </tr>
                                 ))}

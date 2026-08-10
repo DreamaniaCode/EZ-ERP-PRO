@@ -988,7 +988,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       // Update unit Cost HT on product if landed cost updated
       if (item.landedCostPerKgHT > 0) {
-        updateProduct(item.productId, { unitCostHT: Math.round(item.landedCostPerKgHT * 100) / 100 });
+        updateProduct(item.productId, { unitCostHT: Math.round(item.landedCostPerKgHT) });
       }
     });
 
@@ -1784,7 +1784,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       const count = prev.length + 1;
       const price = unitPriceHT && unitPriceHT > 0 ? unitPriceHT : 50;
-      const cost = Math.round(price * 0.8 * 100) / 100;
+      const cost = Math.round(price * 0.8);
       const is5kg = cleaned.includes('5KG') || cleaned.includes('5 KG');
       const is3kg = cleaned.includes('3KG') || cleaned.includes('3 KG');
       const is2kg = cleaned.includes('2KG') || cleaned.includes('2 KG');
