@@ -279,7 +279,14 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteBL[]>(() => {
     if (isWiped) return [];
     const saved = localStorage.getItem('erp_deliveryNotes') || localStorage.getItem('erp_delivery_notes');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Failed to parse deliveryNotes from localStorage:', e);
+      }
+    }
     return INITIAL_DELIVERY_NOTES;
   });
 
@@ -419,7 +426,22 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as DeliveryNoteBL);
-      if (docs.length > 0) setDeliveryNotes(docs);
+      setDeliveryNotes(prev => {
+        const map = new Map<string, DeliveryNoteBL>();
+        // 1. Keep existing local items (from initial state or local saves)
+        (prev || []).forEach(d => {
+          if (d && d.id) map.set(d.id, d);
+        });
+        // 2. Merge / update with Firestore docs
+        docs.forEach(d => {
+          if (d && d.id) map.set(d.id, d);
+        });
+        const merged = Array.from(map.values());
+        if (merged.length === 0 && !isWiped) {
+          return INITIAL_DELIVERY_NOTES;
+        }
+        return merged;
+      });
     }, (error) => handleFirestoreError(error, OperationType.GET, 'deliveryNotes'));
 
     const unsubInvoices = onSnapshot(collection(db, 'invoices'), (snapshot) => {
