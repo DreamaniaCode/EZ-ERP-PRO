@@ -80,7 +80,9 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   const isFrigoRole = currentUser?.role === 'RESPONSABLE_FRIGO';
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [frigoFilter, setFrigoFilter] = useState<string>(currentUser.assignedFrigoId || 'ALL');
+  const [frigoFilter, setFrigoFilter] = useState<string>(
+    currentUser.role === 'RESPONSABLE_FRIGO' && currentUser.assignedFrigoId ? currentUser.assignedFrigoId : 'ALL'
+  );
 
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
@@ -97,19 +99,59 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   
   // Filter BLs by Active Company, User Role, Frigo, Status, Search
   const filteredBLs = deliveryNotes.filter(bl => {
-    if (activeCompanyId !== 'ALL' && bl.companyId && bl.companyId !== activeCompanyId) {
-      return false;
-    }
-    if (currentUser.role === 'RESPONSABLE_FRIGO') {
-      if (!currentUser.assignedFrigoId || bl.frigoId !== currentUser.assignedFrigoId) {
+    // 1. Company Filter (if BL has companyId specified)
+    if (activeCompanyId !== 'ALL' && bl.companyId) {
+      const normActive = activeCompanyId.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normBLComp = bl.companyId.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (normBLComp !== normActive && !normBLComp.includes(normActive) && !normActive.includes(normBLComp)) {
         return false;
       }
     }
-    const matchesFrigo = frigoFilter === 'ALL' || bl.frigoId === frigoFilter;
-    const matchesStatus = statusFilter === 'ALL' || bl.status === statusFilter;
-    const matchesSearch = bl.blNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          bl.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          bl.clientName.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // 2. Frigo Role Restriction (only for RESPONSABLE_FRIGO)
+    if (currentUser.role === 'RESPONSABLE_FRIGO' && currentUser.assignedFrigoId) {
+      const normAssigned = currentUser.assignedFrigoId.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normBLFrigoId = (bl.frigoId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normBLFrigoName = (bl.frigoName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const isFrigoMatch = normBLFrigoId === normAssigned || 
+                           normBLFrigoName.includes(normAssigned) || 
+                           normAssigned.includes(normBLFrigoId);
+      if (!isFrigoMatch) return false;
+    }
+
+    // 3. Frigo Select Dropdown Filter
+    let matchesFrigo = true;
+    if (frigoFilter !== 'ALL') {
+      const normFilter = frigoFilter.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normBLFrigoId = (bl.frigoId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normBLFrigoName = (bl.frigoName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const matchedFrigoObj = frigos.find(f => f.id === frigoFilter);
+      const normFrigoObjName = (matchedFrigoObj?.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      matchesFrigo = (normBLFrigoId === normFilter) || 
+                     (normBLFrigoName === normFilter) || 
+                     (normFrigoObjName !== '' && normBLFrigoName.includes(normFrigoObjName)) ||
+                     (normFrigoObjName !== '' && normFrigoObjName.includes(normBLFrigoName));
+    }
+
+    // 4. Status Filter
+    let matchesStatus = true;
+    if (statusFilter !== 'ALL') {
+      const normFilter = statusFilter.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normBLStatus = (bl.status || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      matchesStatus = normBLStatus === normFilter || 
+                      normBLStatus.includes(normFilter) || 
+                      normFilter.includes(normBLStatus);
+    }
+
+    // 5. Search Term Filter
+    const search = (searchTerm || '').trim().toLowerCase();
+    const matchesSearch = !search ||
+      (bl.blNumber || '').toLowerCase().includes(search) ||
+      (bl.orderNumber || '').toLowerCase().includes(search) ||
+      (bl.clientName || '').toLowerCase().includes(search) ||
+      (bl.frigoName || '').toLowerCase().includes(search);
+
     return matchesFrigo && matchesStatus && matchesSearch;
   });
 
