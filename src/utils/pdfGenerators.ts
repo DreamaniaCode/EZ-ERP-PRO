@@ -226,11 +226,9 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyData: any
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(80, 80, 80);
-  doc.text('Coordonnees Bancaires:', margin, y);
-  doc.setFont('helvetica', 'normal');
-  doc.text(' Banque BMCE | RIB: 011 780 000012345678901 44', margin + 32, y);
+  doc.text(`Coordonnees Bancaires: ${compBank ? 'Banque ' + compBank : 'Banque BMCE'} | RIB: ${compRib || '011 780 000012345678901 44'}`, margin, y);
   y += 5;
-  doc.text(`Reglement par Cheque ou Virement a l'ordre de ${safe(companyInfo.name)}`, margin, y);
+  doc.text(`Reglement par Cheque ou Virement a l'ordre de ${compName}`, margin, y);
 
   // Stamp box
   const stampX = pw - margin - 50;
