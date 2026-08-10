@@ -113,6 +113,29 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
     return matchesFrigo && matchesStatus && matchesSearch;
   });
 
+  // Sort BLs descending by date & ID (most recent first)
+  const sortedBLs = [...filteredBLs].sort((a, b) => {
+    const dateA = a.date || '';
+    const dateB = b.date || '';
+    if (dateA !== dateB) {
+      return dateB.localeCompare(dateA);
+    }
+    return (b.id || '').localeCompare(a.id || '');
+  });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Reset to page 1 whenever filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, frigoFilter, statusFilter, activeCompanyId]);
+
+  const totalPages = Math.ceil(sortedBLs.length / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedBLs = sortedBLs.slice(startIndex, startIndex + itemsPerPage);
+
 
   // CRUD BL Modals
   const [showCreateBLModal, setShowCreateBLModal] = useState(false);
@@ -494,9 +517,55 @@ EasyERP Pro • Logistics Management`;
         )}
       </div>
 
+      {/* Pagination Bar Top */}
+      <div className="bg-white px-4 py-3 border border-gray-200 rounded flex flex-col sm:flex-row justify-between items-center gap-3 text-xs font-mono shadow-sm">
+        <div className="text-gray-700">
+          Affichage des BLs <b className="text-[#0f62fe]">{sortedBLs.length > 0 ? startIndex + 1 : 0}</b> à <b className="text-[#0f62fe]">{Math.min(startIndex + itemsPerPage, sortedBLs.length)}</b> sur <b className="text-gray-900">{sortedBLs.length}</b> BL(s) — <span className="text-emerald-700 font-bold">Récents en premier</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <span className="text-gray-500 font-bold">Afficher par page:</span>
+            <select
+              value={itemsPerPage}
+              onChange={e => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="border border-gray-300 rounded px-2 py-1 text-xs font-bold bg-white text-gray-900"
+            >
+              <option value={10}>10 BLs</option>
+              <option value={20}>20 BLs</option>
+              <option value={50}>50 BLs</option>
+              <option value={9999}>Tous les BLs</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              className="px-3 py-1 border border-gray-300 rounded bg-white hover:bg-gray-50 text-gray-800 font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              ◄ Précédent
+            </button>
+            <span className="px-2 font-bold text-gray-900">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              className="px-3 py-1 border border-gray-300 rounded bg-white hover:bg-gray-50 text-gray-800 font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Suivant ►
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* BL Cards Grid / Table */}
       <div className="space-y-4">
-        {filteredBLs.map(bl => {
+        {paginatedBLs.map(bl => {
           const frigoObj = frigos.find(f => f.id === bl.frigoId);
           const isSelected = selectedBLIds.includes(bl.id);
 
@@ -837,7 +906,43 @@ EasyERP Pro • Logistics Management`;
             </div>
           );
         })}
+        {sortedBLs.length === 0 && (
+          <div className="bg-white p-8 text-center border border-gray-200 rounded text-gray-500 italic space-y-2">
+            <Truck className="w-8 h-8 text-gray-300 mx-auto" />
+            <div className="text-sm font-bold text-gray-700">Aucun Bon de Livraison trouvé</div>
+            <div className="text-xs">Aucun BL ne correspond à vos critères de recherche ou de filtre actuels.</div>
+          </div>
+        )}
       </div>
+
+      {/* Pagination Bar Bottom */}
+      {sortedBLs.length > 0 && (
+        <div className="bg-white px-4 py-3 border border-gray-200 rounded flex flex-col sm:flex-row justify-between items-center gap-3 text-xs font-mono shadow-sm">
+          <div className="text-gray-700">
+            Affichage des BLs <b className="text-[#0f62fe]">{startIndex + 1}</b> à <b className="text-[#0f62fe]">{Math.min(startIndex + itemsPerPage, sortedBLs.length)}</b> sur <b className="text-gray-900">{sortedBLs.length}</b> BL(s)
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              className="px-3 py-1 border border-gray-300 rounded bg-white hover:bg-gray-50 text-gray-800 font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              ◄ Précédent
+            </button>
+            <span className="px-3 font-bold text-gray-900">
+              Page {currentPage} / {totalPages}
+            </span>
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              className="px-3 py-1 border border-gray-300 rounded bg-white hover:bg-gray-50 text-gray-800 font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Suivant ►
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Signature Modal */}
       {activeSignatureBL && (
