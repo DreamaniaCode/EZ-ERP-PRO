@@ -2,14 +2,21 @@ import React, { useState } from 'react';
 import { useERP } from '../../context/ERPContext';
 import { PurchaseImportInvoice } from '../../types';
 import { QuickProductModal } from '../stock/QuickProductModal';
-import { Ship, Plus, Search, Package, CheckCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { SupplierPaymentModal } from './SupplierPaymentModal';
+import { Ship, Plus, Search, Package, CheckCircle, ChevronDown, ChevronUp, Trash2, CreditCard, DollarSign, Filter, RefreshCw } from 'lucide-react';
 
 export const ImportInvoiceEntry: React.FC = () => {
-  const { suppliers, products, frigos, purchaseInvoices, createPurchaseInvoice } = useERP();
+  const { suppliers, products, frigos, purchaseInvoices, createPurchaseInvoice, deletePurchaseInvoice } = useERP();
 
   const [showAddForm, setShowAddForm] = useState(true);
   const [showQuickProductModal, setShowQuickProductModal] = useState(false);
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
+  const [paymentModalInvoice, setPaymentModalInvoice] = useState<PurchaseImportInvoice | null>(null);
+
+  // Filters State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'NON_PAYÉ' | 'PARTIEL' | 'PAYÉ'>('ALL');
+  const [supplierFilter, setSupplierFilter] = useState<string>('ALL');
 
   // Form State
   const [selectedSupplierId, setSelectedSupplierId] = useState(suppliers[0]?.id || '');
@@ -453,13 +460,52 @@ export const ImportInvoiceEntry: React.FC = () => {
         </div>
       )}
 
-      {/* History Table with Colis/Cartons Column */}
+      {/* History & Supplier Invoice Management Table */}
       <div className="carbon-card overflow-hidden">
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+        <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50">
           <h2 className="font-bold text-gray-900 text-sm uppercase font-mono flex items-center gap-2">
             <Package className="w-4 h-4 text-[#0f62fe]" />
-            Historique des Réceptions & Entrées en Stock ({purchaseInvoices.length})
+            Gestion des Factures Fournisseurs & Réceptions ({purchaseInvoices.length})
           </h2>
+
+          {/* Filters Bar */}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* Search Input */}
+            <div className="relative flex-1 md:w-48">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Rechercher..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Supplier Filter */}
+            <select
+              value={supplierFilter}
+              onChange={e => setSupplierFilter(e.target.value)}
+              className="p-1.5 border border-gray-300 rounded text-xs bg-white text-gray-900 font-semibold"
+            >
+              <option value="ALL">Tous les Fournisseurs</option>
+              {suppliers.map(s => (
+                <option key={s.id} value={s.id}>{s.companyName || s.name}</option>
+              ))}
+            </select>
+
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value as any)}
+              className="p-1.5 border border-gray-300 rounded text-xs bg-white text-gray-900 font-semibold"
+            >
+              <option value="ALL">Tous les Statuts</option>
+              <option value="NON_PAYÉ">🔴 Non Payé</option>
+              <option value="PARTIEL">🔵 Partiel</option>
+              <option value="PAYÉ">🟢 Payé</option>
+            </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -468,99 +514,187 @@ export const ImportInvoiceEntry: React.FC = () => {
               <tr>
                 <th>N° Facture / Conteneur</th>
                 <th>Fournisseur</th>
-                <th>Frigo Destination</th>
-                <th>Total Cartons / Colis</th>
-                <th>Poids Total (Kg)</th>
-                <th>Frais Douane & Transit</th>
-                <th>Total Landed Cost HT</th>
-                <th>Détails</th>
+                <th>Frigo Dest.</th>
+                <th>Colis & Poids</th>
+                <th>Total Facture HT</th>
+                <th>Réglé / Restant</th>
+                <th>Statut Paiement</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {purchaseInvoices.map(pur => {
-                const frigoObj = frigos.find(f => f.id === pur.targetFrigoId);
-                const totalCartons = pur.items.reduce((acc, i) => acc + (i.quantityCartons || 0), 0);
-                const totalKg = pur.items.reduce((acc, i) => acc + (i.quantityKg || 0), 0);
-                const isExpanded = expandedInvoiceId === pur.id;
+              {purchaseInvoices
+                .filter(pur => {
+                  const matchesSearch = (pur.invoiceNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                        (pur.supplierName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                        (pur.containerNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
+                  const matchesStatus = statusFilter === 'ALL' || pur.paymentStatus === statusFilter;
+                  const matchesSupplier = supplierFilter === 'ALL' || pur.supplierId === supplierFilter;
+                  return matchesSearch && matchesStatus && matchesSupplier;
+                })
+                .map(pur => {
+                  const frigoObj = frigos.find(f => f.id === pur.targetFrigoId);
+                  const totalCartons = pur.items.reduce((acc, i) => acc + (i.quantityCartons || 0), 0);
+                  const totalKg = pur.items.reduce((acc, i) => acc + (i.quantityKg || 0), 0);
+                  const isExpanded = expandedInvoiceId === pur.id;
+                  
+                  const totalHT = pur.totalLandedCostHT || 0;
+                  const paid = pur.paidAmount || 0;
+                  const remaining = pur.remainingBalance !== undefined ? pur.remainingBalance : Math.max(0, totalHT - paid);
+                  const status = pur.paymentStatus || (remaining <= 0 ? 'PAYÉ' : paid > 0 ? 'PARTIEL' : 'NON_PAYÉ');
 
-                return (
-                  <React.Fragment key={pur.id}>
-                    <tr className="hover:bg-gray-50 transition-colors">
-                      <td className="font-mono font-bold text-[#0f62fe]">
-                        {pur.invoiceNumber}
-                        {pur.containerNumber && <div className="text-[10px] text-gray-500 font-normal">Conteneur: {pur.containerNumber}</div>}
-                      </td>
-                      <td>
-                        <div className="font-bold text-gray-900">{pur.supplierName}</div>
-                        <div className="text-[10px] text-gray-500">{pur.isImport ? 'Importation' : 'Fournisseur Local'}</div>
-                      </td>
-                      <td className="font-mono text-xs font-bold text-emerald-700">
-                        {frigoObj?.name || 'Frigo'}
-                      </td>
-                      <td className="font-mono font-bold text-blue-900">
-                        {totalCartons.toLocaleString()} Colis
-                      </td>
-                      <td className="font-mono font-bold text-emerald-800">
-                        {totalKg.toLocaleString()} Kg
-                      </td>
-                      <td className="font-mono text-gray-600">
-                        {(pur.customsCostsHT + pur.freightCostsHT).toLocaleString()} DH
-                      </td>
-                      <td className="font-mono font-bold text-gray-900">
-                        {pur.totalLandedCostHT.toLocaleString()} DH
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => setExpandedInvoiceId(isExpanded ? null : pur.id)}
-                          className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[11px] font-bold rounded flex items-center gap-1 border border-gray-300"
-                        >
-                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                          {isExpanded ? 'Masquer' : 'Voir Articles'}
-                        </button>
-                      </td>
-                    </tr>
+                  return (
+                    <React.Fragment key={pur.id}>
+                      <tr className="hover:bg-gray-50 transition-colors">
+                        <td className="font-mono font-bold text-[#0f62fe]">
+                          {pur.invoiceNumber}
+                          {pur.containerNumber && <div className="text-[10px] text-gray-500 font-normal">Conteneur: {pur.containerNumber}</div>}
+                        </td>
+                        <td>
+                          <div className="font-bold text-gray-900">{pur.supplierName}</div>
+                          <div className="text-[10px] text-gray-500">{pur.isImport ? 'Importation' : 'Fournisseur Local'}</div>
+                        </td>
+                        <td className="font-mono text-xs font-bold text-emerald-700">
+                          {frigoObj?.name || 'Frigo'}
+                        </td>
+                        <td className="font-mono text-xs">
+                          <div className="font-bold text-blue-900">{totalCartons.toLocaleString()} Colis</div>
+                          <div className="text-[11px] font-semibold text-emerald-800">{totalKg.toLocaleString()} Kg</div>
+                        </td>
+                        <td className="font-mono font-bold text-gray-900">
+                          {totalHT.toLocaleString()} DH
+                          <div className="text-[10px] text-gray-400 font-normal">Frais: {(pur.customsCostsHT + pur.freightCostsHT).toLocaleString()} DH</div>
+                        </td>
+                        <td className="font-mono text-xs">
+                          <div className="font-bold text-emerald-700">Réglé: {paid.toLocaleString()} DH</div>
+                          <div className={`font-bold ${remaining > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                            Solde: {remaining.toLocaleString()} DH
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`text-[10px] px-2 py-0.5 font-mono font-bold rounded ${
+                            status === 'PAYÉ' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                            status === 'PARTIEL' ? 'bg-blue-100 text-blue-800 border border-blue-300' :
+                            'bg-red-100 text-red-800 border border-red-300'
+                          }`}>
+                            {status === 'PAYÉ' ? '✓ PAYÉ' : status === 'PARTIEL' ? 'PARTIEL' : 'NON PAYÉ'}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {status !== 'PAYÉ' && (
+                              <button
+                                onClick={() => setPaymentModalInvoice(pur)}
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded flex items-center gap-1 shadow-sm transition-colors"
+                                title="Enregistrer un règlement fournisseur"
+                              >
+                                <CreditCard className="w-3.5 h-3.5" /> Régler
+                              </button>
+                            )}
 
-                    {/* Expanded Article Line Details */}
-                    {isExpanded && (
-                      <tr className="bg-blue-50/50 border-b-2 border-blue-200">
-                        <td colSpan={8} className="p-3">
-                          <div className="bg-white p-3 rounded border border-blue-200 space-y-2">
-                            <div className="text-xs font-bold text-blue-900 uppercase font-mono border-b pb-1">
-                              Détails des Produits Réçus - Facture {pur.invoiceNumber}
-                            </div>
-                            <table className="w-full text-xs font-mono">
-                              <thead>
-                                <tr className="text-gray-500 border-b text-left">
-                                  <th className="py-1">Code SKU</th>
-                                  <th className="py-1">Désignation</th>
-                                  <th className="py-1 text-center">Cartons / Colis</th>
-                                  <th className="py-1 text-center">Poids Pesé (Kg)</th>
-                                  <th className="py-1 text-center">Prix Achat HT</th>
-                                  <th className="py-1 text-center">Prix Revient (Landed)</th>
-                                  <th className="py-1 text-right">Total HT</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {pur.items.map((it, iIdx) => (
-                                  <tr key={iIdx} className="border-b border-gray-100">
-                                    <td className="py-1 font-bold text-blue-700">{it.productCode}</td>
-                                    <td className="py-1 font-bold text-gray-900">{it.productName}</td>
-                                    <td className="py-1 text-center font-bold text-blue-900">{it.quantityCartons?.toLocaleString() || '0'} Colis</td>
-                                    <td className="py-1 text-center font-bold text-emerald-700">{it.quantityKg.toLocaleString()} Kg</td>
-                                    <td className="py-1 text-center">{it.purchaseUnitPriceHT} DH</td>
-                                    <td className="py-1 text-center font-bold text-indigo-700">{Math.round(it.landedCostPerKgHT || 0)} DH</td>
-                                    <td className="py-1 text-right font-bold">{it.totalHT.toLocaleString()} DH</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                            <button
+                              onClick={() => setExpandedInvoiceId(isExpanded ? null : pur.id)}
+                              className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[11px] font-bold rounded flex items-center gap-1 border border-gray-300"
+                            >
+                              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                              Détails
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Êtes-vous sûr de vouloir supprimer la facture fournisseur N° ${pur.invoiceNumber} ?`)) {
+                                  deletePurchaseInvoice(pur.id);
+                                }
+                              }}
+                              className="p-1 bg-red-50 hover:bg-red-100 text-red-600 rounded border border-red-200 transition-colors"
+                              title="Supprimer la facture fournisseur"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </td>
                       </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
+
+                      {/* Expanded Article & Payment Details */}
+                      {isExpanded && (
+                        <tr className="bg-blue-50/50 border-b-2 border-blue-200">
+                          <td colSpan={8} className="p-3 space-y-3">
+                            {/* Received Items */}
+                            <div className="bg-white p-3 rounded border border-blue-200 space-y-2">
+                              <div className="text-xs font-bold text-blue-900 uppercase font-mono border-b pb-1 flex justify-between items-center">
+                                <span>Détails des Produits Réçus - Facture {pur.invoiceNumber}</span>
+                                <span>{pur.items.length} Article(s)</span>
+                              </div>
+                              <table className="w-full text-xs font-mono">
+                                <thead>
+                                  <tr className="text-gray-500 border-b text-left">
+                                    <th className="py-1">Code SKU</th>
+                                    <th className="py-1">Désignation</th>
+                                    <th className="py-1 text-center">Cartons / Colis</th>
+                                    <th className="py-1 text-center">Poids Pesé (Kg)</th>
+                                    <th className="py-1 text-center">Prix Achat HT</th>
+                                    <th className="py-1 text-center">Prix Revient (Landed)</th>
+                                    <th className="py-1 text-right">Total HT</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {pur.items.map((it, iIdx) => (
+                                    <tr key={iIdx} className="border-b border-gray-100">
+                                      <td className="py-1 font-bold text-blue-700">{it.productCode}</td>
+                                      <td className="py-1 font-bold text-gray-900">{it.productName}</td>
+                                      <td className="py-1 text-center font-bold text-blue-900">{it.quantityCartons?.toLocaleString() || '0'} Colis</td>
+                                      <td className="py-1 text-center font-bold text-emerald-700">{it.quantityKg.toLocaleString()} Kg</td>
+                                      <td className="py-1 text-center">{it.purchaseUnitPriceHT} DH</td>
+                                      <td className="py-1 text-center font-bold text-indigo-700">{Math.round(it.landedCostPerKgHT || 0)} DH</td>
+                                      <td className="py-1 text-right font-bold">{it.totalHT.toLocaleString()} DH</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Payment History */}
+                            <div className="bg-white p-3 rounded border border-emerald-200 space-y-2">
+                              <div className="text-xs font-bold text-emerald-900 uppercase font-mono border-b pb-1 flex justify-between items-center">
+                                <span>Historique des Règlements Effectués ({pur.payments?.length || 0})</span>
+                                <span>Total Réglé: {(pur.paidAmount || 0).toLocaleString()} DH</span>
+                              </div>
+                              {pur.payments && pur.payments.length > 0 ? (
+                                <table className="w-full text-xs font-mono">
+                                  <thead>
+                                    <tr className="text-gray-500 border-b text-left">
+                                      <th className="py-1">Date</th>
+                                      <th className="py-1">Mode de Règlement</th>
+                                      <th className="py-1">N° Référence / Chèque</th>
+                                      <th className="py-1">Banque</th>
+                                      <th className="py-1 text-right">Montant Réglé</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {pur.payments.map((pItem, pIdx) => (
+                                      <tr key={pIdx} className="border-b border-gray-100">
+                                        <td className="py-1 font-bold text-gray-900">{pItem.date}</td>
+                                        <td className="py-1 font-bold text-indigo-700">{pItem.paymentMethod}</td>
+                                        <td className="py-1 text-gray-800">{pItem.reference || '-'}</td>
+                                        <td className="py-1 text-gray-700">{pItem.bankName || '-'}</td>
+                                        <td className="py-1 text-right font-bold text-emerald-700">{pItem.amount.toLocaleString()} DH</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              ) : (
+                                <div className="text-xs text-gray-500 italic py-1">
+                                  Aucun règlement n'a encore été enregistré pour cette facture fournisseur.
+                                </div>
+                              )}
+                            </div>
+
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               {purchaseInvoices.length === 0 && (
                 <tr>
                   <td colSpan={8} className="text-center py-6 text-xs text-gray-500 italic">
@@ -572,6 +706,14 @@ export const ImportInvoiceEntry: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Supplier Payment Modal */}
+      {paymentModalInvoice && (
+        <SupplierPaymentModal
+          invoice={paymentModalInvoice}
+          onClose={() => setPaymentModalInvoice(null)}
+        />
+      )}
 
       {showQuickProductModal && (
         <QuickProductModal

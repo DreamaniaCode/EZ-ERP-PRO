@@ -120,6 +120,16 @@ export interface Supplier {
   currentBalance: number; // Solde dû au fournisseur
 }
 
+export interface PurchaseInvoicePayment {
+  id: string;
+  date: string;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  reference?: string;
+  bankName?: string;
+  notes?: string;
+}
+
 export interface PurchaseImportInvoice {
   id: string;
   invoiceNumber: string; // Facture Fournisseur / Conteneur
@@ -133,6 +143,8 @@ export interface PurchaseImportInvoice {
   freightCostsHT: number; // Transport maritime / terrestre
   totalProductsHT: number;
   totalLandedCostHT: number;
+  paidAmount?: number;
+  remainingBalance?: number;
   items: {
     productId: string;
     productName: string;
@@ -149,6 +161,7 @@ export interface PurchaseImportInvoice {
   }[];
   notes?: string;
   paymentStatus: 'NON_PAYÉ' | 'PARTIEL' | 'PAYÉ';
+  payments?: PurchaseInvoicePayment[];
 }
 
 export interface OrderItem {

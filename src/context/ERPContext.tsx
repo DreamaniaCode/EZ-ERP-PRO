@@ -132,6 +132,8 @@ interface ERPContextType {
 
   // Purchase Actions
   createPurchaseInvoice: (purchaseData: Omit<PurchaseImportInvoice, 'id'>) => PurchaseImportInvoice;
+  addPurchasePayment: (purchaseInvoiceId: string, payment: { amount: number; paymentMethod: PaymentMethod; date: string; reference?: string; bankName?: string; notes?: string }) => void;
+  deletePurchaseInvoice: (id: string) => void;
 
   // Order & BL Actions
   createOrder: (orderData: Omit<SalesOrder, 'id' | 'orderNumber' | 'status' | 'totalHT' | 'totalVAT' | 'totalTTC' | 'totalCostHT' | 'grossMarginHT' | 'marginPercentage'>) => SalesOrder;
@@ -949,6 +951,9 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const createPurchaseInvoice = (purchaseData: Omit<PurchaseImportInvoice, 'id'>): PurchaseImportInvoice => {
     const id = `pur-${Date.now()}`;
     const newPur: PurchaseImportInvoice = {
+      paidAmount: 0,
+      remainingBalance: purchaseData.totalLandedCostHT,
+      payments: [],
       ...purchaseData,
       id,
     };
@@ -1006,6 +1011,114 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
 
     return newPur;
+  };
+
+  const addPurchasePayment = (
+    purchaseInvoiceId: string, 
+    payment: {
+      amount: number;
+      paymentMethod: PaymentMethod;
+      date: string;
+      reference?: string;
+      bankName?: string;
+      notes?: string;
+    }
+  ) => {
+    setPurchaseInvoices(prev => prev.map(pur => {
+      if (pur.id !== purchaseInvoiceId) return pur;
+
+      const currentPaid = pur.paidAmount || 0;
+      const newPaidAmount = currentPaid + payment.amount;
+      const totalAmount = pur.totalLandedCostHT || 0;
+      const newRemainingBalance = Math.max(0, totalAmount - newPaidAmount);
+
+      let paymentStatus: 'NON_PAYÉ' | 'PARTIEL' | 'PAYÉ' = 'NON_PAYÉ';
+      if (newRemainingBalance <= 0) {
+        paymentStatus = 'PAYÉ';
+      } else if (newPaidAmount > 0) {
+        paymentStatus = 'PARTIEL';
+      }
+
+      const newPaymentItem = {
+        id: `pay-pur-${Date.now()}`,
+        date: payment.date || new Date().toISOString().slice(0, 10),
+        amount: payment.amount,
+        paymentMethod: payment.paymentMethod,
+        reference: payment.reference || '',
+        bankName: payment.bankName || '',
+        notes: payment.notes || ''
+      };
+
+      const updatedPayments = [...(pur.payments || []), newPaymentItem];
+
+      const updatedInvoice: PurchaseImportInvoice = {
+        ...pur,
+        paidAmount: newPaidAmount,
+        remainingBalance: newRemainingBalance,
+        paymentStatus,
+        payments: updatedPayments
+      };
+
+      setDoc(doc(db, 'purchase_invoices', pur.id), sanitizeForFirestore(updatedInvoice), { merge: true }).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `purchase_invoices/${pur.id}`);
+      });
+
+      // Update Supplier balance (decrease debt)
+      if (pur.supplierId) {
+        setSuppliers(prevSups => prevSups.map(sup => {
+          if (sup.id === pur.supplierId) {
+            const updatedSup = {
+              ...sup,
+              currentBalance: Math.max(0, sup.currentBalance - payment.amount)
+            };
+            setDoc(doc(db, 'suppliers', sup.id), sanitizeForFirestore(updatedSup), { merge: true }).catch(() => {});
+            return updatedSup;
+          }
+          return sup;
+        }));
+      }
+
+      // If Chèque or Effet, add to Treasury Cheques/Effets as FOURNISSEUR cheque
+      if (payment.paymentMethod === 'CHEQUE' || payment.paymentMethod === 'EFFET') {
+        addChequeEffet({
+          number: payment.reference || `CHQ-FRS-${Date.now().toString().slice(-4)}`,
+          type: payment.paymentMethod,
+          issuer: 'FOURNISSEUR',
+          clientOrSupplierName: pur.supplierName,
+          amount: payment.amount,
+          issueDate: payment.date || new Date().toISOString().slice(0, 10),
+          dueDate: payment.date || new Date().toISOString().slice(0, 10),
+          bankName: payment.bankName || 'BMCE',
+          status: 'EN_PORTEFEUILLE',
+          notes: `Règlement Facture Fournisseur N° ${pur.invoiceNumber}`
+        });
+      }
+
+      return updatedInvoice;
+    }));
+  };
+
+  const deletePurchaseInvoice = (id: string) => {
+    const pur = purchaseInvoices.find(p => p.id === id);
+    setPurchaseInvoices(prev => prev.filter(p => p.id !== id));
+    deleteDoc(doc(db, 'purchase_invoices', id)).catch(err => {
+      handleFirestoreError(err, OperationType.DELETE, `purchase_invoices/${id}`);
+    });
+
+    if (pur && pur.supplierId) {
+      setSuppliers(prev => prev.map(sup => {
+        if (sup.id === pur.supplierId) {
+          const remainingDebt = pur.remainingBalance !== undefined ? pur.remainingBalance : pur.totalLandedCostHT;
+          const updated = {
+            ...sup,
+            currentBalance: Math.max(0, sup.currentBalance - remainingDebt)
+          };
+          setDoc(doc(db, 'suppliers', sup.id), sanitizeForFirestore(updated), { merge: true }).catch(() => {});
+          return updated;
+        }
+        return sup;
+      }));
+    }
   };
 
   // Order & BL Creation
@@ -2165,6 +2278,8 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     adjustStock,
     transferStock,
     createPurchaseInvoice,
+    addPurchasePayment,
+    deletePurchaseInvoice,
     createOrder,
     updateOrderStatus,
     addBL,
@@ -2250,7 +2365,9 @@ const defaultFallbackContext: ERPContextType = {
   updateFrigo: () => {},
   deleteFrigo: () => {},
   adjustStock: () => {},
-  createPurchaseInvoice: () => ({ id: '', invoiceNumber: '', supplierId: '', supplierName: '', targetFrigoId: '', date: '', items: [], totalHT: 0, totalTTC: 0, totalLandedCostHT: 0, status: 'EN_ATTENTE_ENTRÉE' }),
+  createPurchaseInvoice: () => ({ id: '', invoiceNumber: '', supplierId: '', supplierName: '', targetFrigoId: '', dateArrival: '', isImport: false, customsCostsHT: 0, freightCostsHT: 0, totalProductsHT: 0, totalLandedCostHT: 0, items: [], paymentStatus: 'NON_PAYÉ' }),
+  addPurchasePayment: () => {},
+  deletePurchaseInvoice: () => {},
   createOrder: () => ({ id: '', orderNumber: '', clientId: '', clientName: '', date: '', expectedDeliveryDate: '', items: [], totalKg: 0, totalPallets: 0, totalHT: 0, totalVAT: 0, totalTTC: 0, totalCostHT: 0, grossMarginHT: 0, marginPercentage: 0, blGenerated: false, createdByName: '', status: 'NOUVEAU' }),
   updateOrderStatus: () => {},
   addBL: () => {},
