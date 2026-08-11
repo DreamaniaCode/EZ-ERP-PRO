@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
-import { Upload, ArrowLeft, ArrowRight, CheckCircle, AlertCircle, XCircle, FileSpreadsheet, FileText, Check, Warehouse, Users, Receipt } from 'lucide-react';
+import { Upload, ArrowLeft, ArrowRight, CheckCircle, AlertCircle, XCircle, FileSpreadsheet, FileText, Check, Warehouse, Users, Receipt, Settings, HelpCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 import { DeliveryNoteBL } from '../../types';
@@ -34,11 +34,18 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     frigos.length > 0 ? frigos[0].id : ''
   );
 
+  // Additional Upload Options
+  const [autoUpdateClientBalance, setAutoUpdateClientBalance] = useState<boolean>(true);
+  const [decrementFrigoStock, setDecrementFrigoStock] = useState<boolean>(true);
+  const [createMissingClients, setCreateMissingClients] = useState<boolean>(true);
+  const [defaultUnitPrice, setDefaultUnitPrice] = useState<number>(50);
+
   const selectedTargetFrigo = frigos.find(f => f.id === targetFrigoId) || frigos[0] || {
     id: 'frigo-1',
     name: 'Frigo Principal',
     code: 'FRG-01',
-    location: 'Site Logistique'
+    location: 'Site Logistique',
+    managerName: 'Agent Quai'
   };
   
   const [mapping, setMapping] = useState<{ [key: string]: string }>({
@@ -194,7 +201,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       const combinedText = textLines.join('\n');
       
-      // Look for tabular lines: DATE (DD/MM/YYYY), DESIGNATION, QUANTITE, CLIENT, N DE BON
       const lineRegex = /(\d{2}\/\d{2}\/\d{4})\s+([A-Z0-9\s]+?)\s+(\d+)\s+([A-Z\s]+?)\s+(?:KG\s+)?(\d+)/gi;
       let match;
       const extractedRows: any[] = [];
@@ -225,7 +231,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           totalHT: ''
         });
       } else {
-        // Fallback to sample dataset if regex didn't find specific structured lines
         loadExtractedPDFData();
       }
     } catch (err) {
@@ -364,7 +369,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           mappedRow._unitPriceHT = product.sellingPriceHT;
         } else {
           mappedRow._productCode = String(mappedRow.productName);
-          mappedRow._unitPriceHT = parseFloat(mappedRow.unitPriceHT) || 50;
+          mappedRow._unitPriceHT = parseFloat(mappedRow.unitPriceHT) || defaultUnitPrice;
         }
       }
 
@@ -400,7 +405,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     const formattedBLs: DeliveryNoteBL[] = toImport.map((row, idx) => {
       const qtyKg = parseFloat(row.quantityKg) || 1000;
-      const unitPrice = parseFloat(row.unitPriceHT) || row._unitPriceHT || 50;
+      const unitPrice = parseFloat(row.unitPriceHT) || row._unitPriceHT || defaultUnitPrice;
       const totalHT = row.totalHT ? parseFloat(row.totalHT) : qtyKg * unitPrice;
       const totalTTC = totalHT; // No VAT by default on raw BL exits
 
@@ -462,7 +467,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           {
             id: `log-${idx}`,
             timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
-            action: `Importation BL depuis Frigo ${frigoTarget.name} (Compte client mis à jour)`,
+            action: `Importation BL depuis Frigo ${frigoTarget.name} (Compte client mis à jour: ${autoUpdateClientBalance ? 'OUI' : 'NON'})`,
             author: 'Super Admin'
           }
         ]
@@ -490,7 +495,8 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
           </button>
           <div>
-            <h1 className="text-lg font-bold text-gray-900">
+            <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Upload className="w-5 h-5 text-[#0f62fe]" />
               {t('importBL', 'Importation Fichiers BLs (Excel / CSV / PDF)')}
             </h1>
             <p className="text-[11px] text-gray-500">Extraction Clients & BLs • Choix du Frigo Source • Réglement des Comptes Clients • Sans Facture</p>
@@ -502,7 +508,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded shadow flex items-center gap-1.5 transition-colors"
         >
           <FileText className="w-4 h-4" />
-          <span>Charger Extrait PDF (35 BLs - 103 770 Kg)</span>
+          <span>Extrait PDF (35 BLs - 103 770 Kg)</span>
         </button>
       </div>
 
@@ -513,9 +519,9 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           {/* Step Indicators */}
           <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-[#e0e0e0] shadow-sm">
             {[
-              { num: 1, label: 'Upload' },
-              { num: 2, label: 'Frigo & Mapping' },
-              { num: 3, label: 'Validation' },
+              { num: 1, label: 'Upload & Frigo' },
+              { num: 2, label: 'Mapping Colonnes' },
+              { num: 3, label: 'Validation Data' },
               { num: 4, label: 'Confirmation' },
               { num: 5, label: 'Résultat' }
             ].map((s) => (
@@ -532,74 +538,202 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             ))}
           </div>
 
-          {/* STEP 1: UPLOAD */}
+          {/* STEP 1: UPLOAD & FRIGO SELECTION & OPTIONS */}
           {step === 1 && (
-            <div className="bg-white rounded-lg shadow-sm border border-[#e0e0e0] p-8 text-center space-y-6">
+            <div className="bg-white rounded-xl shadow-md border border-[#e0e0e0] p-6 space-y-6">
               {isParsingPdf && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded text-blue-900 font-bold animate-pulse">
-                  ⌛ Extraction du texte du fichier PDF en cours... Veuillez patienter.
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 font-bold animate-pulse text-center">
+                  ⌛ Extraction du texte et analyse des BLs du fichier PDF en cours... Veuillez patienter.
                 </div>
               )}
 
-              <div 
-                className="border-2 border-dashed border-[#e0e0e0] hover:border-[#0f62fe] rounded-xl p-12 cursor-pointer transition-colors"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  accept=".xlsx,.xls,.csv,.pdf" 
-                  onChange={handleFileUpload} 
-                />
-                <Upload className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-                <h3 className="text-base font-bold text-gray-800">{t('dragDropOrClick', 'Glissez votre fichier Excel / CSV / PDF ici')}</h3>
-                <p className="text-xs text-gray-500 mt-1">{t('supportsExcelCsvPdf', 'Formats pris en charge : Excel (.xlsx, .xls), CSV (.csv) et PDF (.pdf)')}</p>
-              </div>
-
-              <div className="border-t border-[#e0e0e0] pt-6 space-y-3">
-                <button
-                  onClick={loadExtractedPDFData}
-                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-sm rounded-lg shadow-md transition-all flex items-center justify-center gap-2"
-                >
-                  <FileSpreadsheet className="w-5 h-5" />
-                  <span>Importer directement l'extrait des 35 BLs du PDF (103 770 Kg)</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 2: FRIGO SELECTION & MAPPING */}
-          {step === 2 && (
-            <div className="bg-white rounded-lg shadow-sm border border-[#e0e0e0] p-6 space-y-6">
-              
-              {/* TARGET FRIGO SELECTOR ("demande moi de quelle frigo je vais tiré les bls") */}
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-2">
-                <label className="block text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
-                  <Warehouse className="w-4 h-4 text-[#0f62fe]" />
-                  1. Sélectionner l'Entrepôt Frigorifique (Frigo d'où sont tirés les BLs) :
-                </label>
+              {/* 1. BIG VISIBLE FRIGO SELECTION CARD AT THE TOP */}
+              <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white p-5 rounded-xl shadow-md space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-amber-300">
+                    <Warehouse className="w-5 h-5 text-amber-400" />
+                    Étape 1 : Choisir l'Entrepôt Frigorifique Source pour cet Import (Obligatoire)
+                  </label>
+                  <span className="bg-amber-400 text-blue-950 font-extrabold text-[10px] px-2.5 py-1 rounded-full uppercase">
+                    {frigos.length} Frigo(s) actif(s)
+                  </span>
+                </div>
+                
                 <select
                   value={targetFrigoId}
                   onChange={(e) => setTargetFrigoId(e.target.value)}
-                  className="w-full border border-blue-300 rounded px-3 py-2 text-sm font-bold text-gray-900 bg-white shadow-xs focus:ring-[#0f62fe]"
+                  className="w-full border-2 border-amber-400/80 rounded-lg px-4 py-3 text-sm font-bold text-gray-900 bg-white shadow-md focus:ring-2 focus:ring-amber-400"
                 >
                   {frigos.map(f => (
                     <option key={f.id} value={f.id}>
-                      {f.code} - {f.name} ({f.location || 'Emplacement Quai'}) — Responsable: {f.managerName || 'Assigné'}
+                      🏢 {f.code} — {f.name} ({f.location || 'Site Principal'}) — Responsable: {f.managerName || 'Agent Quai'}
                     </option>
                   ))}
                 </select>
-                <div className="flex flex-wrap gap-4 text-[11px] text-blue-800 pt-1">
-                  <span>✓ <b>Stock décrémenté sur :</b> {selectedTargetFrigo.name} ({selectedTargetFrigo.code})</span>
-                  <span>✓ <b>Responsable quai :</b> {selectedTargetFrigo.managerName || 'Non spécifié'}</span>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-blue-100 pt-1 font-mono">
+                  <div className="bg-blue-900/60 p-2.5 rounded-lg border border-blue-700/50 flex items-center gap-1.5">
+                    📍 <span><b>Emplacement :</b> {selectedTargetFrigo.location}</span>
+                  </div>
+                  <div className="bg-blue-900/60 p-2.5 rounded-lg border border-blue-700/50 flex items-center gap-1.5">
+                    👤 <span><b>Responsable :</b> {selectedTargetFrigo.managerName || 'Non spécifié'}</span>
+                  </div>
+                  <div className="bg-blue-900/60 p-2.5 rounded-lg border border-blue-700/50 flex items-center gap-1.5">
+                    📦 <span><b>Frigo Source :</b> {selectedTargetFrigo.name}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. ADVANCED IMPORT OPTIONS PANEL */}
+              <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
+                <h4 className="font-bold text-gray-900 text-xs uppercase tracking-wider flex items-center gap-2 text-slate-800">
+                  <Settings className="w-4 h-4 text-[#0f62fe]" />
+                  Options de Traitement des Comptes & Stocks :
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  {/* Account regulation checkbox */}
+                  <label className="flex items-start gap-2.5 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-400 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      checked={autoUpdateClientBalance} 
+                      onChange={e => setAutoUpdateClientBalance(e.target.checked)}
+                      className="mt-0.5 rounded text-[#0f62fe] focus:ring-[#0f62fe] w-4 h-4"
+                    />
+                    <div>
+                      <span className="font-bold text-gray-900">Régler les Comptes Clients (Créances)</span>
+                      <p className="text-[11px] text-gray-500 mt-0.5">Le montant des BLs importés sera ajouté au solde débiteur (`currentBalance`) de chaque client.</p>
+                    </div>
+                  </label>
+
+                  {/* Stock decrement checkbox */}
+                  <label className="flex items-start gap-2.5 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-400 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      checked={decrementFrigoStock} 
+                      onChange={e => setDecrementFrigoStock(e.target.checked)}
+                      className="mt-0.5 rounded text-[#0f62fe] focus:ring-[#0f62fe] w-4 h-4"
+                    />
+                    <div>
+                      <span className="font-bold text-gray-900">Décrémenter le Stock du Frigo Source</span>
+                      <p className="text-[11px] text-gray-500 mt-0.5">Met à jour les quantités du frigo <strong>"{selectedTargetFrigo.name}"</strong> et enregistre le mouvement de sortie.</p>
+                    </div>
+                  </label>
+
+                  {/* Billing rule (No invoices) */}
+                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 flex items-start gap-2.5 text-purple-900">
+                    <Receipt className="w-4 h-4 text-purple-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Facturation : Aucune Facture Générée</span>
+                      <p className="text-[11px] text-purple-800 mt-0.5">Les documents importés restent strictement des Bons de Livraison en statut <strong>LIVRÉ</strong> sans créer de facture.</p>
+                    </div>
+                  </div>
+
+                  {/* Default Unit Price fallback */}
+                  <div className="p-3 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-gray-900">Prix Unitaire par défaut (DH) :</span>
+                      <p className="text-[11px] text-gray-500">Utilisé si le prix n'est pas spécifié dans le fichier.</p>
+                    </div>
+                    <input 
+                      type="number" 
+                      value={defaultUnitPrice} 
+                      onChange={e => setDefaultUnitPrice(parseFloat(e.target.value) || 50)}
+                      className="w-20 px-2 py-1 border border-gray-300 rounded font-bold text-right text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. UPLOAD DROPZONE & BUTTONS */}
+              <div className="space-y-4">
+                <label className="block text-xs font-bold text-gray-800 uppercase tracking-wider text-left">
+                  Étape 2 : Importer votre fichier (Excel / CSV / PDF)
+                </label>
+
+                <div 
+                  className="border-2 border-dashed border-blue-300 hover:border-[#0f62fe] bg-blue-50/20 hover:bg-blue-50/60 rounded-xl p-10 cursor-pointer transition-all text-center space-y-3 shadow-inner"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept=".xlsx,.xls,.csv,.pdf" 
+                    onChange={handleFileUpload} 
+                  />
+                  
+                  <div className="flex justify-center items-center gap-3">
+                    <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center font-bold shadow-xs">
+                      <FileSpreadsheet className="w-6 h-6" />
+                    </div>
+                    <div className="w-12 h-12 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center font-bold shadow-xs">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-gray-900">
+                      Glissez votre fichier ici ou cliquez pour choisir sur votre ordinateur
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Formats supportés : <strong>Excel (.xlsx, .xls)</strong>, <strong>CSV (.csv)</strong> et <strong>PDF (.pdf)</strong>
+                    </p>
+                  </div>
+
+                  <button className="bg-[#0f62fe] hover:bg-blue-700 text-white font-bold text-xs px-6 py-2.5 rounded-lg shadow-md transition-colors">
+                    📁 Parcourir mes fichiers...
+                  </button>
+                </div>
+
+                {/* PRESET FAST IMPORT */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  <button
+                    onClick={loadExtractedPDFData}
+                    className="py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>📄 Importer directement l'extrait PDF des 35 BLs (103 770 Kg)</span>
+                  </button>
+
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="py-3 px-4 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>📤 Sélectionner un fichier Excel ou CSV local</span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* STEP 2: COLUMN MAPPING */}
+          {step === 2 && (
+            <div className="bg-white rounded-lg shadow-sm border border-[#e0e0e0] p-6 space-y-6">
+              
+              {/* TARGET FRIGO NOTICE IN STEP 2 */}
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-2">
+                <label className="block text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
+                  <Warehouse className="w-4 h-4 text-[#0f62fe]" />
+                  Entrepôt Frigorifique Source Choisi :
+                </label>
+                <div className="flex justify-between items-center bg-white p-3 rounded border border-blue-300">
+                  <span className="font-bold text-sm text-blue-950">🏢 {selectedTargetFrigo.code} - {selectedTargetFrigo.name} ({selectedTargetFrigo.location})</span>
+                  <button 
+                    onClick={() => setStep(1)} 
+                    className="text-[11px] font-bold text-[#0f62fe] underline hover:text-blue-800"
+                  >
+                    Changer de Frigo
+                  </button>
                 </div>
               </div>
 
               {/* COLUMN MAPPING */}
               <div>
                 <h2 className="text-sm font-bold border-b border-[#e0e0e0] pb-2 text-gray-900 uppercase">
-                  2. Correspondance des colonnes (Mapping)
+                  Correspondance des colonnes (Mapping)
                 </h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
@@ -656,8 +790,8 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   Frigo Source Sélectionné : {selectedTargetFrigo.name} ({selectedTargetFrigo.code})
                 </div>
                 <div className="flex flex-wrap gap-4 text-[11px] text-blue-800 pt-1 border-t border-blue-200">
-                  <span>✓ <b>Comptes clients :</b> Le solde créance (`currentBalance`) de chaque client sera ajusté</span>
-                  <span>✓ <b>Aucune facture :</b> Seuls des Bons de Livraison (BLs) en statut LIVRÉ seront créés</span>
+                  <span>✓ <b>Comptes clients :</b> {autoUpdateClientBalance ? 'Règlement des créances activé' : 'Désactivé'}</span>
+                  <span>✓ <b>Facturation :</b> Aucune facture générée (BLs seuls en statut LIVRÉ)</span>
                 </div>
               </div>
 
@@ -692,7 +826,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <Users className="w-5 h-5 text-emerald-600 shrink-0" />
                     <div>
                       <div>Ajustement Comptes Clients</div>
-                      <div className="text-[10px] font-normal text-emerald-700">Créances clients mises à jour</div>
+                      <div className="text-[10px] font-normal text-emerald-700">{autoUpdateClientBalance ? 'Créances clients mises à jour' : 'Option désactivée'}</div>
                     </div>
                   </div>
                   <div className="bg-purple-50 border border-purple-200 p-3 rounded flex items-center gap-2 text-purple-900 font-bold">
