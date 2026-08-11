@@ -356,10 +356,19 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return INITIAL_COMPANY_INFO;
   });
 
-  const sanitizeForFirestore = <T extends Record<string, any>>(obj: T): T => {
-    const clean: any = {};
-    Object.keys(obj).forEach(key => {
-      clean[key] = obj[key] === undefined ? '' : obj[key];
+  const sanitizeForFirestore = (data: any): any => {
+    if (data === null || data === undefined) return '';
+    if (typeof data !== 'object') return data;
+    if (data instanceof Date) return data.toISOString();
+    if (Array.isArray(data)) {
+      return data.map(item => sanitizeForFirestore(item));
+    }
+    const clean: Record<string, any> = {};
+    Object.keys(data).forEach(key => {
+      const val = data[key];
+      if (val !== undefined) {
+        clean[key] = sanitizeForFirestore(val);
+      }
     });
     return clean;
   };

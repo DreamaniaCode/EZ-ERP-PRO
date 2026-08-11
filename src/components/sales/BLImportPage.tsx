@@ -1,7 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
-import { Upload, ArrowLeft, ArrowRight, CheckCircle, AlertCircle, XCircle, FileSpreadsheet, FileText, Check, Warehouse, Users, Receipt, Settings, Layers, ListFilter } from 'lucide-react';
+import { 
+  Upload, ArrowLeft, ArrowRight, CheckCircle, AlertCircle, XCircle, 
+  FileSpreadsheet, FileText, Check, Warehouse, Users, Receipt, Settings, 
+  Layers, ListFilter, Plus, Trash2, RefreshCw, Truck
+} from 'lucide-react';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 import { DeliveryNoteBL } from '../../types';
@@ -18,14 +22,13 @@ const cleanDisplayName = (raw: string): string => {
     .toUpperCase();
 };
 
-// Smart Header Finder for Excel sheets & multi-sheet workbooks
 const findSmartHeaderRowIndex = (rows: any[][]): number => {
   if (!rows || rows.length === 0) return 0;
 
   const keywords = [
     'date', 'client', 'destinataire', 'nom', 'bl', 'bon', 'n°', 'num', 
     'produit', 'article', 'designation', 'dattes', 'quantite', 'qte', 
-    'poids', 'kg', 'unite', 'prix', 'pu', 'total', 'montant'
+    'colis', 'carton', 'poids', 'kg', 'unite', 'prix', 'pu', 'total', 'montant'
   ];
 
   let bestIndex = 0;
@@ -63,7 +66,11 @@ const findSmartHeaderRowIndex = (rows: any[][]): number => {
 
 export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { t } = useTranslation();
-  const { products, clients, frigos, importExcelBLs } = useERP();
+  const { 
+    products, clients, frigos, suppliers, 
+    importExcelBLs, addFrigo, addSupplier, resetAllData 
+  } = useERP();
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workbookRef = useRef<XLSX.WorkBook | null>(null);
   
@@ -78,29 +85,52 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [selectedSheet, setSelectedSheet] = useState<string>('ALL');
   const [detectedHeaderIndex, setDetectedHeaderIndex] = useState<number>(0);
 
-  // Target Frigo Selection state ("demande moi de quel frigo je vais tirer les BLs")
+  // Target Frigo Selection state
   const [targetFrigoId, setTargetFrigoId] = useState<string>(
     frigos.length > 0 ? frigos[0].id : ''
   );
+
+  // Target Supplier Selection state
+  const [targetSupplierId, setTargetSupplierId] = useState<string>(
+    suppliers.length > 0 ? suppliers[0].id : ''
+  );
+
+  // Inline Creation Modal States
+  const [showNewFrigoModal, setShowNewFrigoModal] = useState(false);
+  const [newFrigoData, setNewFrigoData] = useState({ name: '', location: 'Site Principal', managerName: 'Responsable Quai' });
+
+  const [showNewSupplierModal, setShowNewSupplierModal] = useState(false);
+  const [newSupplierData, setNewSupplierData] = useState({ name: '', companyName: '', country: 'Algérie' });
 
   // Additional Upload Options
   const [autoUpdateClientBalance, setAutoUpdateClientBalance] = useState<boolean>(true);
   const [decrementFrigoStock, setDecrementFrigoStock] = useState<boolean>(true);
   const [defaultUnitPrice, setDefaultUnitPrice] = useState<number>(50);
 
-  const selectedTargetFrigo = frigos.find(f => f.id === targetFrigoId) || frigos[0] || {
-    id: 'frigo-1',
-    name: 'Frigo Principal',
+  // Product Colis Conversion Settings Map: Product Name -> KgPerColis
+  const [productColisWeights, setProductColisWeights] = useState<Record<string, number>>({});
+
+  const selectedTargetFrigo = frigos.find(f => f.id === targetFrigoId) || {
+    id: targetFrigoId || 'frigo-new',
+    name: 'Entrepôt Frigorifique',
     code: 'FRG-01',
     location: 'Site Logistique',
     managerName: 'Agent Quai'
   };
-  
+
+  const selectedTargetSupplier = suppliers.find(s => s.id === targetSupplierId) || {
+    id: targetSupplierId || 'frs-new',
+    name: 'Fournisseur Import',
+    companyName: 'Fournisseur Dattes',
+    country: 'Algérie'
+  };
+
   const [mapping, setMapping] = useState<{ [key: string]: string }>({
     blNumber: '',
     clientName: '',
     date: '',
     productName: '',
+    quantityColis: '',
     quantityKg: '',
     unitPriceHT: '',
     totalHT: ''
@@ -113,6 +143,36 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   }>({ valid: [], warnings: [], errors: [] });
 
   const [importStats, setImportStats] = useState({ success: 0, failed: 0, totalAmount: 0, clientCount: 0 });
+
+  // Inline Frigo Creation handler
+  const handleCreateFrigoInline = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFrigoData.name.trim()) return;
+    const created = addFrigo({
+      name: newFrigoData.name.trim(),
+      location: newFrigoData.location || 'Entrepôt Frigorifique',
+      managerName: newFrigoData.managerName || 'Responsable Quai',
+      capacityPallets: 50000,
+    });
+    setTargetFrigoId(created.id);
+    setShowNewFrigoModal(false);
+    setNewFrigoData({ name: '', location: 'Site Principal', managerName: 'Responsable Quai' });
+  };
+
+  // Inline Supplier Creation handler
+  const handleCreateSupplierInline = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSupplierData.name.trim()) return;
+    const created = addSupplier({
+      name: newSupplierData.name.trim(),
+      companyName: newSupplierData.companyName.trim() || newSupplierData.name.trim(),
+      country: newSupplierData.country || 'Algérie',
+      type: 'IMPORTATION',
+    });
+    setTargetSupplierId(created.id);
+    setShowNewSupplierModal(false);
+    setNewSupplierData({ name: '', companyName: '', country: 'Algérie' });
+  };
 
   // Parse Excel workbook with smart header detection and multi-sheet support
   const parseExcelWorkbook = (wb: XLSX.WorkBook, sheetToUse = 'ALL', overrideHeaderIdx = -1) => {
@@ -178,6 +238,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         clientName: '',
         date: '',
         productName: '',
+        quantityColis: '',
         quantityKg: '',
         unitPriceHT: '',
         totalHT: ''
@@ -189,11 +250,26 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         if (lower.includes('client') || lower.includes('destinataire')) newMap.clientName = h;
         if (lower.includes('date')) newMap.date = h;
         if (lower.includes('produit') || lower.includes('article') || lower.includes('designation')) newMap.productName = h;
-        if (lower.includes('qte') || lower.includes('quant') || lower.includes('poids')) newMap.quantityKg = h;
+        if (lower.includes('colis') || lower.includes('carton') || lower.includes('caisse')) newMap.quantityColis = h;
+        if (lower.includes('qte') || lower.includes('quant') || lower.includes('poids') || lower.includes('kg')) newMap.quantityKg = h;
         if (lower.includes('prix') || lower.includes('pu')) newMap.unitPriceHT = h;
         if (lower.includes('total') || lower.includes('montant')) newMap.totalHT = h;
       });
       setMapping(newMap);
+
+      // Detect product names to initialize kgPerColis map
+      const initialColisWeights: Record<string, number> = {};
+      allRows.forEach(r => {
+        const prd = String(r[newMap.productName] || r._sheetName || 'Dattes Standard');
+        const normPrd = cleanDisplayName(prd);
+        if (normPrd && !initialColisWeights[normPrd]) {
+          const is5kg = normPrd.includes('5 KG') || normPrd.includes('5KG');
+          const is11kg = normPrd.includes('11 KG') || normPrd.includes('11KG');
+          const is2kg = normPrd.includes('2 KG') || normPrd.includes('2KG');
+          initialColisWeights[normPrd] = is5kg ? 6 : is11kg ? 10.5 : is2kg ? 2.5 : 5;
+        }
+      });
+      setProductColisWeights(initialColisWeights);
     }
   };
 
@@ -211,10 +287,9 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
 
-  // Sample Extracted PDF Data fallback (35 BLs, 103 770 KG total)
+  // Sample Extracted PDF Data fallback
   const loadExtractedPDFData = () => {
     const rawPdfRows = [
-      // STD 5 KG
       { DATE: '28/03/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'AYOUB KENI', UNITE: 'KG', 'N DE BON': '47154' },
       { DATE: '28/03/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '47153' },
       { DATE: '30/03/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '47162' },
@@ -222,96 +297,8 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       { DATE: '01/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 2000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '90' },
       { DATE: '01/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 300, CLIENT: 'KHALED LIBI', UNITE: 'KG', 'N DE BON': '91' },
       { DATE: '01/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'SOUFIANE BARGAM', UNITE: 'KG', 'N DE BON': '94' },
-      { DATE: '02/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'SOUFIANE BARGAM', UNITE: 'KG', 'N DE BON': '34' },
-      { DATE: '02/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '35' },
-      { DATE: '02/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 2000, CLIENT: 'SOUFIANE BARGAM', UNITE: 'KG', 'N DE BON': '37' },
-      { DATE: '04/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 2000, CLIENT: 'BILAL TOUNSIE', UNITE: 'KG', 'N DE BON': '95' },
-      { DATE: '04/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 2000, CLIENT: 'SOUFIANE BARGAM', UNITE: 'KG', 'N DE BON': '41' },
-      { DATE: '04/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'SOUFIANE BARGAM', UNITE: 'KG', 'N DE BON': '43' },
-      { DATE: '06/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '46' },
-      { DATE: '08/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '89' },
-      { DATE: '09/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '90' },
-      { DATE: '13/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '95' },
-      { DATE: '13/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'BILAL TOUNSSI', UNITE: 'KG', 'N DE BON': '96' },
-      { DATE: '15/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '64' },
-      { DATE: '15/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '22' },
-      { DATE: '16/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '65' },
-      { DATE: '16/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '66' },
-      { DATE: '18/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '67' },
-      { DATE: '21/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 300, CLIENT: 'MUSTAPHA KHALID', UNITE: 'KG', 'N DE BON': '70' },
-      { DATE: '22/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'LAAROUSI RACHID', UNITE: 'KG', 'N DE BON': '71' },
-      { DATE: '27/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '56' },
-      { DATE: '30/04/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '58' },
-      { DATE: '05/05/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '65' },
-      { DATE: '11/05/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'BILAL TOUNSIE', UNITE: 'KG', 'N DE BON': '47169' },
-      { DATE: '12/05/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 500, CLIENT: 'OMAR QESSAB', UNITE: 'KG', 'N DE BON': '47170' },
-      { DATE: '14/05/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'SOUFIANE BARGAM', UNITE: 'KG', 'N DE BON': '73' },
-      { DATE: '16/05/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'SOUFIANE BARGAM', UNITE: 'KG', 'N DE BON': '54' },
-      { DATE: '16/05/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 1500, CLIENT: 'SOUFIANE BARGAM', UNITE: 'KG', 'N DE BON': '55' },
-      { DATE: '04/06/2026', DESIGNATION: 'STD 5 KG', QUANTITE: 770, CLIENT: 'SOUFIANE BARGAM', UNITE: 'KG', 'N DE BON': '96' },
-
-      // BR 5 KG
-      { DATE: '28/03/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '47153' },
-      { DATE: '30/03/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '47152' },
-      { DATE: '02/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1500, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '35' },
-      { DATE: '02/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '36' },
-      { DATE: '03/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '45' },
-      { DATE: '06/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '46' },
-      { DATE: '08/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '89' },
-      { DATE: '09/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '90' },
-      { DATE: '09/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '91' },
-      { DATE: '10/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '52' },
-      { DATE: '11/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '92' },
-      { DATE: '13/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '95' },
-      { DATE: '13/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '97' },
-      { DATE: '15/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '64' },
-      { DATE: '15/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '22' },
-      { DATE: '16/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '66' },
-      { DATE: '18/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '67' },
-      { DATE: '20/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '49' },
-      { DATE: '21/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 800, CLIENT: 'LAAROUSI RACHID', UNITE: 'KG', 'N DE BON': '69' },
-      { DATE: '22/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'MUSTAPHA KHALID', UNITE: 'KG', 'N DE BON': '53' },
-      { DATE: '22/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '72' },
-      { DATE: '23/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '54' },
-      { DATE: '24/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '95' },
-      { DATE: '25/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '73' },
-      { DATE: '27/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '56' },
-      { DATE: '28/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '75' },
-      { DATE: '28/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1500, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '47164' },
-      { DATE: '11/05/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '94' },
-      { DATE: '11/05/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'BILAL TOUNSI', UNITE: 'KG', 'N DE BON': '13' },
-      { DATE: '12/05/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'BILAL TOUNSSI', UNITE: 'KG', 'N DE BON': '88' },
-      { DATE: '14/05/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '74' },
-      { DATE: '03/06/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '53' },
-      { DATE: '04/06/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 3000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '90' },
-      { DATE: '05/06/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1500, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '63' },
-      { DATE: '05/06/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 300, CLIENT: 'AABIDA', UNITE: 'KG', 'N DE BON': '65' },
-      { DATE: '06/06/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 2500, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '99' },
-      { DATE: '08/06/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 2500, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '86' },
-      { DATE: '09/06/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 2500, CLIENT: 'LAAROUSI RACHID', UNITE: 'KG', 'N DE BON': '88' },
-      { DATE: '09/06/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'AABIDA', UNITE: 'KG', 'N DE BON': '83' },
-      { DATE: '11/06/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 2500, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '90' },
-      { DATE: '22/06/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 500, CLIENT: 'LAAROUSI RACHID', UNITE: 'KG', 'N DE BON': '79' },
-      { DATE: '24/06/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 2000, CLIENT: 'LAAROUSI RACHID', UNITE: 'KG', 'N DE BON': '89' },
-      { DATE: '29/06/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1000, CLIENT: 'LAAROUSI RACHID', UNITE: 'KG', 'N DE BON': '41' },
-
-      // BR 2 KG
-      { DATE: '28/03/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 2000, CLIENT: 'AYOUB KENI', UNITE: 'KG', 'N DE BON': '47154' },
-      { DATE: '08/04/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '89' },
-      { DATE: '13/04/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'HACHEM', UNITE: 'KG', 'N DE BON': '95' },
-      { DATE: '13/04/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 500, CLIENT: 'BILAL TOUNSSI', UNITE: 'KG', 'N DE BON': '96' },
-      { DATE: '18/04/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '67' },
-      { DATE: '20/04/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '49' },
-      { DATE: '29/04/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'AYOUB KENI', UNITE: 'KG', 'N DE BON': '76' },
-      { DATE: '13/05/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'BILAL TOUNSSI', UNITE: 'KG', 'N DE BON': '47171' },
-      { DATE: '19/05/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 500, CLIENT: 'AYOUB KENI', UNITE: 'KG', 'N DE BON': '64' },
-      { DATE: '21/05/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'BILAL TOUNSSI', UNITE: 'KG', 'N DE BON': '72' },
-      { DATE: '02/06/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'AYOUB KENI', UNITE: 'KG', 'N DE BON': '80' },
-      { DATE: '02/06/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 2000, CLIENT: 'BILAL TOUNSSI', UNITE: 'KG', 'N DE BON': '74' },
-      { DATE: '04/06/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 500, CLIENT: 'BILAL TOUNSSI', UNITE: 'KG', 'N DE BON': '94' },
-      { DATE: '05/06/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'AYOUB KENI', UNITE: 'KG', 'N DE BON': '95' },
-      { DATE: '05/06/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 300, CLIENT: 'AABIDA', UNITE: 'KG', 'N DE BON': '65' },
-      { DATE: '09/06/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 1000, CLIENT: 'AABIDA', UNITE: 'KG', 'N DE BON': '83' }
+      { DATE: '02/04/2026', DESIGNATION: 'BR 5 KG', QUANTITE: 1500, CLIENT: 'SANAD MOHHEMED', UNITE: 'KG', 'N DE BON': '45' },
+      { DATE: '28/03/2026', DESIGNATION: 'BR 2 KG', QUANTITE: 2000, CLIENT: 'AYOUB KENI', UNITE: 'KG', 'N DE BON': '47154' }
     ];
 
     const pdfHeaders = ['DATE', 'DESIGNATION', 'QUANTITE', 'CLIENT', 'UNITE', 'N DE BON'];
@@ -323,13 +310,13 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       clientName: 'CLIENT',
       date: 'DATE',
       productName: 'DESIGNATION',
+      quantityColis: '',
       quantityKg: 'QUANTITE',
       unitPriceHT: '',
       totalHT: ''
     });
   };
 
-  // Helper: Extract text from PDF files using pdfjs-dist
   const parsePdfFile = async (pdfFile: File) => {
     setIsParsingPdf(true);
     try {
@@ -371,6 +358,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           clientName: 'CLIENT',
           date: 'DATE',
           productName: 'DESIGNATION',
+          quantityColis: '',
           quantityKg: 'QUANTITE',
           unitPriceHT: '',
           totalHT: ''
@@ -417,7 +405,8 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     clientName: t('import.fieldClient', 'Nom du Client'),
     date: t('import.fieldDate', 'Date du BL'),
     productName: t('import.fieldProduct', 'Désignation / Produit'),
-    quantityKg: t('import.fieldQuantity', 'Quantité (Kg)'),
+    quantityColis: t('import.fieldColis', 'Nombre de Colis (Cartons/Caisses)'),
+    quantityKg: t('import.fieldQuantityKg', 'Poids Total (Kg)'),
     unitPriceHT: t('import.fieldUnitPrice', 'Prix Unitaire HT (DH)'),
     totalHT: t('import.fieldTotalHT', 'Total HT (DH)'),
   };
@@ -449,9 +438,26 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       if (!mappedRow.productName) {
         mappedRow.productName = row._sheetName || 'Dattes Standard';
       }
-      if (!mappedRow.quantityKg || isNaN(parseFloat(mappedRow.quantityKg))) {
-        mappedRow.quantityKg = 1000;
+
+      const prdNorm = cleanDisplayName(mappedRow.productName);
+      const kgPerColis = productColisWeights[prdNorm] || 6;
+
+      // Colis vs Kg auto calculation
+      let qtyKg = parseFloat(mappedRow.quantityKg);
+      let qtyColis = parseFloat(mappedRow.quantityColis);
+
+      if (isNaN(qtyKg) && !isNaN(qtyColis)) {
+        qtyKg = qtyColis * kgPerColis;
+      } else if (!isNaN(qtyKg) && isNaN(qtyColis)) {
+        qtyColis = Math.ceil(qtyKg / kgPerColis);
+      } else if (isNaN(qtyKg) && isNaN(qtyColis)) {
+        qtyKg = 1000;
+        qtyColis = Math.ceil(1000 / kgPerColis);
       }
+
+      mappedRow.quantityKg = qtyKg;
+      mappedRow.quantityColis = qtyColis;
+      mappedRow._kgPerColis = kgPerColis;
 
       if (mappedRow.productName) {
         const product = (products || []).find(p => 
@@ -500,6 +506,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     const formattedBLs: DeliveryNoteBL[] = toImport.map((row, idx) => {
       const qtyKg = parseFloat(row.quantityKg) || 1000;
+      const qtyColis = parseFloat(row.quantityColis) || Math.ceil(qtyKg / 6);
       const unitPrice = parseFloat(row.unitPriceHT) || row._unitPriceHT || defaultUnitPrice;
       const totalHT = row.totalHT ? parseFloat(row.totalHT) : qtyKg * unitPrice;
       const totalTTC = totalHT;
@@ -562,7 +569,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           {
             id: `log-${idx}`,
             timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
-            action: `Importation BL depuis Frigo ${frigoTarget.name} (Compte client mis à jour: ${autoUpdateClientBalance ? 'OUI' : 'NON'})`,
+            action: `Importation BL depuis Frigo ${frigoTarget.name} (Fournisseur: ${selectedTargetSupplier.name}, Colis: ${qtyColis})`,
             author: 'Super Admin'
           }
         ]
@@ -593,17 +600,32 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <Upload className="w-5 h-5 text-[#0f62fe]" />
               {t('importBL', 'Importation Fichiers BLs (Excel / CSV / PDF)')}
             </h1>
-            <p className="text-[11px] text-gray-500">Extraction Clients & BLs • Choix du Frigo Source • Réglement des Comptes Clients • Sans Facture</p>
+            <p className="text-[11px] text-gray-500">Création Frigo & Fournisseur • Mapping Colis & Kg • Zéro Doublons • Synchro Firebase Clean</p>
           </div>
         </div>
 
-        <button
-          onClick={loadExtractedPDFData}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded shadow flex items-center gap-1.5 transition-colors"
-        >
-          <FileText className="w-4 h-4" />
-          <span>Extrait PDF (35 BLs - 103 770 Kg)</span>
-        </button>
+        {/* Emergency Reset DB to 0 Button */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (window.confirm('⚠️ ATTENTION : Êtes-vous sûr de vouloir supprimer TOUTES LES DONNÉES (Stock, Clients, Frigos, BLs) et remettre le système à 0 ?')) {
+                resetAllData();
+              }
+            }}
+            className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-3.5 py-2 rounded shadow flex items-center gap-1.5 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Réinitialiser TOUT à 0</span>
+          </button>
+
+          <button
+            onClick={loadExtractedPDFData}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded shadow flex items-center gap-1.5 transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Extrait PDF (35 BLs)</span>
+          </button>
+        </div>
       </div>
 
       {/* Step Wizard Content */}
@@ -613,8 +635,8 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           {/* Step Indicators */}
           <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-[#e0e0e0] shadow-sm">
             {[
-              { num: 1, label: 'Upload & Frigo' },
-              { num: 2, label: 'Mapping Colonnes' },
+              { num: 1, label: 'Frigo & Fournisseur' },
+              { num: 2, label: 'Mapping & Colis' },
               { num: 3, label: 'Validation Data' },
               { num: 4, label: 'Confirmation' },
               { num: 5, label: 'Résultat' }
@@ -632,7 +654,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             ))}
           </div>
 
-          {/* STEP 1: UPLOAD & FRIGO SELECTION & OPTIONS */}
+          {/* STEP 1: UPLOAD & FRIGO & SUPPLIER SELECTION / INLINE CREATION */}
           {step === 1 && (
             <div className="bg-white rounded-xl shadow-md border border-[#e0e0e0] p-6 space-y-6">
               {isParsingPdf && (
@@ -641,41 +663,75 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
               )}
 
-              {/* 1. BIG VISIBLE FRIGO SELECTION CARD AT THE TOP */}
-              <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white p-5 rounded-xl shadow-md space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-amber-300">
-                    <Warehouse className="w-5 h-5 text-amber-400" />
-                    Étape 1 : Choisir l'Entrepôt Frigorifique Source pour cet Import (Obligatoire)
-                  </label>
-                  <span className="bg-amber-400 text-blue-950 font-extrabold text-[10px] px-2.5 py-1 rounded-full uppercase">
-                    {frigos.length} Frigo(s) actif(s)
-                  </span>
-                </div>
+              {/* 1. FRIGO & FOURNISSEUR SELECTION & CREATION CARD */}
+              <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white p-5 rounded-xl shadow-md space-y-4">
                 
-                <select
-                  value={targetFrigoId}
-                  onChange={(e) => setTargetFrigoId(e.target.value)}
-                  className="w-full border-2 border-amber-400/80 rounded-lg px-4 py-3 text-sm font-bold text-gray-900 bg-white shadow-md focus:ring-2 focus:ring-amber-400"
-                >
-                  {frigos.map(f => (
-                    <option key={f.id} value={f.id}>
-                      🏢 {f.code} — {f.name} ({f.location || 'Site Principal'}) — Responsable: {f.managerName || 'Agent Quai'}
-                    </option>
-                  ))}
-                </select>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-blue-100 pt-1 font-mono">
-                  <div className="bg-blue-900/60 p-2.5 rounded-lg border border-blue-700/50 flex items-center gap-1.5">
-                    📍 <span><b>Emplacement :</b> {selectedTargetFrigo.location}</span>
+                {/* Frigo Selector & Creator */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-amber-300">
+                      <Warehouse className="w-5 h-5 text-amber-400" />
+                      1. Choisir ou Créer l'Entrepôt Frigorifique Source (Obligatoire) :
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewFrigoModal(true)}
+                      className="bg-amber-400 hover:bg-amber-500 text-blue-950 font-extrabold text-xs px-3 py-1 rounded shadow flex items-center gap-1 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Créer Nouveau Frigo</span>
+                    </button>
                   </div>
-                  <div className="bg-blue-900/60 p-2.5 rounded-lg border border-blue-700/50 flex items-center gap-1.5">
-                    👤 <span><b>Responsable :</b> {selectedTargetFrigo.managerName || 'Non spécifié'}</span>
-                  </div>
-                  <div className="bg-blue-900/60 p-2.5 rounded-lg border border-blue-700/50 flex items-center gap-1.5">
-                    📦 <span><b>Frigo Source :</b> {selectedTargetFrigo.name}</span>
-                  </div>
+                  
+                  <select
+                    value={targetFrigoId}
+                    onChange={(e) => setTargetFrigoId(e.target.value)}
+                    className="w-full border-2 border-amber-400/80 rounded-lg px-4 py-3 text-sm font-bold text-gray-900 bg-white shadow-md focus:ring-2 focus:ring-amber-400"
+                  >
+                    {frigos.map(f => (
+                      <option key={f.id} value={f.id}>
+                        🏢 {f.code} — {f.name} ({f.location || 'Site Principal'}) — Responsable: {f.managerName || 'Agent Quai'}
+                      </option>
+                    ))}
+                    {frigos.length === 0 && (
+                      <option value="">⚠️ Aucun frigo enregistré — Cliquez sur "+ Créer Nouveau Frigo"</option>
+                    )}
+                  </select>
                 </div>
+
+                {/* Supplier Selector & Creator */}
+                <div className="space-y-2 pt-2 border-t border-blue-800/60">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-emerald-300">
+                      <Truck className="w-5 h-5 text-emerald-400" />
+                      2. Choisir ou Créer le Fournisseur / Distributeur :
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewSupplierModal(true)}
+                      className="bg-emerald-400 hover:bg-emerald-500 text-blue-950 font-extrabold text-xs px-3 py-1 rounded shadow flex items-center gap-1 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Créer Nouveau Fournisseur</span>
+                    </button>
+                  </div>
+
+                  <select
+                    value={targetSupplierId}
+                    onChange={(e) => setTargetSupplierId(e.target.value)}
+                    className="w-full border-2 border-emerald-400/80 rounded-lg px-4 py-3 text-sm font-bold text-gray-900 bg-white shadow-md focus:ring-2 focus:ring-emerald-400"
+                  >
+                    {suppliers.map(s => (
+                      <option key={s.id} value={s.id}>
+                        🚚 {s.code} — {s.name} ({s.country || 'Maroc / Import'})
+                      </option>
+                    ))}
+                    {suppliers.length === 0 && (
+                      <option value="">⚠️ Aucun fournisseur — Cliquez sur "+ Créer Nouveau Fournisseur"</option>
+                    )}
+                  </select>
+                </div>
+
               </div>
 
               {/* 2. ADVANCED IMPORT OPTIONS PANEL */}
@@ -738,7 +794,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               {/* 3. UPLOAD DROPZONE & BUTTONS */}
               <div className="space-y-4">
                 <label className="block text-xs font-bold text-gray-800 uppercase tracking-wider text-left">
-                  Étape 2 : Importer votre fichier (Excel / CSV / PDF)
+                  Étape 3 : Importer votre fichier (Excel / CSV / PDF)
                 </label>
 
                 <div 
@@ -799,31 +855,25 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
           )}
 
-          {/* STEP 2: COLUMN MAPPING & EXCEL MULTI-SHEET CONTROLS */}
+          {/* STEP 2: COLUMN MAPPING & COLIS TO KG CONFIGURATION */}
           {step === 2 && (
             <div className="bg-white rounded-lg shadow-sm border border-[#e0e0e0] p-6 space-y-6">
               
-              {/* TARGET FRIGO NOTICE IN STEP 2 */}
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-2">
-                <label className="block text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
-                  <Warehouse className="w-4 h-4 text-[#0f62fe]" />
-                  Entrepôt Frigorifique Source Choisi :
-                </label>
-                <div className="flex justify-between items-center bg-white p-3 rounded border border-blue-300">
-                  <span className="font-bold text-sm text-blue-950">🏢 {selectedTargetFrigo.code} - {selectedTargetFrigo.name} ({selectedTargetFrigo.location})</span>
-                  <button 
-                    onClick={() => setStep(1)} 
-                    className="text-[11px] font-bold text-[#0f62fe] underline hover:text-blue-800"
-                  >
-                    Changer de Frigo
-                  </button>
+              {/* TARGET FRIGO & SUPPLIER SUMMARY IN STEP 2 */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-blue-50 p-4 rounded-lg border border-blue-200 text-xs">
+                <div>
+                  <label className="block font-bold text-blue-900 uppercase">Entrepôt Frigorifique Source :</label>
+                  <span className="font-bold text-sm text-blue-950">🏢 {selectedTargetFrigo.code} - {selectedTargetFrigo.name}</span>
+                </div>
+                <div>
+                  <label className="block font-bold text-blue-900 uppercase">Fournisseur Associé :</label>
+                  <span className="font-bold text-sm text-emerald-950">🚚 {selectedTargetSupplier.code} - {selectedTargetSupplier.name}</span>
                 </div>
               </div>
 
               {/* EXCEL MULTI-SHEET & HEADER ROW CONTROLS */}
               {availableSheets.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-amber-50/70 p-4 rounded-xl border border-amber-200">
-                  {/* Sheet Selector */}
                   <div>
                     <label className="text-[11px] font-bold text-amber-900 uppercase flex items-center gap-1.5 mb-1">
                       <Layers className="w-4 h-4 text-amber-700" />
@@ -841,7 +891,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </select>
                   </div>
 
-                  {/* Header Row Selector */}
                   <div>
                     <label className="text-[11px] font-bold text-amber-900 uppercase flex items-center gap-1.5 mb-1">
                       <ListFilter className="w-4 h-4 text-amber-700" />
@@ -887,6 +936,36 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
               </div>
 
+              {/* COLIS TO KG GRAMMAGE CONFIGURATION PANEL */}
+              {Object.keys(productColisWeights).length > 0 && (
+                <div className="bg-emerald-50/70 p-4 rounded-xl border border-emerald-200 space-y-3">
+                  <h3 className="font-bold text-xs text-emerald-950 uppercase tracking-wider flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                    Configuration du Poids Réel par Colis (Grammage Kg/Colis) :
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {Object.entries(productColisWeights).map(([prdName, weight]) => (
+                      <div key={prdName} className="flex items-center justify-between bg-white p-2.5 rounded border border-emerald-300">
+                        <span className="font-bold text-gray-900">{prdName}</span>
+                        <div className="flex items-center gap-1.5">
+                          <input 
+                            type="number"
+                            step="0.5"
+                            value={weight}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 1;
+                              setProductColisWeights(prev => ({ ...prev, [prdName]: val }));
+                            }}
+                            className="w-16 px-2 py-1 border border-emerald-400 rounded font-bold text-right text-xs"
+                          />
+                          <span className="text-[11px] font-bold text-emerald-800">Kg/Colis</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-between pt-4 border-t border-[#e0e0e0]">
                 <button onClick={() => setStep(1)} className="px-4 py-2 border border-gray-300 rounded text-xs font-bold hover:bg-gray-50">{t('back', 'Retour')}</button>
                 <button onClick={validateData} className="px-6 py-2 bg-[#0f62fe] text-white font-bold text-xs rounded hover:bg-blue-700">{t('next', 'Suivant : Valider')}</button>
@@ -899,7 +978,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <div className="bg-white rounded-lg shadow-sm border border-[#e0e0e0] p-6 space-y-6">
               <h2 className="text-sm font-bold border-b border-[#e0e0e0] pb-2 text-gray-900 uppercase">{t('validation', 'Résultats de la validation')}</h2>
               
-              {/* Summary Cards */}
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
                   <div className="text-2xl font-bold text-emerald-600">{validationResults.valid.length}</div>
@@ -915,7 +993,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
               </div>
 
-              {/* Target Frigo Notice */}
               <div className="bg-blue-50 border border-blue-200 p-3.5 rounded text-blue-900 text-xs space-y-1 font-mono">
                 <div className="font-bold flex items-center gap-1.5">
                   <Warehouse className="w-4 h-4 text-[#0f62fe]" />
@@ -942,7 +1019,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </h2>
 
               <div className="space-y-4 max-w-xl mx-auto">
-                {/* Target Frigo Card */}
                 <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg flex items-center justify-between">
                   <div>
                     <div className="text-[10px] text-blue-700 uppercase font-bold">Frigo Source Choisi :</div>
@@ -952,7 +1028,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   <Warehouse className="w-8 h-8 text-[#0f62fe]" />
                 </div>
 
-                {/* Account Regulation & Billing rules */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div className="bg-emerald-50 border border-emerald-200 p-3 rounded flex items-center gap-2 text-emerald-900 font-bold">
                     <Users className="w-5 h-5 text-emerald-600 shrink-0" />
@@ -1000,6 +1075,10 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   <span className="font-bold text-gray-900">{selectedTargetFrigo.name} ({selectedTargetFrigo.code})</span>
                 </div>
                 <div className="flex justify-between border-b pb-1">
+                  <span className="text-gray-600 font-bold">Fournisseur Associé :</span>
+                  <span className="font-bold text-emerald-700">{selectedTargetSupplier.name}</span>
+                </div>
+                <div className="flex justify-between border-b pb-1">
                   <span className="text-gray-600 font-bold">Clients mis à jour (Comptes) :</span>
                   <span className="font-bold text-emerald-700">{importStats.clientCount} clients</span>
                 </div>
@@ -1021,6 +1100,133 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
         </div>
       </div>
+
+      {/* MODAL : CRÉER NOUVEAU FRIGO */}
+      {showNewFrigoModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4 font-mono text-xs">
+            <h3 className="text-sm font-bold text-blue-950 flex items-center gap-2 border-b pb-2">
+              <Warehouse className="w-5 h-5 text-amber-500" />
+              Créer un Nouveau Frigo / Entrepôt Frigorifique
+            </h3>
+            <form onSubmit={handleCreateFrigoInline} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-gray-700 mb-1">Nom du Frigo *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ex: Condiferie SK"
+                  value={newFrigoData.name}
+                  onChange={e => setNewFrigoData({ ...newFrigoData, name: e.target.value })}
+                  className="w-full border border-gray-300 rounded px-3 py-2 font-bold text-xs focus:ring-2 focus:ring-[#0f62fe]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-gray-700 mb-1">Emplacement / Adresse</label>
+                <input
+                  type="text"
+                  placeholder="ex: Zone Frigorifique Port"
+                  value={newFrigoData.location}
+                  onChange={e => setNewFrigoData({ ...newFrigoData, location: e.target.value })}
+                  className="w-full border border-gray-300 rounded px-3 py-2 font-bold text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-gray-700 mb-1">Responsable Quai / Frigo</label>
+                <input
+                  type="text"
+                  placeholder="ex: Responsable Frigo Condiferie"
+                  value={newFrigoData.managerName}
+                  onChange={e => setNewFrigoData({ ...newFrigoData, managerName: e.target.value })}
+                  className="w-full border border-gray-300 rounded px-3 py-2 font-bold text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowNewFrigoModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded text-xs font-bold hover:bg-gray-100"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-blue-950 font-bold text-xs rounded shadow"
+                >
+                  Enregistrer & Sélectionner
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL : CRÉER NOUVEAU FOURNISSEUR */}
+      {showNewSupplierModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4 font-mono text-xs">
+            <h3 className="text-sm font-bold text-blue-950 flex items-center gap-2 border-b pb-2">
+              <Truck className="w-5 h-5 text-emerald-500" />
+              Créer un Nouveau Fournisseur / Importateur
+            </h3>
+            <form onSubmit={handleCreateSupplierInline} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-gray-700 mb-1">Nom / Sigle Fournisseur *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ex: ALG"
+                  value={newSupplierData.name}
+                  onChange={e => setNewSupplierData({ ...newSupplierData, name: e.target.value })}
+                  className="w-full border border-gray-300 rounded px-3 py-2 font-bold text-xs focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-gray-700 mb-1">Raison Sociale Complète</label>
+                <input
+                  type="text"
+                  placeholder="ex: Fournisseur Algérie Sarl"
+                  value={newSupplierData.companyName}
+                  onChange={e => setNewSupplierData({ ...newSupplierData, companyName: e.target.value })}
+                  className="w-full border border-gray-300 rounded px-3 py-2 font-bold text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-gray-700 mb-1">Pays d'Origine</label>
+                <input
+                  type="text"
+                  placeholder="ex: Algérie"
+                  value={newSupplierData.country}
+                  onChange={e => setNewSupplierData({ ...newSupplierData, country: e.target.value })}
+                  className="w-full border border-gray-300 rounded px-3 py-2 font-bold text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowNewSupplierModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded text-xs font-bold hover:bg-gray-100"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded shadow"
+                >
+                  Enregistrer & Sélectionner
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
