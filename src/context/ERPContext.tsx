@@ -46,41 +46,41 @@ import { collection, doc, setDoc, deleteDoc, getDocs, onSnapshot, writeBatch } f
 export const DEFAULT_COMPANIES: CompanyEntity[] = [
   {
     id: 'STE_1',
-    code: 'STE1',
-    name: 'EZ Dattes Négoce SARL',
-    shortName: 'Sté Principale (Dattes)',
-    ice: '001234567000089',
-    taxId: '54321098',
-    rc: '123456',
-    patent: '34567890',
-    capital: '1 000 000 DH',
-    address: 'Avenue Hassan II, Quartier Industriel',
-    city: 'Casablanca',
-    phone: '+212 5 22 33 44 55',
-    email: 'contact@ezdattes.ma',
-    bankName: 'Attijariwafa Bank',
-    bankRib: '007 780 0001234567890123 45',
-    blPrefix: 'BL-STE1',
-    invoicePrefix: 'FAC-STE1'
+    code: 'MLHMD',
+    name: 'MLHMD Sarl',
+    shortName: 'MLHMD',
+    ice: '',
+    taxId: '',
+    rc: '',
+    patent: '',
+    capital: '',
+    address: '',
+    city: '',
+    phone: '',
+    email: '',
+    bankName: '',
+    bankRib: '',
+    blPrefix: 'BL-MLHMD',
+    invoicePrefix: 'FAC-MLHMD'
   },
   {
     id: 'STE_2',
-    code: 'STE2',
-    name: 'EZ Frigo Logistique SARL',
-    shortName: 'Sté Sœur (Logistique)',
-    ice: '009876543000012',
-    taxId: '87654321',
-    rc: '654321',
-    patent: '98765432',
-    capital: '500 000 DH',
-    address: 'Zone Frigorifique Portuaire',
-    city: 'Casablanca',
-    phone: '+212 5 22 88 99 00',
-    email: 'logistique@ezfrigo.ma',
-    bankName: 'BMCE Bank of Africa',
-    bankRib: '011 780 0009876543210987 65',
-    blPrefix: 'BL-STE2',
-    invoicePrefix: 'FAC-STE2'
+    code: 'AINRAB',
+    name: 'Ain Rabat Sarl',
+    shortName: 'Ain Rabat',
+    ice: '',
+    taxId: '',
+    rc: '',
+    patent: '',
+    capital: '',
+    address: '',
+    city: '',
+    phone: '',
+    email: '',
+    bankName: '',
+    bankRib: '',
+    blPrefix: 'BL-AINRAB',
+    invoicePrefix: 'FAC-AINRAB'
   }
 ];
 
@@ -375,88 +375,35 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('erp_current_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
-  // Automatic Recovery: If an Invoice exists in system, but its parent BL is missing from deliveryNotes, reconstruct and restore the BL!
+  // Initial seed effect: sync Excel BLs, Products, Frigo, Supplier, Clients to Firestore if not wiped
   useEffect(() => {
-    if (!invoices || invoices.length === 0) return;
+    if (isWiped) return;
 
-    const missingInvoices = invoices.filter(inv => {
-      const foundBL = deliveryNotes.find(b => 
-        (inv.blId && b.id === inv.blId) || 
-        (inv.invoiceNumber && b.invoiceNumber === inv.invoiceNumber) ||
-        (inv.blId && b.blNumber === inv.blId)
-      );
-      return !foundBL;
+    // Seed Products
+    INITIAL_PRODUCTS.forEach(p => {
+      setDoc(doc(db, 'products', p.id), sanitizeForFirestore(p), { merge: true }).catch(() => {});
     });
 
-    if (missingInvoices.length > 0) {
-      const recoveredBLs: DeliveryNoteBL[] = missingInvoices.map((inv, idx) => {
-        const blId = inv.blId || `bl-recovered-${inv.id}`;
-        const blNumber = inv.invoiceNumber ? `BL-${inv.invoiceNumber.replace(/^FAC-?/i, '')}` : `BL-REC-${idx + 1}`;
-        
-        return {
-          id: blId,
-          companyId: inv.companyId || activeCompanyId,
-          blNumber,
-          orderId: inv.orderId || '',
-          orderNumber: '',
-          clientId: inv.clientId,
-          clientName: inv.clientName,
-          clientAddress: inv.clientAddress || '',
-          frigoId: 'frigo-1',
-          frigoName: 'Frigo MFADEL',
-          date: inv.date || new Date().toISOString().slice(0, 10),
-          items: (inv.items || []).map((it, itemIdx) => ({
-            id: `item-rec-${idx}-${itemIdx}`,
-            productId: it.productId || `prd-rec-${itemIdx}`,
-            productCode: it.productCode || it.productName || 'DATTES',
-            productName: it.productName || it.productCode || 'Dattes Standard',
-            quantityKg: it.quantityKg || 0,
-            quantityPallets: it.quantityPallets || 0,
-            unitPriceHT: it.unitPriceHT || 50,
-            totalHT: it.totalHT || 0,
-            totalTTC: it.totalTTC || ((it.totalHT || 0) * 1.20) || 0,
-          })),
-          totalKg: inv.items ? inv.items.reduce((sum, it) => sum + (it.quantityKg || 0), 0) : 0,
-          totalPallets: inv.items ? inv.items.reduce((sum, it) => sum + (it.quantityPallets || 0), 0) : 0,
-          totalHT: inv.totalHT || 0,
-          totalTTC: inv.totalTTC || 0,
-          frigoEmployeeApproved: true,
-          frigoApprovedBy: 'Agent Frigo MFADEL',
-          signedByClient: true,
-          whatsappSent: true,
-          emailSent: false,
-          status: 'FACTURÉ',
-          invoiceId: inv.id,
-          invoiceNumber: inv.invoiceNumber,
-          stockDecremented: true,
-          stockDeductedV2: true,
-          logs: [
-            {
-              id: `log-rec-${Date.now()}-${idx}`,
-              timestamp: inv.date || new Date().toISOString().slice(0, 16).replace('T', ' '),
-              action: `Restauré automatiquement d'après la Facture Client ${inv.invoiceNumber}`,
-              author: 'Système ERP'
-            }
-          ]
-        };
-      });
+    // Seed Frigos
+    INITIAL_FRIGOS.forEach(f => {
+      setDoc(doc(db, 'frigos', f.id), sanitizeForFirestore(f), { merge: true }).catch(() => {});
+    });
 
-      setDeliveryNotes(prev => {
-        const map = new Map<string, DeliveryNoteBL>();
-        prev.forEach(b => map.set(b.id, b));
-        recoveredBLs.forEach(b => {
-          if (!map.has(b.id)) map.set(b.id, b);
-        });
-        return Array.from(map.values());
-      });
+    // Seed Suppliers
+    INITIAL_SUPPLIERS.forEach(s => {
+      setDoc(doc(db, 'suppliers', s.id), sanitizeForFirestore(s), { merge: true }).catch(() => {});
+    });
 
-      recoveredBLs.forEach(bl => {
-        setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl), { merge: true }).catch(err => {
-          console.warn('Recovered BL firestore save notice:', err);
-        });
-      });
-    }
-  }, [invoices, deliveryNotes]);
+    // Seed Clients
+    INITIAL_CLIENTS.forEach(c => {
+      setDoc(doc(db, 'clients', c.id), sanitizeForFirestore(c), { merge: true }).catch(() => {});
+    });
+
+    // Seed Excel Delivery Notes
+    INITIAL_DELIVERY_NOTES.forEach(bl => {
+      setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl), { merge: true }).catch(() => {});
+    });
+  }, []);
 
   // Firestore Real-Time Syncing (Bidirectional Live Sync Desktop <-> Mobile PWA)
   useEffect(() => {
@@ -510,7 +457,12 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as DeliveryNoteBL);
       if (docs.length > 0) {
-        setDeliveryNotes(docs);
+        setDeliveryNotes(prev => {
+          const map = new Map<string, DeliveryNoteBL>();
+          INITIAL_DELIVERY_NOTES.forEach(b => map.set(b.id, b));
+          docs.forEach(b => map.set(b.id, b));
+          return Array.from(map.values());
+        });
       } else if (isWiped) {
         setDeliveryNotes([]);
       } else {
