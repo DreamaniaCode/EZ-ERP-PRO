@@ -33,7 +33,8 @@ import {
   Camera,
   Image as ImageIcon,
   Upload,
-  Scale
+  Scale,
+  Receipt
 } from 'lucide-react';
 
 
@@ -237,6 +238,35 @@ EasyERP Pro • Logistics Management`;
     navigator.clipboard.writeText(summaryText);
     alert(`Synthèse de ${selectedBLs.length} BL(s) copié dans le presse-papier ! Redirection vers le groupe WhatsApp...`);
     window.open('https://chat.whatsapp.com/demo', '_blank');
+  };
+
+  const handleBulkCreateInvoices = () => {
+    if (selectedBLIds.length === 0) return;
+    let createdCount = 0;
+
+    selectedBLIds.forEach(blId => {
+      const bl = deliveryNotes.find(b => b.id === blId);
+      if (bl) {
+        createInvoiceFromBL(bl.id);
+        createdCount++;
+      }
+    });
+
+    setSelectedBLIds([]);
+    notifySuccess(`✓ ${createdCount} Facture(s) créée(s) en masse avec succès !`);
+  };
+
+  const handleBulkDeleteBLs = () => {
+    if (selectedBLIds.length === 0) return;
+    const count = selectedBLIds.length;
+
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer définitivement ces ${count} Bon(s) de Livraison sélectionné(s) ?`)) {
+      selectedBLIds.forEach(blId => {
+        deleteBL(blId);
+      });
+      setSelectedBLIds([]);
+      notifySuccess(`✓ ${count} Bon(s) de Livraison supprimé(s) en masse avec succès !`);
+    }
   };
 
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
@@ -546,23 +576,35 @@ EasyERP Pro • Logistics Management`;
         </div>
 
         {selectedBLIds.length > 0 && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {!isFrigoRole && (
+              <button
+                type="button"
+                onClick={handleBulkCreateInvoices}
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95"
+                title="Créer toutes les factures des BLs sélectionnés en masse sans afficher de modales"
+              >
+                <Receipt className="w-4 h-4 text-emerald-200" />
+                ⚡ Créer Factures en Masse ({selectedBLIds.length})
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleBulkDeleteBLs}
+              className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95"
+              title="Supprimer définitivement les BLs sélectionnés"
+            >
+              <Trash2 className="w-4 h-4 text-red-200" />
+              🗑️ Supprimer BLs Sélectionnés ({selectedBLIds.length})
+            </button>
+
             <button
               onClick={handleBatchWhatsApp}
               className="px-3 py-1.5 bg-[#25D366] hover:bg-[#128c7e] text-white font-bold rounded flex items-center gap-1.5 transition-colors"
             >
               <MessageSquare className="w-4 h-4" />
-              Envoyer Groupe WhatsApp ({selectedBLIds.length})
-            </button>
-            <button
-              onClick={() => {
-                const first = filteredBLs.find(b => selectedBLIds.includes(b.id));
-                if (first) setActivePdfBL(first);
-              }}
-              className="px-3 py-1.5 bg-gray-900 hover:bg-black text-white font-bold rounded flex items-center gap-1.5 transition-colors"
-            >
-              <Eye className="w-4 h-4 text-[#0f62fe]" />
-              Aperçu PDF Sélection
+              WhatsApp ({selectedBLIds.length})
             </button>
           </div>
         )}
