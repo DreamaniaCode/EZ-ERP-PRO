@@ -451,12 +451,11 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubStocks = onSnapshot(collection(db, 'stocks'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as FrigoStockLevel);
-      // Keep only stocks matching the 2 real products or valid catalog items
+      // Keep stock records for valid catalog products (not orphan imp- ids)
       const validDocs = docs.filter(s => 
-        s.productId === 'prd-sibort-5kg' || 
-        s.productId === 'prd-datte-11kg' || 
-        s.productId === 'PRD-SIBORT-5KG' || 
-        s.productId === 'PRD-DATTE-11KG'
+        s.productId && 
+        !s.productId.includes('prd-imp-') &&
+        (products.some(p => p.id === s.productId) || s.productId === 'prd-sibort-5kg' || s.productId === 'prd-datte-11kg')
       );
       setStocks(validDocs);
 

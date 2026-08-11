@@ -111,6 +111,8 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [productColisWeights, setProductColisWeights] = useState<Record<string, number>>({});
   // Product Initial Stock Entry Map: Product Name -> Initial Colis Entrée
   const [productInitialStockEntrees, setProductInitialStockEntrees] = useState<Record<string, number>>({});
+  // Product Linking Map: Excel Product String -> Catalog Product ID
+  const [productMapping, setProductMapping] = useState<Record<string, string>>({});
 
   const selectedTargetFrigo = frigos.find(f => f.id === targetFrigoId) || {
     id: targetFrigoId || 'frigo-new',
@@ -524,10 +526,12 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       calculatedTotalHT += totalHT;
 
       const rawPrd = String(row.productName || '');
-      const is11kg = rawPrd.toUpperCase().includes('11');
-      const canonicalPrdName = is11kg ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG';
-      const canonicalPrdCode = is11kg ? 'PRD-DATTE-11KG' : 'PRD-SIBORT-5KG';
-      const canonicalPrdId = is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg';
+      const linkedPrdId = productMapping[rawPrd] || (rawPrd.toUpperCase().includes('11') ? 'prd-datte-11kg' : 'prd-sibort-5kg');
+      const catalogPrd = products.find(p => p.id === linkedPrdId);
+      
+      const canonicalPrdName = catalogPrd ? catalogPrd.name : (rawPrd.toUpperCase().includes('11') ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG');
+      const canonicalPrdCode = catalogPrd ? catalogPrd.code : (rawPrd.toUpperCase().includes('11') ? 'PRD-DATTE-11KG' : 'PRD-SIBORT-5KG');
+      const canonicalPrdId = catalogPrd ? catalogPrd.id : (rawPrd.toUpperCase().includes('11') ? 'prd-datte-11kg' : 'prd-sibort-5kg');
 
       const rawClient = String(row.clientName || 'Client Import');
       const clientName = cleanDisplayName(rawClient) || `CLIENT ${idx + 1}`;
@@ -962,6 +966,44 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   ))}
                 </div>
               </div>
+
+              {/* PRODUCT LINKING PANEL */}
+              {Object.keys(productColisWeights).length > 0 && (
+                <div className="bg-emerald-50/70 p-4 rounded-xl border border-emerald-200 space-y-3">
+                  <h3 className="font-bold text-xs text-emerald-950 uppercase tracking-wider flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-emerald-700" />
+                    Liaison des Produits Détectés aux Produits de votre Catalogue :
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {Object.keys(productColisWeights).map(excelPrdName => {
+                      const selectedPrdId = productMapping[excelPrdName] || (excelPrdName.includes('11') ? 'prd-datte-11kg' : 'prd-sibort-5kg');
+
+                      return (
+                        <div key={excelPrdName} className="bg-white p-3 rounded-lg border border-emerald-300 space-y-1.5 shadow-xs">
+                          <div className="text-[11px] font-bold text-gray-600">Nom détecté dans Excel :</div>
+                          <div className="font-bold text-gray-900 text-xs bg-gray-50 px-2 py-1 rounded border border-gray-200">{excelPrdName}</div>
+                          
+                          <div className="text-[11px] font-bold text-emerald-900 pt-1">Rattacher au Produit du Stock :</div>
+                          <select
+                            value={selectedPrdId}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setProductMapping(prev => ({ ...prev, [excelPrdName]: val }));
+                            }}
+                            className="w-full px-2 py-1.5 border border-emerald-400 rounded font-bold text-xs bg-emerald-50/50 text-emerald-950"
+                          >
+                            {products.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.code} - {p.name} ({p.kgPerCarton || 5} Kg/Colis)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* LIVE SAMPLE PREVIEW TABLE */}
               {parsedData.length > 0 && (
