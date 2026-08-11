@@ -397,45 +397,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('erp_current_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
-  // Initial seed effect: sync Excel BLs, Products, Frigo, Supplier, Clients to Firestore if not wiped
-  useEffect(() => {
-    if (isWiped) return;
 
-    // Seed Products
-    INITIAL_PRODUCTS.forEach(p => {
-      setDoc(doc(db, 'products', p.id), sanitizeForFirestore(p), { merge: true }).catch(() => {});
-    });
-
-    // Seed Frigos
-    INITIAL_FRIGOS.forEach(f => {
-      setDoc(doc(db, 'frigos', f.id), sanitizeForFirestore(f), { merge: true }).catch(() => {});
-    });
-
-    // Seed Suppliers
-    INITIAL_SUPPLIERS.forEach(s => {
-      setDoc(doc(db, 'suppliers', s.id), sanitizeForFirestore(s), { merge: true }).catch(() => {});
-    });
-
-    // Seed Clients
-    INITIAL_CLIENTS.forEach(c => {
-      setDoc(doc(db, 'clients', c.id), sanitizeForFirestore(c), { merge: true }).catch(() => {});
-    });
-
-    // Seed Excel Delivery Notes
-    INITIAL_DELIVERY_NOTES.forEach(bl => {
-      setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl), { merge: true }).catch(() => {});
-    });
-
-    // Seed Excel Invoices
-    INITIAL_INVOICES.forEach(inv => {
-      setDoc(doc(db, 'invoices', inv.id), sanitizeForFirestore(inv), { merge: true }).catch(() => {});
-    });
-
-    // Seed Stock Movements
-    INITIAL_STOCK_MOVEMENTS.forEach(sm => {
-      setDoc(doc(db, 'stock_movements', sm.id), sanitizeForFirestore(sm), { merge: true }).catch(() => {});
-    });
-  }, []);
 
   // Firestore Real-Time Syncing (Bidirectional Live Sync Desktop <-> Mobile PWA)
   useEffect(() => {
@@ -515,16 +477,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubStockMovements = onSnapshot(collection(db, 'stock_movements'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as ProductStockMovement);
-      if (docs.length > 0) {
-        setStockMovements(prev => {
-          const map = new Map<string, ProductStockMovement>();
-          INITIAL_STOCK_MOVEMENTS.forEach(sm => map.set(sm.id, sm));
-          docs.forEach(sm => map.set(sm.id, sm));
-          return Array.from(map.values());
-        });
-      } else if (!isWiped) {
-        setStockMovements(INITIAL_STOCK_MOVEMENTS);
-      }
+      setStockMovements(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'stock_movements'));
 
     return () => {
