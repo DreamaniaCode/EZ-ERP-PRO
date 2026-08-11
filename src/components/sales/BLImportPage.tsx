@@ -68,7 +68,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { t } = useTranslation();
   const { 
     products, clients, frigos, suppliers, 
-    importExcelBLs, addFrigo, addSupplier, resetAllData 
+    importExcelBLs, addFrigo, addSupplier, resetAllData, adjustStock 
   } = useERP();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -109,6 +109,8 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   // Product Colis Conversion Settings Map: Product Name -> KgPerColis
   const [productColisWeights, setProductColisWeights] = useState<Record<string, number>>({});
+  // Product Initial Stock Entry Map: Product Name -> Initial Colis Entrée
+  const [productInitialStockEntrees, setProductInitialStockEntrees] = useState<Record<string, number>>({});
 
   const selectedTargetFrigo = frigos.find(f => f.id === targetFrigoId) || {
     id: targetFrigoId || 'frigo-new',
@@ -576,6 +578,19 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       };
     });
 
+    // Register initial merchandise stock entry in target Frigo before BL exits
+    Object.entries(productInitialStockEntrees).forEach(([prdName, initialColis]) => {
+      const kgPerColis = productColisWeights[prdName] || 6;
+      const initialKg = initialColis * kgPerColis;
+      if (initialKg > 0) {
+        const prd = products.find(p => cleanDisplayName(p.name) === prdName);
+        if (prd) {
+          const pallets = Math.max(1, Math.ceil(initialKg / (prd.kgPerPallet || 500)));
+          adjustStock(frigoTarget.id, prd.id, initialKg, pallets, `Stock Initial Quai Excel (${initialColis} Colis)`, 'ENTRÉE_INVENTAIRE');
+        }
+      }
+    });
+
     importExcelBLs(formattedBLs);
 
     setImportStats({ 
@@ -937,31 +952,72 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </div>
 
               {/* COLIS TO KG GRAMMAGE CONFIGURATION PANEL */}
+              {/* INITIAL FRIGO STOCK ENTRY PANEL BEFORE BL DECREMENT */}
               {Object.keys(productColisWeights).length > 0 && (
-                <div className="bg-emerald-50/70 p-4 rounded-xl border border-emerald-200 space-y-3">
-                  <h3 className="font-bold text-xs text-emerald-950 uppercase tracking-wider flex items-center gap-2">
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
-                    Configuration du Poids Réel par Colis (Grammage Kg/Colis) :
-                  </h3>
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200 space-y-4">
+                  <div className="flex flex-wrap justify-between items-center border-b border-blue-200 pb-2 gap-2">
+                    <h3 className="font-bold text-xs text-blue-950 uppercase tracking-wider flex items-center gap-2">
+                      <Warehouse className="w-4 h-4 text-[#0f62fe]" />
+                      Saisie du Stock Initial Entré au Frigo "{selectedTargetFrigo.name}" (Marchandise Quai) :
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const filled: Record<string, number> = {};
+                        Object.keys(productColisWeights).forEach(pName => {
+                          filled[pName] = 1000;
+                        });
+                        setProductInitialStockEntrees(filled);
+                      }}
+                      className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-bold transition-colors shadow-xs"
+                    >
+                      ⚡ Importer 1 000 Colis par Produit
+                    </button>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    {Object.entries(productColisWeights).map(([prdName, weight]) => (
-                      <div key={prdName} className="flex items-center justify-between bg-white p-2.5 rounded border border-emerald-300">
-                        <span className="font-bold text-gray-900">{prdName}</span>
-                        <div className="flex items-center gap-1.5">
-                          <input 
-                            type="number"
-                            step="0.5"
-                            value={weight}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 1;
-                              setProductColisWeights(prev => ({ ...prev, [prdName]: val }));
-                            }}
-                            className="w-16 px-2 py-1 border border-emerald-400 rounded font-bold text-right text-xs"
-                          />
-                          <span className="text-[11px] font-bold text-emerald-800">Kg/Colis</span>
+                    {Object.entries(productColisWeights).map(([prdName, kgPerColis]) => {
+                      const initialColis = productInitialStockEntrees[prdName] ?? 1000;
+                      const initialKg = initialColis * kgPerColis;
+
+                      return (
+                        <div key={prdName} className="bg-white p-3 rounded-lg border border-blue-200 space-y-2 shadow-xs">
+                          <div className="flex justify-between font-bold text-gray-900">
+                            <span>{prdName}</span>
+                            <span className="text-emerald-700 font-mono">{initialKg.toLocaleString()} Kg</span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-[11px]">
+                            <div>
+                              <label className="block text-gray-600 font-bold mb-0.5">Grammage (Kg/Colis) :</label>
+                              <input 
+                                type="number"
+                                step="0.5"
+                                value={kgPerColis}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 1;
+                                  setProductColisWeights(prev => ({ ...prev, [prdName]: val }));
+                                }}
+                                className="w-full px-2 py-1 border border-gray-300 rounded font-bold text-right"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-blue-900 font-bold mb-0.5">Stock Entré (Colis) :</label>
+                              <input 
+                                type="number"
+                                min="0"
+                                value={initialColis}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value) || 0;
+                                  setProductInitialStockEntrees(prev => ({ ...prev, [prdName]: val }));
+                                }}
+                                className="w-full px-2 py-1 border border-blue-400 bg-blue-50 text-blue-900 rounded font-bold text-right"
+                              />
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -232,123 +232,130 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [activeCompanyId]);
 
 
-  const isWiped = typeof window !== 'undefined' && localStorage.getItem('erp_system_wiped') === 'true';
-
-
   const [products, setProducts] = useState<Product[]>(() => {
-    if (isWiped) return [];
     const saved = localStorage.getItem('erp_products');
-    if (saved) return JSON.parse(saved);
-    return INITIAL_PRODUCTS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [];
   });
 
   const [frigos, setFrigos] = useState<ColdStorageFrigo[]>(() => {
-    if (isWiped) return INITIAL_FRIGOS;
     const saved = localStorage.getItem('erp_frigos');
-    if (saved) return JSON.parse(saved);
-    return INITIAL_FRIGOS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [];
   });
 
   const [stocks, setStocks] = useState<FrigoStockLevel[]>(() => {
-    if (isWiped) return [];
     const saved = localStorage.getItem('erp_stocks');
-    if (saved) return JSON.parse(saved);
-    return INITIAL_STOCKS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [];
   });
 
   const [clients, setClients] = useState<Client[]>(() => {
-    if (isWiped) return [];
     const saved = localStorage.getItem('erp_clients');
-    if (saved) return JSON.parse(saved);
-    return INITIAL_CLIENTS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [];
   });
 
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
-    if (isWiped) return [];
     const saved = localStorage.getItem('erp_suppliers');
-    if (saved) return JSON.parse(saved);
-    return INITIAL_SUPPLIERS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [];
   });
 
   const [orders, setOrders] = useState<SalesOrder[]>(() => {
-    if (isWiped) return [];
     const saved = localStorage.getItem('erp_orders');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
     return [];
   });
 
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteBL[]>(() => {
-    if (isWiped) return [];
     const saved = localStorage.getItem('erp_deliveryNotes') || localStorage.getItem('erp_delivery_notes');
     if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {
-        console.warn('Failed to parse deliveryNotes from localStorage:', e);
-      }
+      try { return JSON.parse(saved); } catch (e) {}
     }
-    return INITIAL_DELIVERY_NOTES;
+    return [];
   });
 
   const [invoices, setInvoices] = useState<Invoice[]>(() => {
-    if (isWiped) return [];
     const saved = localStorage.getItem('erp_invoices');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
     return [];
   });
 
   const [chequesEffets, setChequesEffets] = useState<ChequeEffet[]>(() => {
-    if (isWiped) return [];
     const saved = localStorage.getItem('erp_cheques') || localStorage.getItem('erp_cheques_effets');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
     return [];
   });
 
   const [treasuryAccounts, setTreasuryAccounts] = useState<TreasuryAccount[]>(() => {
-    if (isWiped) return INITIAL_TREASURY_ACCOUNTS;
     const saved = localStorage.getItem('erp_treasury');
-    if (saved) return JSON.parse(saved);
-    return INITIAL_TREASURY_ACCOUNTS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [];
   });
 
   const [expenses, setExpenses] = useState<Expense[]>(() => {
-    if (isWiped) return [];
     const saved = localStorage.getItem('erp_expenses');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
     return [];
   });
 
   const [inventoryCounts, setInventoryCounts] = useState<MultiSiteInventoryCount[]>(() => {
-    if (isWiped) return [];
     const saved = localStorage.getItem('erp_inventories');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
     return [];
   });
 
   const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseImportInvoice[]>(() => {
-    if (isWiped) return [];
     const saved = localStorage.getItem('erp_purchase_invoices');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
     return [];
   });
 
   const [stockMovements, setStockMovements] = useState<ProductStockMovement[]>(() => {
-    if (isWiped) return [];
     const saved = localStorage.getItem('erp_stock_movements');
     if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
+      try { return JSON.parse(saved); } catch (e) {}
     }
-    return INITIAL_STOCK_MOVEMENTS;
+    return [];
   });
 
-
-  useEffect(() => {
-    localStorage.setItem('erp_stock_movements', JSON.stringify(stockMovements));
-  }, [stockMovements]);
+  // LocalStorage Persistence Effects for ALL Entities (Prevents Data Loss on F5 Refresh)
+  useEffect(() => { localStorage.setItem('erp_products', JSON.stringify(products)); }, [products]);
+  useEffect(() => { localStorage.setItem('erp_frigos', JSON.stringify(frigos)); }, [frigos]);
+  useEffect(() => { localStorage.setItem('erp_stocks', JSON.stringify(stocks)); }, [stocks]);
+  useEffect(() => { localStorage.setItem('erp_clients', JSON.stringify(clients)); }, [clients]);
+  useEffect(() => { localStorage.setItem('erp_suppliers', JSON.stringify(suppliers)); }, [suppliers]);
+  useEffect(() => { localStorage.setItem('erp_deliveryNotes', JSON.stringify(deliveryNotes)); }, [deliveryNotes]);
+  useEffect(() => { localStorage.setItem('erp_invoices', JSON.stringify(invoices)); }, [invoices]);
+  useEffect(() => { localStorage.setItem('erp_orders', JSON.stringify(orders)); }, [orders]);
+  useEffect(() => { localStorage.setItem('erp_expenses', JSON.stringify(expenses)); }, [expenses]);
+  useEffect(() => { localStorage.setItem('erp_cheques', JSON.stringify(chequesEffets)); }, [chequesEffets]);
+  useEffect(() => { localStorage.setItem('erp_stock_movements', JSON.stringify(stockMovements)); }, [stockMovements]);
 
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(() => {
     const saved = localStorage.getItem('erp_company_info');
