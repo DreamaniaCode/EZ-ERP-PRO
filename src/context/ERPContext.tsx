@@ -2071,37 +2071,68 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const importExcelBLs = (newBLs: DeliveryNoteBL[]) => {
+    // Map to track client account balance additions ("regle les comptes clients")
+    const clientBalanceAdditions = new Map<string, number>();
+
     newBLs.forEach(bl => {
       // 1. Auto-create missing Client
       autoCreateMissingClient(bl.clientName, bl.clientPhone, bl.clientEmail, bl.clientAddress);
 
-      // 2. Auto-create missing Products & update stock levels per frigo
+      const normClientName = normalizeName(cleanDisplayName(bl.clientName));
+      const foundClient = clients.find(c => 
+        c.id === bl.clientId || 
+        normalizeName(c.name || '') === normClientName ||
+        normalizeName(c.companyName || '') === normClientName
+      );
+
+      const clientIdToUse = foundClient ? foundClient.id : bl.clientId;
+      const blAmount = bl.totalHT || bl.totalTTC || 0;
+
+      clientBalanceAdditions.set(
+        clientIdToUse, 
+        (clientBalanceAdditions.get(clientIdToUse) || 0) + blAmount
+      );
+
+      // 2. Auto-create missing Products & deduct/update stock levels for the target frigo
       bl.items.forEach(item => {
         const prdName = item.productName || item.productCode;
         if (prdName) {
           const prd = autoCreateMissingProduct(prdName, item.unitPriceHT);
           const productIdToUse = prd ? prd.id : item.productId;
-          const targetFrigoId = bl.frigoId || 'frigo-1';
+          const targetFrigoId = bl.frigoId || (frigos[0] ? frigos[0].id : 'frigo-1');
 
           if (productIdToUse && targetFrigoId) {
-            const addedKg = item.quantityKg || 0;
+            const qtyKg = item.quantityKg || 0;
             const palletRatio = prd ? prd.kgPerPallet : 500;
-            const addedPallets = item.quantityPallets > 0 ? item.quantityPallets : Math.ceil(addedKg / palletRatio);
+            const qtyPallets = item.quantityPallets > 0 ? item.quantityPallets : Math.ceil(qtyKg / palletRatio);
 
             setStocks(prevStocks => {
               const existingStock = prevStocks.find(s => s.frigoId === targetFrigoId && s.productId === productIdToUse);
               const currentKg = existingStock ? existingStock.quantityKg : 0;
               const currentPallets = existingStock ? existingStock.quantityPallets : 0;
 
+              const newKg = Math.max(0, currentKg - qtyKg);
+              const newPallets = Math.max(0, currentPallets - qtyPallets);
+
               const updatedStock: FrigoStockLevel = {
                 frigoId: targetFrigoId,
                 productId: productIdToUse,
-                quantityKg: currentKg + addedKg,
-                quantityPallets: currentPallets + addedPallets,
+                quantityKg: newKg,
+                quantityPallets: newPallets,
                 lastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' '),
               };
 
-              setDoc(doc(db, 'stocks', `${targetFrigoId}_${productIdToUse}`), updatedStock).catch(err => {
+              logStockMovement(
+                productIdToUse,
+                targetFrigoId,
+                'EXPÉDITION_VENTE',
+                qtyKg,
+                currentKg,
+                newKg,
+                bl.blNumber
+              );
+
+              setDoc(doc(db, 'stocks', `${targetFrigoId}_${productIdToUse}`), sanitizeForFirestore(updatedStock), { merge: true }).catch(err => {
                 handleFirestoreError(err, OperationType.WRITE, `stocks/${targetFrigoId}_${productIdToUse}`);
               });
 
@@ -2116,9 +2147,47 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
     });
 
+    // 3. Update Client Balances ("regle les comptes clients")
+    setClients(prevClients => {
+      return prevClients.map(client => {
+        let addition = clientBalanceAdditions.get(client.id) || 0;
+        if (!addition) {
+          const normC = normalizeName(client.name || client.companyName || '');
+          clientBalanceAdditions.forEach((amount, cid) => {
+            if (cid === client.id) return;
+            const other = prevClients.find(c => c.id === cid);
+            if (other && normalizeName(other.name || other.companyName || '') === normC) {
+              addition += amount;
+            }
+          });
+        }
+
+        if (addition > 0) {
+          const updatedClient: Client = {
+            ...client,
+            currentBalance: (client.currentBalance || 0) + addition
+          };
+
+          setDoc(doc(db, 'clients', client.id), sanitizeForFirestore(updatedClient), { merge: true }).catch(err => {
+            handleFirestoreError(err, OperationType.UPDATE, `clients/${client.id}`);
+          });
+
+          return updatedClient;
+        }
+        return client;
+      });
+    });
+
+    // 4. Save Delivery Notes (BLs) without Invoices ("ne cree pas de facture")
     setDeliveryNotes(prev => {
       const existingNumbers = new Set(prev.map(b => b.blNumber));
-      const filteredNew = newBLs.filter(b => !existingNumbers.has(b.blNumber));
+      const filteredNew = newBLs.map(b => ({
+        ...b,
+        invoiceId: undefined, // Explicitly NO invoice created
+        invoiceNumber: undefined,
+        status: b.status || 'LIVRÉ'
+      })).filter(b => !existingNumbers.has(b.blNumber));
+
       const updated = [...filteredNew, ...prev];
       
       filteredNew.forEach(bl => {

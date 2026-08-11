@@ -23,13 +23,20 @@ interface ExcelVerificationModalProps {
 }
 
 export const ExcelVerificationModal: React.FC<ExcelVerificationModalProps> = ({ isOpen, onClose }) => {
-  const { importExcelBLs, deliveryNotes, products } = useERP();
+  const { importExcelBLs, deliveryNotes, products, frigos } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDesignation, setSelectedDesignation] = useState<string>('ALL');
   const [selectedClient, setSelectedClient] = useState<string>('ALL');
   const [selectedPage, setSelectedPage] = useState<number | 'ALL'>('ALL');
+  const [selectedFrigoId, setSelectedFrigoId] = useState<string>(frigos.length > 0 ? frigos[0].id : '');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccessMessage, setSyncSuccessMessage] = useState<string | null>(null);
+
+  const selectedTargetFrigo = frigos.find(f => f.id === selectedFrigoId) || frigos[0] || {
+    id: 'frigo-1',
+    name: 'Frigo Principal',
+    code: 'FRG-01'
+  };
 
   if (!isOpen) return null;
 
@@ -73,8 +80,8 @@ export const ExcelVerificationModal: React.FC<ExcelVerificationModalProps> = ({ 
         clientAddress: 'Maroc',
         clientPhone: '+212 600-000000',
         clientEmail: `${rec.clientName.replace(/\s+/g, '.').toLowerCase()}@client.ma`,
-        frigoId: 'frigo-1',
-        frigoName: 'Frigo MFADEL',
+        frigoId: selectedTargetFrigo.id,
+        frigoName: selectedTargetFrigo.name,
         date: formattedDate,
         items: [
           {
@@ -90,9 +97,9 @@ export const ExcelVerificationModal: React.FC<ExcelVerificationModalProps> = ({ 
         totalKg: rec.quantityKg,
         totalPallets: Math.ceil(rec.quantityKg / 800),
         totalHT: totalHT,
-        totalTTC: totalHT, // Don't add TVA price unless asked
+        totalTTC: totalHT,
         frigoEmployeeApproved: true,
-        frigoApprovedBy: 'Validation Quai Frigo MFADEL',
+        frigoApprovedBy: `Validation Quai ${selectedTargetFrigo.name}`,
         frigoApprovedAt: `${formattedDate} 10:00`,
         whatsappSent: true,
         emailSent: true,
