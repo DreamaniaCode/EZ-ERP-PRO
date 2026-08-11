@@ -547,7 +547,17 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const canonicalPrdCode = catalogPrd ? catalogPrd.code : (is11kg ? 'PRD-DATTE-11KG' : 'PRD-SIBORT-5KG');
         const canonicalPrdId = catalogPrd ? catalogPrd.id : (is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg');
 
-        const rawClient = String(row.clientName || 'Client Import');
+        let rawClient = String(row.clientName || '').trim();
+        if (!rawClient || rawClient.toLowerCase().includes('import') || rawClient.toLowerCase().includes('client 1') || rawClient === 'Client Import') {
+          for (const key of Object.keys(row)) {
+            if (key.startsWith('_') || key === 'productName' || key === 'blNumber' || key === 'date') continue;
+            const val = String(row[key] || '').trim();
+            if (val.length > 2 && !/^\d+$/.test(val) && !/\d{2}\/\d{2}/.test(val) && !val.toUpperCase().includes('DATTE') && !val.toUpperCase().includes('BON') && !val.toUpperCase().includes('BL-')) {
+              rawClient = val;
+              break;
+            }
+          }
+        }
         const clientName = cleanDisplayName(rawClient) || `CLIENT ${idx + 1}`;
 
         uniqueClientsSet.add(clientName);

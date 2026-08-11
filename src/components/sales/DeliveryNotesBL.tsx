@@ -683,8 +683,8 @@ EasyERP Pro • Logistics Management`;
                       <span className="text-xs text-gray-500 font-mono">CMD: <b>{bl.orderNumber}</b></span>
                       <span className="text-[10px] text-gray-400 font-mono">Date: {bl.date}</span>
                     </div>
-                    <div className="font-semibold text-xs text-gray-800 mt-0.5">
-                      Client: {' '}
+                    <div className="font-semibold text-xs text-gray-800 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <span>Client:</span>
                       <button
                         type="button"
                         onClick={() => {
@@ -696,6 +696,23 @@ EasyERP Pro • Logistics Management`;
                       >
                         {bl.clientName}
                       </button>
+                      {(bl.clientName === 'CLIENT IMPORT' || bl.clientName.startsWith('CLIENT ')) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newName = window.prompt(`Saisir le vrai nom du client pour le ${bl.blNumber} :`, '');
+                            if (newName && newName.trim()) {
+                              const cleanName = newName.trim().toUpperCase();
+                              updateBL(bl.id, { clientName: cleanName });
+                              notifySuccess(`Nom du client mis à jour : ${cleanName}`);
+                            }
+                          }}
+                          className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded text-[10px] font-bold cursor-pointer transition-colors"
+                          title="Cliquer pour corriger le nom du client"
+                        >
+                          ✏️ Renommer Client
+                        </button>
+                      )}
                       {bl.clientPhone ? ` (${bl.clientPhone})` : ''}
                     </div>
                   </div>

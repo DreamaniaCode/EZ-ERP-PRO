@@ -566,6 +566,26 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('erp_suppliers', JSON.stringify(suppliers));
   }, [suppliers]);
 
+  useEffect(() => {
+    localStorage.setItem('erp_products', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_frigos', JSON.stringify(frigos));
+  }, [frigos]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_stocks', JSON.stringify(stocks));
+  }, [stocks]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_deliveryNotes', JSON.stringify(deliveryNotes));
+  }, [deliveryNotes]);
+
+  useEffect(() => {
+    localStorage.setItem('erp_orders', JSON.stringify(orders));
+  }, [orders]);
+
   // Product helper
   const addProduct = (productData: Omit<Product, 'id' | 'code' | 'kgPerPallet'>): Product => {
     // Check if product with exact same name already exists to prevent duplication
