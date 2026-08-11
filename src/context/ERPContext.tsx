@@ -599,17 +599,22 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return newPrd;
   };
 
-  const updateProduct = async (id: string, updatedFields: Partial<Product>) => {
+  const updateProduct = async (arg1: string | (Partial<Product> & { id: string }), arg2?: Partial<Product>) => {
+    const id = typeof arg1 === 'string' ? arg1 : arg1.id;
+    const updatedFields = typeof arg1 === 'string' ? (arg2 || {}) : arg1;
+
     const targetProduct = products.find(p => p.id === id);
     if (!targetProduct) return;
 
     const updatedProduct = { ...targetProduct, ...updatedFields };
     if (updatedFields.kgPerCarton || updatedFields.cartonsPerPallet) {
-      updatedProduct.kgPerPallet = updatedProduct.kgPerCarton * updatedProduct.cartonsPerPallet;
+      updatedProduct.kgPerPallet = (updatedProduct.kgPerCarton || 5) * (updatedProduct.cartonsPerPallet || 100);
     }
 
+    setProducts(prev => prev.map(p => p.id === id ? updatedProduct : p));
+
     const batch = writeBatch(db);
-    batch.set(doc(db, 'products', id), updatedProduct);
+    batch.set(doc(db, 'products', id), sanitizeForFirestore(updatedProduct), { merge: true });
 
     const affectedBLs = deliveryNotes.filter(bl => bl.items.some(item => item.productId === id));
     const newPrice = updatedProduct.sellingPriceHT;
@@ -1893,6 +1898,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       handleFirestoreError(err, OperationType.DELETE, `suppliers/${id}`);
     });
   };
+
 
 
   const saveInventoryCount = (countData: Omit<MultiSiteInventoryCount, 'id' | 'countNumber'>, applyStockAdjust: boolean) => {

@@ -249,15 +249,15 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       };
 
       finalHeaders.forEach(h => {
-        const lower = String(h).toLowerCase();
-        if (lower.includes('bl') || lower.includes('n°') || lower.includes('bon') || lower.includes('num')) newMap.blNumber = h;
-        if (lower.includes('client') || lower.includes('destinataire')) newMap.clientName = h;
-        if (lower.includes('date')) newMap.date = h;
-        if (lower.includes('produit') || lower.includes('article') || lower.includes('designation')) newMap.productName = h;
-        if (lower.includes('colis') || lower.includes('carton') || lower.includes('caisse')) newMap.quantityColis = h;
-        if (lower.includes('qte') || lower.includes('quant') || lower.includes('poids') || lower.includes('kg')) newMap.quantityKg = h;
-        if (lower.includes('prix') || lower.includes('pu')) newMap.unitPriceHT = h;
-        if (lower.includes('total') || lower.includes('montant')) newMap.totalHT = h;
+        const lower = String(h).toLowerCase().trim();
+        if (!newMap.blNumber && (lower.includes('bl') || lower.includes('n°') || lower.includes('bon') || lower.includes('num') || lower.includes('ref'))) newMap.blNumber = h;
+        if (!newMap.clientName && (lower.includes('client') || lower.includes('destinataire') || lower.includes('nom') || lower.includes('acheteur') || lower.includes('ste') || lower.includes('societe') || lower.includes('clientele'))) newMap.clientName = h;
+        if (!newMap.date && lower.includes('date')) newMap.date = h;
+        if (!newMap.productName && (lower.includes('produit') || lower.includes('article') || lower.includes('designation') || lower.includes('dattes') || lower.includes('variete') || lower.includes('libelle') || lower.includes('marchandise'))) newMap.productName = h;
+        if (!newMap.quantityColis && (lower.includes('colis') || lower.includes('carton') || lower.includes('caisse') || lower.includes('ctn') || lower.includes('nbr'))) newMap.quantityColis = h;
+        if (!newMap.quantityKg && (lower.includes('qte') || lower.includes('quant') || lower.includes('poids') || lower.includes('kg'))) newMap.quantityKg = h;
+        if (!newMap.unitPriceHT && (lower.includes('prix') || lower.includes('pu') || lower.includes('tarif'))) newMap.unitPriceHT = h;
+        if (!newMap.totalHT && (lower.includes('total') || lower.includes('montant') || lower.includes('valeur'))) newMap.totalHT = h;
       });
       setMapping(newMap);
 
