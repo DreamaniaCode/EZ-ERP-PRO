@@ -375,24 +375,6 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('erp_current_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
-  // Initial population of initial BLs (including the 11 user screenshot BLs)
-  useEffect(() => {
-    setDeliveryNotes(prev => {
-      const map = new Map<string, DeliveryNoteBL>();
-      INITIAL_DELIVERY_NOTES.forEach(b => map.set(b.id, b));
-      (prev || []).forEach(b => map.set(b.id, b));
-      const merged = Array.from(map.values());
-
-      if (merged.length > (prev || []).length) {
-        merged.forEach(bl => {
-          setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl), { merge: true }).catch(() => {});
-        });
-        return merged;
-      }
-      return prev;
-    });
-  }, []);
-
   // Automatic Recovery: If an Invoice exists in system, but its parent BL is missing from deliveryNotes, reconstruct and restore the BL!
   useEffect(() => {
     if (!invoices || invoices.length === 0) return;
@@ -527,18 +509,16 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as DeliveryNoteBL);
-      setDeliveryNotes(prev => {
-        const map = new Map<string, DeliveryNoteBL>();
-        // 1. Include initial delivery notes (contains exact screenshot BLs)
-        INITIAL_DELIVERY_NOTES.forEach(d => { if (d && d.id) map.set(d.id, d); });
-        // 2. Include existing local state
-        (prev || []).forEach(d => { if (d && d.id) map.set(d.id, d); });
-        // 3. Override with live Firestore docs
-        docs.forEach(d => { if (d && d.id) map.set(d.id, d); });
-
-        const merged = Array.from(map.values());
-        return merged.length > 0 ? merged : (isWiped ? [] : INITIAL_DELIVERY_NOTES);
-      });
+      if (docs.length > 0) {
+        setDeliveryNotes(docs);
+      } else if (isWiped) {
+        setDeliveryNotes([]);
+      } else {
+        setDeliveryNotes(INITIAL_DELIVERY_NOTES);
+        INITIAL_DELIVERY_NOTES.forEach(bl => {
+          setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl), { merge: true }).catch(() => {});
+        });
+      }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'deliveryNotes'));
 
     const unsubInvoices = onSnapshot(collection(db, 'invoices'), (snapshot) => {
