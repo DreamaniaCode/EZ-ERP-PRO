@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
-import { Upload, ArrowLeft, ArrowRight, CheckCircle, AlertCircle, XCircle, FileSpreadsheet, FileText, Check, Warehouse, Users, Receipt, Settings, HelpCircle } from 'lucide-react';
+import { Upload, ArrowLeft, ArrowRight, CheckCircle, AlertCircle, XCircle, FileSpreadsheet, FileText, Check, Warehouse, Users, Receipt, Settings, Layers, ListFilter } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 import { DeliveryNoteBL } from '../../types';
@@ -18,16 +18,65 @@ const cleanDisplayName = (raw: string): string => {
     .toUpperCase();
 };
 
+// Smart Header Finder for Excel sheets & multi-sheet workbooks
+const findSmartHeaderRowIndex = (rows: any[][]): number => {
+  if (!rows || rows.length === 0) return 0;
+
+  const keywords = [
+    'date', 'client', 'destinataire', 'nom', 'bl', 'bon', 'n°', 'num', 
+    'produit', 'article', 'designation', 'dattes', 'quantite', 'qte', 
+    'poids', 'kg', 'unite', 'prix', 'pu', 'total', 'montant'
+  ];
+
+  let bestIndex = 0;
+  let maxScore = -1;
+
+  for (let i = 0; i < Math.min(15, rows.length); i++) {
+    const row = rows[i];
+    if (!Array.isArray(row) || row.length === 0) continue;
+
+    let score = 0;
+    let filledCells = 0;
+
+    row.forEach(cell => {
+      if (cell !== null && cell !== undefined && String(cell).trim() !== '') {
+        filledCells++;
+        const cellStr = String(cell).toLowerCase();
+        keywords.forEach(kw => {
+          if (cellStr.includes(kw)) {
+            score += 4;
+          }
+        });
+      }
+    });
+
+    const totalScore = score + (filledCells > 1 ? filledCells * 2 : 0);
+
+    if (totalScore > maxScore) {
+      maxScore = totalScore;
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex;
+};
+
 export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { t } = useTranslation();
   const { products, clients, frigos, importExcelBLs } = useERP();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const workbookRef = useRef<XLSX.WorkBook | null>(null);
   
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<any[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [isParsingPdf, setIsParsingPdf] = useState(false);
+
+  // Multi-sheet and Header Row controls
+  const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>('ALL');
+  const [detectedHeaderIndex, setDetectedHeaderIndex] = useState<number>(0);
 
   // Target Frigo Selection state ("demande moi de quel frigo je vais tirer les BLs")
   const [targetFrigoId, setTargetFrigoId] = useState<string>(
@@ -37,7 +86,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // Additional Upload Options
   const [autoUpdateClientBalance, setAutoUpdateClientBalance] = useState<boolean>(true);
   const [decrementFrigoStock, setDecrementFrigoStock] = useState<boolean>(true);
-  const [createMissingClients, setCreateMissingClients] = useState<boolean>(true);
   const [defaultUnitPrice, setDefaultUnitPrice] = useState<number>(50);
 
   const selectedTargetFrigo = frigos.find(f => f.id === targetFrigoId) || frigos[0] || {
@@ -65,6 +113,103 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   }>({ valid: [], warnings: [], errors: [] });
 
   const [importStats, setImportStats] = useState({ success: 0, failed: 0, totalAmount: 0, clientCount: 0 });
+
+  // Parse Excel workbook with smart header detection and multi-sheet support
+  const parseExcelWorkbook = (wb: XLSX.WorkBook, sheetToUse = 'ALL', overrideHeaderIdx = -1) => {
+    workbookRef.current = wb;
+    setAvailableSheets(wb.SheetNames);
+    
+    const sheetsToProcess = sheetToUse === 'ALL' 
+      ? wb.SheetNames 
+      : wb.SheetNames.filter(s => s === sheetToUse);
+
+    let allRows: any[] = [];
+    const headerSet = new Set<string>();
+    let primaryHeaderIdx = 0;
+
+    sheetsToProcess.forEach(sheetName => {
+      const ws = wb.Sheets[sheetName];
+      const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (!data || data.length === 0) return;
+
+      const headerRowIdx = overrideHeaderIdx >= 0 ? overrideHeaderIdx : findSmartHeaderRowIndex(data);
+      primaryHeaderIdx = headerRowIdx;
+
+      const fileHeaders = (data[headerRowIdx] as string[]) || [];
+      fileHeaders.forEach(h => {
+        if (h && String(h).trim()) headerSet.add(String(h).trim());
+      });
+
+      const cleanHeaders = fileHeaders.map(h => h ? String(h).trim() : '');
+
+      const sheetRows = data.slice(headerRowIdx + 1).map((row: any) => {
+        const obj: any = {};
+        cleanHeaders.forEach((h, i) => {
+          if (!h) return;
+          let val = row[i];
+
+          if (String(h).toLowerCase().includes('date') && val !== undefined && val !== null) {
+            if (typeof val === 'number') {
+              const parsedDate = new Date(Math.round((val - 25569) * 86400 * 1000));
+              val = parsedDate.toISOString().slice(0, 10);
+            } else if (val instanceof Date) {
+              val = val.toISOString().slice(0, 10);
+            }
+          }
+          obj[h] = val;
+        });
+        obj._sheetName = sheetName;
+        return obj;
+      }).filter(row => Object.values(row).some(v => v !== undefined && v !== null && String(v).trim() !== '' && v !== row._sheetName));
+
+      allRows = allRows.concat(sheetRows);
+    });
+
+    const finalHeaders = Array.from(headerSet);
+
+    if (finalHeaders.length > 0 && allRows.length > 0) {
+      setHeaders(finalHeaders);
+      setParsedData(allRows);
+      setDetectedHeaderIndex(primaryHeaderIdx);
+
+      // Auto-guess mapping matching column keywords
+      const newMap: { [key: string]: string } = {
+        blNumber: '',
+        clientName: '',
+        date: '',
+        productName: '',
+        quantityKg: '',
+        unitPriceHT: '',
+        totalHT: ''
+      };
+
+      finalHeaders.forEach(h => {
+        const lower = String(h).toLowerCase();
+        if (lower.includes('bl') || lower.includes('n°') || lower.includes('bon') || lower.includes('num')) newMap.blNumber = h;
+        if (lower.includes('client') || lower.includes('destinataire')) newMap.clientName = h;
+        if (lower.includes('date')) newMap.date = h;
+        if (lower.includes('produit') || lower.includes('article') || lower.includes('designation')) newMap.productName = h;
+        if (lower.includes('qte') || lower.includes('quant') || lower.includes('poids')) newMap.quantityKg = h;
+        if (lower.includes('prix') || lower.includes('pu')) newMap.unitPriceHT = h;
+        if (lower.includes('total') || lower.includes('montant')) newMap.totalHT = h;
+      });
+      setMapping(newMap);
+    }
+  };
+
+  const handleSheetChange = (sheetName: string) => {
+    setSelectedSheet(sheetName);
+    if (workbookRef.current) {
+      parseExcelWorkbook(workbookRef.current, sheetName, detectedHeaderIndex);
+    }
+  };
+
+  const handleHeaderRowChange = (headerIdx: number) => {
+    setDetectedHeaderIndex(headerIdx);
+    if (workbookRef.current) {
+      parseExcelWorkbook(workbookRef.current, selectedSheet, headerIdx);
+    }
+  };
 
   // Sample Extracted PDF Data fallback (35 BLs, 103 770 KG total)
   const loadExtractedPDFData = () => {
@@ -252,58 +397,8 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       reader.onload = (evt) => {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary', cellDates: true });
-
-        let allRows: any[] = [];
-        let detectedHeaders: string[] = [];
-
-        wb.SheetNames.forEach(sheetName => {
-          const ws = wb.Sheets[sheetName];
-          const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
-          if (data && data.length > 0) {
-            const fileHeaders = (data[0] as string[]) || [];
-            if (detectedHeaders.length === 0) detectedHeaders = fileHeaders;
-
-            const sheetRows = data.slice(1).map(row => {
-              const obj: any = {};
-              fileHeaders.forEach((h, i) => {
-                if (!h) return;
-                let val = (row as any)[i];
-
-                if (String(h).toLowerCase().includes('date') && val !== undefined && val !== null) {
-                  if (typeof val === 'number') {
-                    const parsedDate = new Date(Math.round((val - 25569) * 86400 * 1000));
-                    val = parsedDate.toISOString().slice(0, 10);
-                  } else if (val instanceof Date) {
-                    val = val.toISOString().slice(0, 10);
-                  }
-                }
-                obj[h] = val;
-              });
-              return obj;
-            }).filter(row => Object.values(row).some(v => v !== undefined && v !== null && v !== ''));
-
-            allRows = allRows.concat(sheetRows);
-          }
-        });
-
-        if (allRows.length > 0) {
-          setHeaders(detectedHeaders);
-          setParsedData(allRows);
-          setStep(2);
-          
-          const newMap = { ...mapping };
-          detectedHeaders.forEach(h => {
-            const lower = String(h).toLowerCase();
-            if (lower.includes('bl') || lower.includes('n°') || lower.includes('bon') || lower.includes('num')) newMap.blNumber = h;
-            if (lower.includes('client') || lower.includes('destinataire')) newMap.clientName = h;
-            if (lower.includes('date')) newMap.date = h;
-            if (lower.includes('produit') || lower.includes('article') || lower.includes('designation')) newMap.productName = h;
-            if (lower.includes('qte') || lower.includes('quant') || lower.includes('poids')) newMap.quantityKg = h;
-            if (lower.includes('prix') || lower.includes('pu')) newMap.unitPriceHT = h;
-            if (lower.includes('total') || lower.includes('montant')) newMap.totalHT = h;
-          });
-          setMapping(newMap);
-        }
+        parseExcelWorkbook(wb, 'ALL', -1);
+        setStep(2);
       };
       reader.readAsBinaryString(selectedFile);
     } else if (selectedFile.name.endsWith('.pdf')) {
@@ -352,7 +447,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         mappedRow.clientName = 'Client Divers (Import)';
       }
       if (!mappedRow.productName) {
-        mappedRow.productName = 'Dattes Standard';
+        mappedRow.productName = row._sheetName || 'Dattes Standard';
       }
       if (!mappedRow.quantityKg || isNaN(parseFloat(mappedRow.quantityKg))) {
         mappedRow.quantityKg = 1000;
@@ -407,7 +502,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       const qtyKg = parseFloat(row.quantityKg) || 1000;
       const unitPrice = parseFloat(row.unitPriceHT) || row._unitPriceHT || defaultUnitPrice;
       const totalHT = row.totalHT ? parseFloat(row.totalHT) : qtyKg * unitPrice;
-      const totalTTC = totalHT; // No VAT by default on raw BL exits
+      const totalTTC = totalHT;
 
       calculatedTotalHT += totalHT;
 
@@ -460,8 +555,8 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         signatureDate: blDate,
         whatsappSent: true,
         emailSent: false,
-        status: 'LIVRÉ', // Delivered BL status (NO INVOICE CREATED!)
-        invoiceId: undefined, // Explicitly no invoice
+        status: 'LIVRÉ',
+        invoiceId: undefined,
         invoiceNumber: undefined,
         logs: [
           {
@@ -474,7 +569,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       };
     });
 
-    // importExcelBLs deducts stock from target frigo & updates client accounts (currentBalance)
     importExcelBLs(formattedBLs);
 
     setImportStats({ 
@@ -592,7 +686,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </h4>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  {/* Account regulation checkbox */}
                   <label className="flex items-start gap-2.5 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-400 transition-colors">
                     <input 
                       type="checkbox" 
@@ -606,7 +699,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </div>
                   </label>
 
-                  {/* Stock decrement checkbox */}
                   <label className="flex items-start gap-2.5 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-400 transition-colors">
                     <input 
                       type="checkbox" 
@@ -620,7 +712,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </div>
                   </label>
 
-                  {/* Billing rule (No invoices) */}
                   <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 flex items-start gap-2.5 text-purple-900">
                     <Receipt className="w-4 h-4 text-purple-700 shrink-0 mt-0.5" />
                     <div>
@@ -629,7 +720,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </div>
                   </div>
 
-                  {/* Default Unit Price fallback */}
                   <div className="p-3 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
                     <div>
                       <span className="font-bold text-gray-900">Prix Unitaire par défaut (DH) :</span>
@@ -709,7 +799,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
           )}
 
-          {/* STEP 2: COLUMN MAPPING */}
+          {/* STEP 2: COLUMN MAPPING & EXCEL MULTI-SHEET CONTROLS */}
           {step === 2 && (
             <div className="bg-white rounded-lg shadow-sm border border-[#e0e0e0] p-6 space-y-6">
               
@@ -729,6 +819,48 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   </button>
                 </div>
               </div>
+
+              {/* EXCEL MULTI-SHEET & HEADER ROW CONTROLS */}
+              {availableSheets.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-amber-50/70 p-4 rounded-xl border border-amber-200">
+                  {/* Sheet Selector */}
+                  <div>
+                    <label className="text-[11px] font-bold text-amber-900 uppercase flex items-center gap-1.5 mb-1">
+                      <Layers className="w-4 h-4 text-amber-700" />
+                      Onglets Excel ({availableSheets.length} feuilles) :
+                    </label>
+                    <select
+                      value={selectedSheet}
+                      onChange={(e) => handleSheetChange(e.target.value)}
+                      className="w-full border border-amber-300 rounded px-3 py-2 bg-white font-bold text-xs text-gray-900"
+                    >
+                      <option value="ALL">📦 Importer Tous les Onglets ({availableSheets.length} feuilles)</option>
+                      {availableSheets.map(s => (
+                        <option key={s} value={s}>📄 Feuille : {s}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Header Row Selector */}
+                  <div>
+                    <label className="text-[11px] font-bold text-amber-900 uppercase flex items-center gap-1.5 mb-1">
+                      <ListFilter className="w-4 h-4 text-amber-700" />
+                      Ligne des En-têtes (Détectée : Ligne {detectedHeaderIndex + 1}) :
+                    </label>
+                    <select
+                      value={detectedHeaderIndex}
+                      onChange={(e) => handleHeaderRowChange(Number(e.target.value))}
+                      className="w-full border border-amber-300 rounded px-3 py-2 bg-white font-bold text-xs text-gray-900"
+                    >
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(idx => (
+                        <option key={idx} value={idx}>
+                          Ligne {idx + 1} {idx === detectedHeaderIndex ? '(Auto-Détectée ✓)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
 
               {/* COLUMN MAPPING */}
               <div>
