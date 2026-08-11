@@ -433,15 +433,35 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       if (!mappedRow.blNumber) {
         mappedRow.blNumber = `BL-2026-${String(index + 1).padStart(4, '0')}`;
       }
-      if (!mappedRow.clientName) {
-        mappedRow.clientName = 'Client Divers (Import)';
-      }
-      if (!mappedRow.productName) {
-        mappedRow.productName = row._sheetName || 'Dattes Standard';
-      }
 
-      const prdNorm = cleanDisplayName(mappedRow.productName);
-      const kgPerColis = productColisWeights[prdNorm] || 6;
+      // Smart Client Name Resolution with Text-Cell Fallback Scanner
+      let clientVal = mappedRow.clientName;
+      if (!clientVal || String(clientVal).trim() === '' || String(clientVal).toUpperCase().includes('DIVERS')) {
+        // Scan all cells in the row for a non-numeric client name string
+        const textCells = Object.entries(row).filter(([key, val]) => {
+          if (!val || key.startsWith('_')) return false;
+          const str = String(val).trim().toUpperCase();
+          return str.length > 2 && 
+                 !str.includes('BL') && 
+                 !str.includes('PAGE') && 
+                 !str.includes('TOTAL') && 
+                 !str.includes('DATTE') && 
+                 !str.includes('SIBORT') && 
+                 !/^\d+$/.test(str);
+        });
+        if (textCells.length > 0) {
+          clientVal = textCells[0][1];
+        }
+      }
+      mappedRow.clientName = cleanDisplayName(String(clientVal || '')) || 'Client Import';
+
+      // Canonical Product Name Resolution (Never numeric or fake)
+      const rawPrdStr = String(mappedRow.productName || row._sheetName || '').toUpperCase();
+      const is11kg = rawPrdStr.includes('11');
+      const canonicalPrdName = is11kg ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG';
+      mappedRow.productName = canonicalPrdName;
+
+      const kgPerColis = is11kg ? 11 : 5;
 
       // Colis vs Kg auto calculation
       let qtyKg = parseFloat(mappedRow.quantityKg);
@@ -452,28 +472,17 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       } else if (!isNaN(qtyKg) && isNaN(qtyColis)) {
         qtyColis = Math.ceil(qtyKg / kgPerColis);
       } else if (isNaN(qtyKg) && isNaN(qtyColis)) {
-        qtyKg = 1000;
-        qtyColis = Math.ceil(1000 / kgPerColis);
+        qtyKg = 500;
+        qtyColis = Math.ceil(500 / kgPerColis);
       }
 
       mappedRow.quantityKg = qtyKg;
       mappedRow.quantityColis = qtyColis;
       mappedRow._kgPerColis = kgPerColis;
 
-      if (mappedRow.productName) {
-        const product = (products || []).find(p => 
-          p.name.toLowerCase().includes(String(mappedRow.productName).toLowerCase()) ||
-          p.code.toLowerCase().includes(String(mappedRow.productName).toLowerCase())
-        );
-        if (product) {
-          mappedRow._productId = product.id;
-          mappedRow._productCode = product.code;
-          mappedRow._unitPriceHT = product.sellingPriceHT;
-        } else {
-          mappedRow._productCode = String(mappedRow.productName);
-          mappedRow._unitPriceHT = parseFloat(mappedRow.unitPriceHT) || defaultUnitPrice;
-        }
-      }
+      mappedRow._productId = is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg';
+      mappedRow._productCode = is11kg ? 'PRD-DATTE-11KG' : 'PRD-SIBORT-5KG';
+      mappedRow._unitPriceHT = is11kg ? 55 : 22;
 
       if (mappedRow.clientName) {
         const client = (clients || []).find(c => 
@@ -514,14 +523,18 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       calculatedTotalHT += totalHT;
 
-      const rawPrd = String(row.productName || 'Dattes Standard');
-      const prdName = cleanDisplayName(rawPrd) || rawPrd.toUpperCase();
-      const rawClient = String(row.clientName || 'Client Divers');
-      const clientName = cleanDisplayName(rawClient) || rawClient.toUpperCase();
+      const rawPrd = String(row.productName || '');
+      const is11kg = rawPrd.toUpperCase().includes('11');
+      const canonicalPrdName = is11kg ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG';
+      const canonicalPrdCode = is11kg ? 'PRD-DATTE-11KG' : 'PRD-SIBORT-5KG';
+      const canonicalPrdId = is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg';
+
+      const rawClient = String(row.clientName || 'Client Import');
+      const clientName = cleanDisplayName(rawClient) || `CLIENT ${idx + 1}`;
 
       uniqueClientsSet.add(clientName);
 
-      const palletRatio = prdName.includes('2 KG') ? 200 : prdName.includes('5 KG') ? 500 : 1000;
+      const palletRatio = is11kg ? 1100 : 500;
       const pallets = Math.ceil(qtyKg / palletRatio);
       const blDate = row.date || new Date().toISOString().split('T')[0];
 
@@ -543,9 +556,9 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         items: [
           {
             id: `item-${idx}`,
-            productId: row._productId || `prd-imp-${idx}`,
-            productCode: row._productCode || prdName,
-            productName: prdName,
+            productId: canonicalPrdId,
+            productCode: canonicalPrdCode,
+            productName: canonicalPrdName,
             quantityKg: qtyKg,
             quantityPallets: pallets,
             unitPriceHT: unitPrice,
@@ -949,6 +962,62 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   ))}
                 </div>
               </div>
+
+              {/* LIVE SAMPLE PREVIEW TABLE */}
+              {parsedData.length > 0 && (
+                <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-3 shadow-xs">
+                  <h3 className="font-bold text-xs text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-[#0f62fe]" />
+                    Aperçu en Direct des 5 Premières Lignes Extraites du Fichier :
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse border border-gray-200">
+                      <thead className="bg-gray-100 font-bold uppercase text-[11px] text-gray-700">
+                        <tr>
+                          <th className="p-2 border">#</th>
+                          <th className="p-2 border">N° BL</th>
+                          <th className="p-2 border text-blue-800">Nom du Client Extrait</th>
+                          <th className="p-2 border text-emerald-800">Produit Rattaché</th>
+                          <th className="p-2 border text-right">Colis</th>
+                          <th className="p-2 border text-right">Poids (Kg)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {parsedData.slice(0, 5).map((row, idx) => {
+                          let clientVal = mapping.clientName ? row[mapping.clientName] : '';
+                          if (!clientVal || String(clientVal).trim() === '') {
+                            const textCells = Object.entries(row).filter(([key, val]) => {
+                              if (!val || key.startsWith('_')) return false;
+                              const str = String(val).trim().toUpperCase();
+                              return str.length > 2 && !str.includes('BL') && !str.includes('PAGE') && !str.includes('TOTAL') && !str.includes('DATTE') && !/^\d+$/.test(str);
+                            });
+                            if (textCells.length > 0) clientVal = textCells[0][1];
+                          }
+                          const prdVal = mapping.productName ? row[mapping.productName] : '';
+                          const blVal = mapping.blNumber ? row[mapping.blNumber] : `BL-2026-${String(idx+1).padStart(4, '0')}`;
+                          const colisVal = mapping.quantityColis ? row[mapping.quantityColis] : '-';
+                          const kgVal = mapping.quantityKg ? row[mapping.quantityKg] : '-';
+
+                          const displayClient = cleanDisplayName(String(clientVal || '')) || `CLIENT ${idx + 1}`;
+                          const rawPrdStr = String(prdVal || '').toUpperCase();
+                          const displayPrd = rawPrdStr.includes('11') ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG';
+
+                          return (
+                            <tr key={idx} className="hover:bg-gray-50 border-b">
+                              <td className="p-2 border font-mono font-bold text-gray-500">{idx + 1}</td>
+                              <td className="p-2 border font-bold text-gray-900">{blVal}</td>
+                              <td className="p-2 border font-bold text-blue-700">{displayClient}</td>
+                              <td className="p-2 border font-bold text-emerald-700">{displayPrd}</td>
+                              <td className="p-2 border text-right font-mono font-bold">{colisVal}</td>
+                              <td className="p-2 border text-right font-mono font-bold">{kgVal}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* COLIS TO KG GRAMMAGE CONFIGURATION PANEL */}
               {/* INITIAL FRIGO STOCK ENTRY PANEL BEFORE BL DECREMENT */}
