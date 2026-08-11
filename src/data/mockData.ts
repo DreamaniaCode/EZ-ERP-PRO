@@ -197,19 +197,7 @@ const UNIQUE_CLIENT_NAMES = [
   'ABDEFATAH SALHI',
 ];
 
-export const INITIAL_CLIENTS: Client[] = UNIQUE_CLIENT_NAMES.map((name, idx) => ({
-  id: clientIdFromName(name),
-  code: `CLT-${String(idx + 1).padStart(3, '0')}`,
-  name: name,
-  companyName: '',
-  ice: '',
-  email: '',
-  phone: '',
-  address: '',
-  city: '',
-  creditLimit: 500000,
-  currentBalance: 0,
-}));
+
 
 export const INITIAL_ORDERS: SalesOrder[] = [];
 
@@ -505,11 +493,14 @@ function parseDate(ddmmyyyy: string): string {
   return ddmmyyyy;
 }
 
-// Build the 253 historical BLs from Excel data
-const buildExcelBLs = (): DeliveryNoteBL[] => {
-  return RAW_EXCEL_ENTRIES
+// Build the 253 historical BLs & Invoices from Excel data
+const buildExcelBLsAndInvoices = (): { notes: DeliveryNoteBL[]; invoices: Invoice[] } => {
+  const notes: DeliveryNoteBL[] = [];
+  const invoices: Invoice[] = [];
+
+  RAW_EXCEL_ENTRIES
     .filter(e => e.client !== '-' && e.client.trim() !== '')
-    .map((entry, idx) => {
+    .forEach((entry, idx) => {
       const clientName = normalizeClientName(entry.client);
       const clientId = clientIdFromName(clientName);
       const date = parseDate(entry.date);
@@ -517,15 +508,22 @@ const buildExcelBLs = (): DeliveryNoteBL[] => {
       const productCode = entry.product === 'SIBORT5' ? 'ALG SIBORT 5KG' : 'ALG 11KG';
       const productName = entry.product === 'SIBORT5' ? 'Datte Algérienne Sibort 5 KG' : 'Datte Algérienne 11 KG';
       const companyId = entry.company;
-      const prefix = companyId === 'STE_1' ? 'BL-MLHMD' : 'BL-AINRAB';
-      const blNumber = `${prefix}-${date.replace(/-/g, '')}-${String(idx + 1).padStart(4, '0')}`;
+      const blPrefix = companyId === 'STE_1' ? 'BL-MLHMD' : 'BL-AINRAB';
+      const facPrefix = companyId === 'STE_1' ? 'FAC-MLHMD' : 'FAC-AINRAB';
+
+      const blNumber = `${blPrefix}-${date.replace(/-/g, '')}-${String(idx + 1).padStart(4, '0')}`;
+      const invoiceNumber = `${facPrefix}-${date.replace(/-/g, '')}-${String(idx + 1).padStart(4, '0')}`;
+
       const poidsKg = entry.poidsKg;
       const unitPrice = 22; // selling price
       const totalHT = poidsKg * unitPrice;
       const totalTTC = totalHT; // TVA 0%
 
-      return {
-        id: `bl-excel-${idx + 1}`,
+      const blId = `bl-excel-${idx + 1}`;
+      const invId = `inv-excel-${idx + 1}`;
+
+      const bl: DeliveryNoteBL = {
+        id: blId,
         companyId,
         blNumber,
         orderId: '',
@@ -560,7 +558,9 @@ const buildExcelBLs = (): DeliveryNoteBL[] => {
         frigoApprovedBy: 'Agent Frigo Condiferie SK',
         whatsappSent: false,
         emailSent: false,
-        status: 'LIVRÉ' as const,
+        status: 'FACTURÉ' as const,
+        invoiceId: invId,
+        invoiceNumber,
         logs: [
           {
             id: `log-excel-${idx + 1}`,
@@ -570,10 +570,71 @@ const buildExcelBLs = (): DeliveryNoteBL[] => {
           }
         ]
       };
+
+      const inv: Invoice = {
+        id: invId,
+        companyId,
+        invoiceNumber,
+        blId,
+        clientId,
+        clientName,
+        clientICE: '',
+        clientAddress: '',
+        date,
+        dueDate: date,
+        items: [
+          {
+            productId,
+            productCode,
+            productName,
+            quantityKg: poidsKg,
+            quantityPallets: 0,
+            unitPriceHT: unitPrice,
+            vatRate: 0,
+            totalHT,
+            totalTTC,
+          }
+        ],
+        totalHT,
+        totalVAT: 0,
+        totalTTC,
+        amountPaid: 0,              // NO PAYMENTS as requested!
+        remainingAmount: totalTTC,   // Unpaid invoice balance
+        status: 'EMISE' as const,    // Emitted / Unpaid
+      };
+
+      notes.push(bl);
+      invoices.push(inv);
     });
+
+  return { notes, invoices };
 };
 
-export const INITIAL_DELIVERY_NOTES: DeliveryNoteBL[] = buildExcelBLs();
+const generatedData = buildExcelBLsAndInvoices();
+export const INITIAL_DELIVERY_NOTES: DeliveryNoteBL[] = generatedData.notes;
+export const INITIAL_INVOICES: Invoice[] = generatedData.invoices;
+
+const CLIENT_BALANCES: Record<string, number> = {};
+generatedData.invoices.forEach(inv => {
+  CLIENT_BALANCES[inv.clientId] = (CLIENT_BALANCES[inv.clientId] || 0) + inv.totalTTC;
+});
+
+export const INITIAL_CLIENTS: Client[] = UNIQUE_CLIENT_NAMES.map((name, idx) => {
+  const cid = clientIdFromName(name);
+  return {
+    id: cid,
+    code: `CLT-${String(idx + 1).padStart(3, '0')}`,
+    name: name,
+    companyName: '',
+    ice: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    creditLimit: 500000,
+    currentBalance: CLIENT_BALANCES[cid] || 0,
+  };
+});
 
 const buildInitialStockMovements = (): ProductStockMovement[] => {
   const movements: ProductStockMovement[] = [];
@@ -654,7 +715,6 @@ const buildInitialStockMovements = (): ProductStockMovement[] => {
 
 export const INITIAL_STOCK_MOVEMENTS: ProductStockMovement[] = buildInitialStockMovements();
 
-export const INITIAL_INVOICES: Invoice[] = [];
 export const INITIAL_CHEQUES_EFFETS: ChequeEffet[] = [];
 export const INITIAL_TREASURY_ACCOUNTS: TreasuryAccount[] = [];
 export const INITIAL_EXPENSES: Expense[] = [];

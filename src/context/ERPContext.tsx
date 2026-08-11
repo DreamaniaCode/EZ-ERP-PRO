@@ -410,6 +410,11 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl), { merge: true }).catch(() => {});
     });
 
+    // Seed Excel Invoices
+    INITIAL_INVOICES.forEach(inv => {
+      setDoc(doc(db, 'invoices', inv.id), sanitizeForFirestore(inv), { merge: true }).catch(() => {});
+    });
+
     // Seed Stock Movements
     INITIAL_STOCK_MOVEMENTS.forEach(sm => {
       setDoc(doc(db, 'stock_movements', sm.id), sanitizeForFirestore(sm), { merge: true }).catch(() => {});
@@ -503,26 +508,28 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as DeliveryNoteBL);
-      if (docs.length > 0) {
-        setDeliveryNotes(prev => {
-          const map = new Map<string, DeliveryNoteBL>();
-          INITIAL_DELIVERY_NOTES.forEach(b => map.set(b.id, b));
-          docs.forEach(b => map.set(b.id, b));
-          return Array.from(map.values());
-        });
-      } else if (isWiped) {
-        setDeliveryNotes([]);
-      } else {
-        setDeliveryNotes(INITIAL_DELIVERY_NOTES);
-        INITIAL_DELIVERY_NOTES.forEach(bl => {
-          setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl), { merge: true }).catch(() => {});
-        });
-      }
+      const deletedSet = new Set<string>(JSON.parse(localStorage.getItem('erp_deleted_bls') || '[]'));
+      const activeDocs = docs.filter(b => !deletedSet.has(b.id));
+
+      setDeliveryNotes(prev => {
+        const map = new Map<string, DeliveryNoteBL>();
+        INITIAL_DELIVERY_NOTES.filter(b => !deletedSet.has(b.id)).forEach(b => map.set(b.id, b));
+        activeDocs.forEach(b => map.set(b.id, b));
+        return Array.from(map.values());
+      });
     }, (error) => handleFirestoreError(error, OperationType.GET, 'deliveryNotes'));
 
     const unsubInvoices = onSnapshot(collection(db, 'invoices'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Invoice);
-      if (docs.length > 0) setInvoices(docs);
+      const deletedSet = new Set<string>(JSON.parse(localStorage.getItem('erp_deleted_invoices') || '[]'));
+      const activeDocs = docs.filter(inv => !deletedSet.has(inv.id));
+
+      setInvoices(prev => {
+        const map = new Map<string, Invoice>();
+        INITIAL_INVOICES.filter(inv => !deletedSet.has(inv.id)).forEach(inv => map.set(inv.id, inv));
+        activeDocs.forEach(inv => map.set(inv.id, inv));
+        return Array.from(map.values());
+      });
     }, (error) => handleFirestoreError(error, OperationType.GET, 'invoices'));
 
     const unsubExpenses = onSnapshot(collection(db, 'expenses'), (snapshot) => {
@@ -1575,6 +1582,14 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
 
   const deleteBL = (id: string) => {
+    try {
+      const deleted = JSON.parse(localStorage.getItem('erp_deleted_bls') || '[]');
+      if (!deleted.includes(id)) {
+        deleted.push(id);
+        localStorage.setItem('erp_deleted_bls', JSON.stringify(deleted));
+      }
+    } catch (e) {}
+
     setDeliveryNotes(prev => prev.filter(b => b.id !== id));
     deleteDoc(doc(db, 'deliveryNotes', id)).catch(err => {
       handleFirestoreError(err, OperationType.DELETE, `deliveryNotes/${id}`);
@@ -1695,6 +1710,14 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const deleteInvoice = (id: string) => {
+    try {
+      const deleted = JSON.parse(localStorage.getItem('erp_deleted_invoices') || '[]');
+      if (!deleted.includes(id)) {
+        deleted.push(id);
+        localStorage.setItem('erp_deleted_invoices', JSON.stringify(deleted));
+      }
+    } catch (e) {}
+
     const targetInv = invoices.find(i => i.id === id);
     setInvoices(prev => prev.filter(i => i.id !== id));
     deleteDoc(doc(db, 'invoices', id)).catch(err => {
