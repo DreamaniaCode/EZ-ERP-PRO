@@ -375,6 +375,89 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('erp_current_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
+  // Automatic Recovery: If an Invoice exists in system, but its parent BL is missing from deliveryNotes, reconstruct and restore the BL!
+  useEffect(() => {
+    if (!invoices || invoices.length === 0) return;
+
+    const missingInvoices = invoices.filter(inv => {
+      const foundBL = deliveryNotes.find(b => 
+        (inv.blId && b.id === inv.blId) || 
+        (inv.invoiceNumber && b.invoiceNumber === inv.invoiceNumber) ||
+        (inv.blId && b.blNumber === inv.blId)
+      );
+      return !foundBL;
+    });
+
+    if (missingInvoices.length > 0) {
+      const recoveredBLs: DeliveryNoteBL[] = missingInvoices.map((inv, idx) => {
+        const blId = inv.blId || `bl-recovered-${inv.id}`;
+        const blNumber = inv.invoiceNumber ? `BL-${inv.invoiceNumber.replace(/^FAC-?/i, '')}` : `BL-REC-${idx + 1}`;
+        
+        return {
+          id: blId,
+          companyId: inv.companyId || activeCompanyId,
+          blNumber,
+          orderId: inv.orderId || '',
+          orderNumber: '',
+          clientId: inv.clientId,
+          clientName: inv.clientName,
+          clientAddress: inv.clientAddress || '',
+          frigoId: 'frigo-1',
+          frigoName: 'Frigo MFADEL',
+          date: inv.date || new Date().toISOString().slice(0, 10),
+          items: (inv.items || []).map((it, itemIdx) => ({
+            id: `item-rec-${idx}-${itemIdx}`,
+            productId: it.productId || `prd-rec-${itemIdx}`,
+            productCode: it.productCode || it.productName || 'DATTES',
+            productName: it.productName || it.productCode || 'Dattes Standard',
+            quantityKg: it.quantityKg || 0,
+            quantityPallets: it.quantityPallets || 0,
+            unitPriceHT: it.unitPriceHT || 50,
+            totalHT: it.totalHT || 0,
+            totalTTC: it.totalTTC || ((it.totalHT || 0) * 1.20) || 0,
+          })),
+          totalKg: inv.items ? inv.items.reduce((sum, it) => sum + (it.quantityKg || 0), 0) : 0,
+          totalPallets: inv.items ? inv.items.reduce((sum, it) => sum + (it.quantityPallets || 0), 0) : 0,
+          totalHT: inv.totalHT || 0,
+          totalTTC: inv.totalTTC || 0,
+          frigoEmployeeApproved: true,
+          frigoApprovedBy: 'Agent Frigo MFADEL',
+          signedByClient: true,
+          whatsappSent: true,
+          emailSent: false,
+          status: 'FACTURÉ',
+          invoiceId: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          stockDecremented: true,
+          stockDeductedV2: true,
+          logs: [
+            {
+              id: `log-rec-${Date.now()}-${idx}`,
+              timestamp: inv.date || new Date().toISOString().slice(0, 16).replace('T', ' '),
+              action: `Restauré automatiquement d'après la Facture Client ${inv.invoiceNumber}`,
+              author: 'Système ERP'
+            }
+          ]
+        };
+      });
+
+      setDeliveryNotes(prev => {
+        const map = new Map<string, DeliveryNoteBL>();
+        prev.forEach(b => map.set(b.id, b));
+        recoveredBLs.forEach(b => {
+          if (!map.has(b.id)) map.set(b.id, b);
+        });
+        return Array.from(map.values());
+      });
+
+      recoveredBLs.forEach(bl => {
+        setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl), { merge: true }).catch(err => {
+          console.warn('Recovered BL firestore save notice:', err);
+        });
+      });
+    }
+  }, [invoices, deliveryNotes]);
+
   // Firestore Real-Time Syncing (Bidirectional Live Sync Desktop <-> Mobile PWA)
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
