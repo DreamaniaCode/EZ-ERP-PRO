@@ -47,7 +47,38 @@ export const INITIAL_USERS: UserProfile[] = [
 // Completely clear database (Start at 0 for all entities)
 export const INITIAL_FRIGOS: ColdStorageFrigo[] = [];
 export const INITIAL_SUPPLIERS: Supplier[] = [];
-export const INITIAL_PRODUCTS: Product[] = [];
+export const INITIAL_PRODUCTS: Product[] = [
+  {
+    id: 'prd-sibort-5kg',
+    code: 'PRD-SIBORT-5KG',
+    name: 'Datte Algérienne Sibort 5 KG',
+    category: 'Dattes Importées',
+    origin: 'Algérie / Import',
+    sellingPriceHT: 22,
+    unitCostHT: 18,
+    vatRate: 0.20,
+    kgPerCarton: 5,
+    cartonsPerPallet: 100,
+    kgPerPallet: 500,
+    minStockAlertKg: 5000,
+    description: 'Produit principal 1: Datte Algérienne Sibort 5 KG',
+  },
+  {
+    id: 'prd-datte-11kg',
+    code: 'PRD-DATTE-11KG',
+    name: 'Datte Algérienne 11 KG',
+    category: 'Dattes Importées',
+    origin: 'Algérie / Import',
+    sellingPriceHT: 55,
+    unitCostHT: 45,
+    vatRate: 0.20,
+    kgPerCarton: 11,
+    cartonsPerPallet: 100,
+    kgPerPallet: 1100,
+    minStockAlertKg: 5000,
+    description: 'Produit principal 2: Datte Algérienne 11 KG',
+  }
+];
 export const INITIAL_STOCKS: FrigoStockLevel[] = [];
 export const INITIAL_CLIENTS: Client[] = [];
 export const INITIAL_ORDERS: SalesOrder[] = [];

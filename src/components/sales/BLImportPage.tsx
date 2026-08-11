@@ -259,19 +259,18 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       });
       setMapping(newMap);
 
-      // Detect product names to initialize kgPerColis map
-      const initialColisWeights: Record<string, number> = {};
-      allRows.forEach(r => {
-        const prd = String(r[newMap.productName] || r._sheetName || 'Dattes Standard');
-        const normPrd = cleanDisplayName(prd);
-        if (normPrd && !initialColisWeights[normPrd]) {
-          const is5kg = normPrd.includes('5 KG') || normPrd.includes('5KG');
-          const is11kg = normPrd.includes('11 KG') || normPrd.includes('11KG');
-          const is2kg = normPrd.includes('2 KG') || normPrd.includes('2KG');
-          initialColisWeights[normPrd] = is5kg ? 6 : is11kg ? 10.5 : is2kg ? 2.5 : 5;
-        }
-      });
+      // Initialize productColisWeights and productInitialStockEntrees for the 2 true date products
+      const initialColisWeights: Record<string, number> = {
+        'Datte Algérienne Sibort 5 KG': 5.0,
+        'Datte Algérienne 11 KG': 11.0
+      };
+      const initialStockMap: Record<string, number> = {
+        'Datte Algérienne Sibort 5 KG': 22924,
+        'Datte Algérienne 11 KG': 9135
+      };
+
       setProductColisWeights(initialColisWeights);
+      setProductInitialStockEntrees(initialStockMap);
     }
   };
 

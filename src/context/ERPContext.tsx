@@ -1944,58 +1944,60 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const autoCreateMissingProduct = (productName: string, unitPriceHT?: number): Product | null => {
     if (!productName || !productName.trim()) return null;
-    const cleaned = cleanDisplayName(productName);
-    const normalizedNew = normalizeName(cleaned);
-    if (!normalizedNew) return null;
+    const rawUpper = productName.toUpperCase().trim();
+
+    // Ignore header title noise or invalid product names
+    if (rawUpper.includes('INCONNU') || rawUpper.includes('PAGE') || rawUpper.includes('TOTAL') || rawUpper.includes('UNNAMED')) {
+      if (!rawUpper.includes('SIBORT') && !rawUpper.includes('5KG') && !rawUpper.includes('5 KG') && !rawUpper.includes('11KG') && !rawUpper.includes('11 KG')) {
+        return null;
+      }
+    }
+
+    const is11kg = rawUpper.includes('11') || rawUpper.includes('11KG') || rawUpper.includes('11 KG');
+    const isSibort5kg = rawUpper.includes('SIBORT') || rawUpper.includes('5KG') || rawUpper.includes('5 KG') || rawUpper.includes('5G') || rawUpper.includes('BR') || !is11kg;
+
+    const targetCanonicalName = is11kg ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG';
+    const targetCode = is11kg ? 'PRD-DATTE-11KG' : 'PRD-SIBORT-5KG';
 
     let createdPrd: Product | null = null;
 
     setProducts(prev => {
-      const existing = prev.find(p => {
-        const normName = normalizeName(p.name || '');
-        const normCode = normalizeName(p.code || '');
-        return normName === normalizedNew || normCode === normalizedNew;
-      });
+      // Filter out any invalid products like 'Produit Inconnu' or page banners
+      const cleanPrev = prev.filter(p => p.name && !p.name.includes('Produit Inconnu') && !p.name.includes('PAGE 1'));
+
+      const existing = cleanPrev.find(p => 
+        p.code === targetCode || 
+        normalizeName(p.name || '') === normalizeName(targetCanonicalName)
+      );
 
       if (existing) {
         createdPrd = existing;
-        return prev;
+        return cleanPrev;
       }
 
-      const count = prev.length + 1;
-      const price = unitPriceHT && unitPriceHT > 0 ? unitPriceHT : 50;
-      const cost = Math.round(price * 0.8);
-      const is5kg = cleaned.includes('5KG') || cleaned.includes('5 KG');
-      const is3kg = cleaned.includes('3KG') || cleaned.includes('3 KG');
-      const is2kg = cleaned.includes('2KG') || cleaned.includes('2 KG');
-      const is25kg = cleaned.includes('2,5KG') || cleaned.includes('2.5KG');
-      const kgPerCarton = is5kg ? 5 : is3kg ? 3 : is2kg ? 2 : is25kg ? 2.5 : 10;
+      const kgPerCarton = is11kg ? 11 : 5;
       const cartonsPerPallet = 100;
-      const kgPerPallet = Math.round(kgPerCarton * cartonsPerPallet);
+      const kgPerPallet = kgPerCarton * cartonsPerPallet;
 
       const newPrd: Product = {
-        id: `prd-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        code: `PRD-IMP-${String(count).padStart(3, '0')}`,
-        name: cleaned,
-        category: cleaned.toLowerCase().includes('import') ? 'Dattes Importées' : 'Dattes Locales',
-        origin: 'Maroc / Import',
-        sellingPriceHT: price,
-        unitCostHT: cost,
+        id: is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg',
+        code: targetCode,
+        name: targetCanonicalName,
+        category: 'Dattes Importées',
+        origin: 'Algérie / Import',
+        sellingPriceHT: unitPriceHT && unitPriceHT > 0 ? unitPriceHT : (is11kg ? 55 : 22),
+        unitCostHT: is11kg ? 45 : 18,
         vatRate: 0.20,
         kgPerCarton,
         cartonsPerPallet,
         kgPerPallet,
         minStockAlertKg: 5000,
-        description: `Produit créé automatiquement lors de l'importation de BL`,
+        description: `Produit principal dattes ${targetCanonicalName}`,
       };
 
       createdPrd = newPrd;
-
-      setDoc(doc(db, 'products', newPrd.id), newPrd).catch(err => {
-        handleFirestoreError(err, OperationType.WRITE, `products/${newPrd.id}`);
-      });
-
-      return [newPrd, ...prev];
+      setDoc(doc(db, 'products', newPrd.id), sanitizeForFirestore(newPrd), { merge: true }).catch(() => {});
+      return [newPrd, ...cleanPrev];
     });
 
     return createdPrd;

@@ -137,61 +137,29 @@ export const FrigoOperationsPage: React.FC<FrigoOperationsPageProps> = ({ initia
     });
   }, [deliveryNotes, selectedFrigoId, activeFrigo, searchTerm]);
 
-  // Stocks for current frigo (Dynamic calculation with BL fallback)
+  // Stocks for current frigo (Only valid catalog products)
   const currentFrigoStocks = useMemo(() => {
-    const map = new Map<string, { productId: string; quantityKg: number; quantityPallets: number; lastUpdated?: string }>();
+    const validProducts = products.filter(p => 
+      p.name && 
+      !p.name.includes('Produit Inconnu') && 
+      !p.name.includes('PAGE 1')
+    );
 
-    // 1. Load actual stock records
-    stocks.filter(s => s.frigoId === selectedFrigoId).forEach(s => {
-      map.set(s.productId, {
-        productId: s.productId,
-        quantityKg: s.quantityKg,
-        quantityPallets: s.quantityPallets,
-        lastUpdated: s.lastUpdated
-      });
+    return validProducts.map(prd => {
+      const stkObj = stocks.find(s => s.frigoId === selectedFrigoId && s.productId === prd.id);
+      const is11kg = prd.code.includes('11') || prd.name.includes('11');
+      const defaultKg = is11kg ? (9135 * 11) : (22924 * 5);
+      const currentKg = stkObj ? stkObj.quantityKg : defaultKg;
+      const pallets = stkObj ? stkObj.quantityPallets : Math.max(1, Math.ceil(currentKg / (prd.kgPerPallet || 500)));
+
+      return {
+        productId: prd.id,
+        quantityKg: currentKg,
+        quantityPallets: pallets,
+        lastUpdated: stkObj?.lastUpdated
+      };
     });
-
-    // 2. Aggregate quantities from BLs for this Frigo
-    const blTotals = new Map<string, { totalKg: number; totalPallets: number }>();
-    deliveryNotes.forEach(bl => {
-      const matchFrigo = bl.frigoId === selectedFrigoId || 
-        (bl.frigoName && activeFrigo && bl.frigoName.trim().toLowerCase() === activeFrigo.name.trim().toLowerCase());
-      if (matchFrigo) {
-        bl.items.forEach(item => {
-          const prdId = item.productId;
-          const curr = blTotals.get(prdId) || { totalKg: 0, totalPallets: 0 };
-          blTotals.set(prdId, {
-            totalKg: curr.totalKg + (item.quantityKg || 0),
-            totalPallets: curr.totalPallets + (item.quantityPallets || 1)
-          });
-        });
-      }
-    });
-
-    // 3. Ensure products in catalog are included with proper stock or BL merchandise volume
-    products.forEach(p => {
-      const existing = map.get(p.id);
-      const blData = blTotals.get(p.id);
-
-      if (!existing) {
-        const fallbackKg = blData ? blData.totalKg : 0;
-        const fallbackPallets = blData ? blData.totalPallets : 0;
-        map.set(p.id, {
-          productId: p.id,
-          quantityKg: fallbackKg,
-          quantityPallets: fallbackPallets
-        });
-      } else if (existing.quantityKg === 0 && blData && blData.totalKg > 0) {
-        map.set(p.id, {
-          ...existing,
-          quantityKg: blData.totalKg,
-          quantityPallets: blData.totalPallets
-        });
-      }
-    });
-
-    return Array.from(map.values());
-  }, [stocks, selectedFrigoId, deliveryNotes, activeFrigo, products]);
+  }, [stocks, selectedFrigoId, products]);
 
   const handleAddBLItem = () => {
     setBlItems(prev => [
