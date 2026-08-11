@@ -449,96 +449,41 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Client);
-      if (docs.length > 0) {
-        setClients(prev => {
-          const map = new Map<string, Client>();
-          INITIAL_CLIENTS.forEach(c => map.set(c.id, c));
-          docs.forEach(c => map.set(c.id, c));
-          return Array.from(map.values());
-        });
-      } else if (!isWiped) {
-        setClients(INITIAL_CLIENTS);
-      }
+      setClients(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
 
     const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Product);
-      if (docs.length > 0) {
-        setProducts(prev => {
-          const map = new Map<string, Product>();
-          INITIAL_PRODUCTS.forEach(p => map.set(p.id, p));
-          docs.forEach(p => map.set(p.id, p));
-          return Array.from(map.values());
-        });
-      } else if (!isWiped) {
-        setProducts(INITIAL_PRODUCTS);
-      }
+      setProducts(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'products'));
 
     const unsubSuppliers = onSnapshot(collection(db, 'suppliers'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Supplier);
-      if (docs.length > 0) {
-        setSuppliers(prev => {
-          const map = new Map<string, Supplier>();
-          INITIAL_SUPPLIERS.forEach(s => map.set(s.id, s));
-          docs.forEach(s => map.set(s.id, s));
-          return Array.from(map.values());
-        });
-      } else if (!isWiped) {
-        setSuppliers(INITIAL_SUPPLIERS);
-      }
+      setSuppliers(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'suppliers'));
 
     const unsubFrigos = onSnapshot(collection(db, 'frigos'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as ColdStorageFrigo);
-      if (docs.length > 0) {
-        setFrigos(prev => {
-          const map = new Map<string, ColdStorageFrigo>();
-          INITIAL_FRIGOS.forEach(f => map.set(f.id, f));
-          docs.forEach(f => map.set(f.id, f));
-          return Array.from(map.values());
-        });
-      } else if (!isWiped) {
-        setFrigos(INITIAL_FRIGOS);
-      }
+      setFrigos(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'frigos'));
 
     const unsubStocks = onSnapshot(collection(db, 'stocks'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as FrigoStockLevel);
-      if (docs.length > 0) {
-        setStocks(prev => {
-          const map = new Map<string, FrigoStockLevel>();
-          prev.forEach(s => map.set(`${s.frigoId}_${s.productId}`, s));
-          docs.forEach(d => map.set(`${d.frigoId}_${d.productId}`, d));
-          return Array.from(map.values());
-        });
-      }
+      setStocks(docs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'stocks'));
 
     const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as DeliveryNoteBL);
       const deletedSet = new Set<string>(JSON.parse(localStorage.getItem('erp_deleted_bls') || '[]'));
       const activeDocs = docs.filter(b => !deletedSet.has(b.id));
-
-      setDeliveryNotes(prev => {
-        const map = new Map<string, DeliveryNoteBL>();
-        INITIAL_DELIVERY_NOTES.filter(b => !deletedSet.has(b.id)).forEach(b => map.set(b.id, b));
-        activeDocs.forEach(b => map.set(b.id, b));
-        return Array.from(map.values());
-      });
+      setDeliveryNotes(activeDocs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'deliveryNotes'));
 
     const unsubInvoices = onSnapshot(collection(db, 'invoices'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Invoice);
       const deletedSet = new Set<string>(JSON.parse(localStorage.getItem('erp_deleted_invoices') || '[]'));
       const activeDocs = docs.filter(inv => !deletedSet.has(inv.id));
-
-      setInvoices(prev => {
-        const map = new Map<string, Invoice>();
-        INITIAL_INVOICES.filter(inv => !deletedSet.has(inv.id)).forEach(inv => map.set(inv.id, inv));
-        activeDocs.forEach(inv => map.set(inv.id, inv));
-        return Array.from(map.values());
-      });
+      setInvoices(activeDocs);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'invoices'));
 
     const unsubExpenses = onSnapshot(collection(db, 'expenses'), (snapshot) => {
@@ -1823,32 +1768,13 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const resetAllData = async () => {
     localStorage.clear();
+    sessionStorage.clear();
     localStorage.setItem('erp_system_wiped', 'true');
+    localStorage.setItem('erp_is_wiped', 'true');
 
-    try {
-      const collectionsToDelete = [
-        'deliveryNotes', 'orders', 'products', 'clients', 
-        'suppliers', 'invoices', 'expenses', 'chequesEffets', 
-        'inventoryCounts', 'stocks', 'purchase_invoices', 'stock_movements'
-      ];
-      for (const colName of collectionsToDelete) {
-        const snapshot = await getDocs(collection(db, colName));
-        snapshot.forEach(docSnap => {
-          deleteDoc(doc(db, colName, docSnap.id)).catch(() => {});
-        });
-      }
-    } catch (err) {
-      console.warn('Firestore bulk delete skipped:', err);
-    }
-
-    if ('caches' in window) {
-      try {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(name => caches.delete(name)));
-      } catch (e) {}
-    }
-
+    // Reset React state immediately
     setProducts([]);
+    setFrigos([]);
     setClients([]);
     setSuppliers([]);
     setOrders([]);
@@ -1860,6 +1786,42 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setInventoryCounts([]);
     setPurchaseInvoices([]);
     setStockMovements([]);
+
+    try {
+      const collectionsToDelete = [
+        'deliveryNotes', 'orders', 'products', 'clients', 'frigos',
+        'suppliers', 'invoices', 'expenses', 'chequesEffets', 
+        'inventoryCounts', 'stocks', 'purchase_invoices', 'stock_movements', 'companies'
+      ];
+      for (const colName of collectionsToDelete) {
+        const snapshot = await getDocs(collection(db, colName));
+        const batch = writeBatch(db);
+        snapshot.docs.forEach(docSnap => {
+          batch.delete(docSnap.ref);
+        });
+        await batch.commit();
+      }
+    } catch (err) {
+      console.warn('Firestore bulk delete skipped:', err);
+    }
+
+    if ('indexedDB' in window && window.indexedDB.databases) {
+      try {
+        const dbs = await window.indexedDB.databases();
+        for (const dbInfo of dbs) {
+          if (dbInfo.name) {
+            window.indexedDB.deleteDatabase(dbInfo.name);
+          }
+        }
+      } catch (e) {}
+    }
+
+    if ('caches' in window) {
+      try {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      } catch (e) {}
+    }
 
     window.location.reload();
   };
