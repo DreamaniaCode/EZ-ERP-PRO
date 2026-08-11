@@ -2042,29 +2042,77 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const importExcelBLs = (newBLs: DeliveryNoteBL[]) => {
-    // Map to track client account balance additions ("regle les comptes clients")
-    const clientBalanceAdditions = new Map<string, number>();
+    // 1. Synchronous Client resolution and pool management
+    const clientAdditionsMap = new Map<string, number>();
+    const newClientsPool: Client[] = [];
+    const clientMap = new Map<string, Client>();
 
-    newBLs.forEach(bl => {
-      // 1. Auto-create missing Client
-      autoCreateMissingClient(bl.clientName, bl.clientPhone, bl.clientEmail, bl.clientAddress);
+    // Index existing clients
+    clients.forEach(c => {
+      clientMap.set(c.id, c);
+      if (c.name) clientMap.set(normalizeName(c.name), c);
+      if (c.companyName) clientMap.set(normalizeName(c.companyName), c);
+    });
 
-      const normClientName = normalizeName(cleanDisplayName(bl.clientName));
-      const foundClient = clients.find(c => 
-        c.id === bl.clientId || 
-        normalizeName(c.name || '') === normClientName ||
-        normalizeName(c.companyName || '') === normClientName
-      );
+    const getOrCreateClient = (rawName: string, phone?: string, email?: string, address?: string): Client => {
+      const cleanName = cleanDisplayName(rawName || 'Client Divers');
+      const normName = normalizeName(cleanName);
 
-      const clientIdToUse = foundClient ? foundClient.id : bl.clientId;
+      let found = clientMap.get(normName) || clientMap.get(cleanName);
+
+      if (!found && normName) {
+        found = newClientsPool.find(c => 
+          normalizeName(c.name || '') === normName ||
+          normalizeName(c.companyName || '') === normName
+        );
+      }
+
+      if (!found && cleanName) {
+        const count = clients.length + newClientsPool.length + 1;
+        found = {
+          id: `clt-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          code: `CLT-${String(count).padStart(3, '0')}`,
+          name: cleanName,
+          companyName: cleanName,
+          ice: '',
+          phone: phone || '',
+          email: email || '',
+          address: address || 'Casablanca, Maroc',
+          city: 'Casablanca',
+          creditLimit: 300000,
+          currentBalance: 0,
+        };
+        newClientsPool.push(found);
+        clientMap.set(found.id, found);
+        clientMap.set(normName, found);
+      }
+
+      return found || {
+        id: `clt-${Date.now()}`,
+        code: 'CLT-000',
+        name: cleanName || 'Client',
+        companyName: cleanName || 'Client',
+        ice: '',
+        phone: '',
+        email: '',
+        address: 'Casablanca',
+        city: 'Casablanca',
+        creditLimit: 300000,
+        currentBalance: 0,
+      };
+    };
+
+    // Process all incoming BLs
+    const processedBLs: DeliveryNoteBL[] = newBLs.map(bl => {
+      const clientObj = getOrCreateClient(bl.clientName, bl.clientPhone, bl.clientEmail, bl.clientAddress);
       const blAmount = bl.totalHT || bl.totalTTC || 0;
 
-      clientBalanceAdditions.set(
-        clientIdToUse, 
-        (clientBalanceAdditions.get(clientIdToUse) || 0) + blAmount
+      clientAdditionsMap.set(
+        clientObj.id,
+        (clientAdditionsMap.get(clientObj.id) || 0) + blAmount
       );
 
-      // 2. Auto-create missing Products & deduct/update stock levels for the target frigo
+      // Process product lines & Frigo stock updates
       bl.items.forEach(item => {
         const prdName = item.productName || item.productCode;
         if (prdName) {
@@ -2116,49 +2164,40 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }
         }
       });
-    });
 
-    // 3. Update Client Balances ("regle les comptes clients")
-    setClients(prevClients => {
-      return prevClients.map(client => {
-        let addition = clientBalanceAdditions.get(client.id) || 0;
-        if (!addition) {
-          const normC = normalizeName(client.name || client.companyName || '');
-          clientBalanceAdditions.forEach((amount, cid) => {
-            if (cid === client.id) return;
-            const other = prevClients.find(c => c.id === cid);
-            if (other && normalizeName(other.name || other.companyName || '') === normC) {
-              addition += amount;
-            }
-          });
-        }
-
-        if (addition > 0) {
-          const updatedClient: Client = {
-            ...client,
-            currentBalance: (client.currentBalance || 0) + addition
-          };
-
-          setDoc(doc(db, 'clients', client.id), sanitizeForFirestore(updatedClient), { merge: true }).catch(err => {
-            handleFirestoreError(err, OperationType.UPDATE, `clients/${client.id}`);
-          });
-
-          return updatedClient;
-        }
-        return client;
-      });
-    });
-
-    // 4. Save Delivery Notes (BLs) without Invoices ("ne cree pas de facture")
-    setDeliveryNotes(prev => {
-      const existingNumbers = new Set(prev.map(b => b.blNumber));
-      const filteredNew = newBLs.map(b => ({
-        ...b,
+      return {
+        ...bl,
+        clientId: clientObj.id,
+        clientName: clientObj.companyName || clientObj.name,
         invoiceId: undefined, // Explicitly NO invoice created
         invoiceNumber: undefined,
-        status: b.status || 'LIVRÉ'
-      })).filter(b => !existingNumbers.has(b.blNumber));
+        status: bl.status || 'LIVRÉ'
+      };
+    });
 
+    // 2. Commit all Clients with updated balances
+    setClients(prevClients => {
+      const clientDict = new Map<string, Client>();
+      prevClients.forEach(c => clientDict.set(c.id, { ...c }));
+      newClientsPool.forEach(c => clientDict.set(c.id, { ...c }));
+
+      clientAdditionsMap.forEach((amount, clientId) => {
+        const clt = clientDict.get(clientId);
+        if (clt) {
+          clt.currentBalance = (clt.currentBalance || 0) + amount;
+          setDoc(doc(db, 'clients', clt.id), sanitizeForFirestore(clt), { merge: true }).catch(err => {
+            handleFirestoreError(err, OperationType.UPDATE, `clients/${clt.id}`);
+          });
+        }
+      });
+
+      return Array.from(clientDict.values());
+    });
+
+    // 3. Save Delivery Notes (BLs)
+    setDeliveryNotes(prev => {
+      const existingNumbers = new Set(prev.map(b => b.blNumber));
+      const filteredNew = processedBLs.filter(b => !existingNumbers.has(b.blNumber));
       const updated = [...filteredNew, ...prev];
       
       filteredNew.forEach(bl => {
