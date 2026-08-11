@@ -510,112 +510,123 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const executeImport = () => {
-    const toImport = [...validationResults.valid, ...validationResults.warnings, ...validationResults.errors];
-    const frigoTarget = selectedTargetFrigo;
-    const uniqueClientsSet = new Set<string>();
+    try {
+      const toImport = [...validationResults.valid, ...validationResults.warnings, ...validationResults.errors];
+      const frigoTarget = selectedTargetFrigo;
+      const uniqueClientsSet = new Set<string>();
 
-    let calculatedTotalHT = 0;
+      let calculatedTotalHT = 0;
 
-    const formattedBLs: DeliveryNoteBL[] = toImport.map((row, idx) => {
-      const qtyKg = parseFloat(row.quantityKg) || 1000;
-      const qtyColis = parseFloat(row.quantityColis) || Math.ceil(qtyKg / 6);
-      const unitPrice = parseFloat(row.unitPriceHT) || row._unitPriceHT || defaultUnitPrice;
-      const totalHT = row.totalHT ? parseFloat(row.totalHT) : qtyKg * unitPrice;
-      const totalTTC = totalHT;
+      const formattedBLs: DeliveryNoteBL[] = toImport.map((row, idx) => {
+        const qtyKg = parseFloat(row.quantityKg) || 1000;
+        const qtyColis = parseFloat(row.quantityColis) || Math.ceil(qtyKg / 6);
+        const unitPrice = parseFloat(row.unitPriceHT) || row._unitPriceHT || defaultUnitPrice;
+        const totalHT = row.totalHT ? parseFloat(row.totalHT) : qtyKg * unitPrice;
+        const totalTTC = totalHT;
 
-      calculatedTotalHT += totalHT;
+        calculatedTotalHT += totalHT;
 
-      const rawPrd = String(row.productName || '');
-      const linkedPrdId = productMapping[rawPrd] || (rawPrd.toUpperCase().includes('11') ? 'prd-datte-11kg' : 'prd-sibort-5kg');
-      const catalogPrd = products.find(p => p.id === linkedPrdId);
-      
-      const canonicalPrdName = catalogPrd ? catalogPrd.name : (rawPrd.toUpperCase().includes('11') ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG');
-      const canonicalPrdCode = catalogPrd ? catalogPrd.code : (rawPrd.toUpperCase().includes('11') ? 'PRD-DATTE-11KG' : 'PRD-SIBORT-5KG');
-      const canonicalPrdId = catalogPrd ? catalogPrd.id : (rawPrd.toUpperCase().includes('11') ? 'prd-datte-11kg' : 'prd-sibort-5kg');
+        const rawPrd = String(row.productName || '');
+        const is11kg = rawPrd.toUpperCase().includes('11');
+        const linkedPrdId = productMapping[rawPrd] || (is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg');
+        const catalogPrd = products.find(p => p.id === linkedPrdId);
+        
+        const canonicalPrdName = catalogPrd ? catalogPrd.name : (is11kg ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG');
+        const canonicalPrdCode = catalogPrd ? catalogPrd.code : (is11kg ? 'PRD-DATTE-11KG' : 'PRD-SIBORT-5KG');
+        const canonicalPrdId = catalogPrd ? catalogPrd.id : (is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg');
 
-      const rawClient = String(row.clientName || 'Client Import');
-      const clientName = cleanDisplayName(rawClient) || `CLIENT ${idx + 1}`;
+        const rawClient = String(row.clientName || 'Client Import');
+        const clientName = cleanDisplayName(rawClient) || `CLIENT ${idx + 1}`;
 
-      uniqueClientsSet.add(clientName);
+        uniqueClientsSet.add(clientName);
 
-      const palletRatio = is11kg ? 1100 : 500;
-      const pallets = Math.ceil(qtyKg / palletRatio);
-      const blDate = row.date || new Date().toISOString().split('T')[0];
+        const palletRatio = is11kg ? 1100 : 500;
+        const pallets = Math.ceil(qtyKg / palletRatio);
+        const blDate = row.date || new Date().toISOString().split('T')[0];
 
-      return {
-        id: `bl-import-${Date.now()}-${idx}`,
-        blNumber: String(row.blNumber).startsWith('BL') || String(row.blNumber).startsWith('BON') 
-          ? String(row.blNumber) 
-          : `BL-2026-${row.blNumber}`,
-        orderId: '',
-        orderNumber: '',
-        clientId: row._clientId || `clt-import-${idx}`,
-        clientName: clientName,
-        clientAddress: 'Casablanca, Maroc',
-        clientPhone: '',
-        clientEmail: '',
-        frigoId: frigoTarget.id,
-        frigoName: frigoTarget.name,
-        date: blDate,
-        items: [
-          {
-            id: `item-${idx}`,
-            productId: canonicalPrdId,
-            productCode: canonicalPrdCode,
-            productName: canonicalPrdName,
-            quantityKg: qtyKg,
-            quantityPallets: pallets,
-            unitPriceHT: unitPrice,
-            totalHT: totalHT,
-            totalTTC: totalTTC
+        return {
+          id: `bl-import-${Date.now()}-${idx}`,
+          blNumber: String(row.blNumber).startsWith('BL') || String(row.blNumber).startsWith('BON') 
+            ? String(row.blNumber) 
+            : `BL-2026-${row.blNumber}`,
+          orderId: '',
+          orderNumber: '',
+          clientId: row._clientId || `clt-import-${idx}`,
+          clientName: clientName,
+          clientAddress: 'Casablanca, Maroc',
+          clientPhone: '',
+          clientEmail: '',
+          frigoId: frigoTarget.id,
+          frigoName: frigoTarget.name,
+          date: blDate,
+          items: [
+            {
+              id: `item-${idx}`,
+              productId: canonicalPrdId,
+              productCode: canonicalPrdCode,
+              productName: canonicalPrdName,
+              quantityKg: qtyKg,
+              quantityPallets: pallets,
+              unitPriceHT: unitPrice,
+              totalHT: totalHT,
+              totalTTC: totalTTC
+            }
+          ],
+          totalKg: qtyKg,
+          totalPallets: pallets,
+          totalHT: totalHT,
+          totalTTC: totalTTC,
+          frigoEmployeeApproved: true,
+          frigoApprovedBy: frigoTarget.managerName || 'Agent Frigo',
+          signedByClient: true,
+          signatureDate: blDate,
+          whatsappSent: true,
+          emailSent: false,
+          status: 'LIVRÉ',
+          invoiceId: undefined,
+          invoiceNumber: undefined,
+          logs: [
+            {
+              id: `log-${idx}`,
+              timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
+              action: `Importation BL depuis Frigo ${frigoTarget.name} (Fournisseur: ${selectedTargetSupplier.name}, Colis: ${qtyColis})`,
+              author: 'Super Admin'
+            }
+          ]
+        };
+      });
+
+      // Register initial merchandise stock entry in target Frigo before BL exits
+      Object.entries(productInitialStockEntrees).forEach(([prdName, initialColis]) => {
+        const kgPerColis = productColisWeights[prdName] || 6;
+        const initialKg = initialColis * kgPerColis;
+        if (initialKg > 0) {
+          const prd = products.find(p => 
+            cleanDisplayName(p.name) === cleanDisplayName(prdName) || 
+            p.name.toUpperCase().includes(prdName.toUpperCase()) || 
+            prdName.toUpperCase().includes(p.name.toUpperCase())
+          ) || (prdName.toUpperCase().includes('11') ? products.find(p => p.id === 'prd-datte-11kg') : products.find(p => p.id === 'prd-sibort-5kg')) || products[0];
+
+          if (prd) {
+            const pallets = Math.max(1, Math.ceil(initialKg / (prd.kgPerPallet || 500)));
+            adjustStock(frigoTarget.id, prd.id, initialKg, pallets, `Stock Initial Quai Excel (${initialColis} Colis)`, 'ENTRÉE_INVENTAIRE');
           }
-        ],
-        totalKg: qtyKg,
-        totalPallets: pallets,
-        totalHT: totalHT,
-        totalTTC: totalTTC,
-        frigoEmployeeApproved: true,
-        frigoApprovedBy: frigoTarget.managerName || 'Agent Frigo',
-        signedByClient: true,
-        signatureDate: blDate,
-        whatsappSent: true,
-        emailSent: false,
-        status: 'LIVRÉ',
-        invoiceId: undefined,
-        invoiceNumber: undefined,
-        logs: [
-          {
-            id: `log-${idx}`,
-            timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
-            action: `Importation BL depuis Frigo ${frigoTarget.name} (Fournisseur: ${selectedTargetSupplier.name}, Colis: ${qtyColis})`,
-            author: 'Super Admin'
-          }
-        ]
-      };
-    });
-
-    // Register initial merchandise stock entry in target Frigo before BL exits
-    Object.entries(productInitialStockEntrees).forEach(([prdName, initialColis]) => {
-      const kgPerColis = productColisWeights[prdName] || 6;
-      const initialKg = initialColis * kgPerColis;
-      if (initialKg > 0) {
-        const prd = products.find(p => cleanDisplayName(p.name) === prdName);
-        if (prd) {
-          const pallets = Math.max(1, Math.ceil(initialKg / (prd.kgPerPallet || 500)));
-          adjustStock(frigoTarget.id, prd.id, initialKg, pallets, `Stock Initial Quai Excel (${initialColis} Colis)`, 'ENTRÉE_INVENTAIRE');
         }
-      }
-    });
+      });
 
-    importExcelBLs(formattedBLs);
+      importExcelBLs(formattedBLs);
 
-    setImportStats({ 
-      success: formattedBLs.length, 
-      failed: 0, 
-      totalAmount: calculatedTotalHT, 
-      clientCount: uniqueClientsSet.size 
-    });
-    setStep(5);
+      setImportStats({ 
+        success: formattedBLs.length, 
+        failed: 0, 
+        totalAmount: calculatedTotalHT, 
+        clientCount: uniqueClientsSet.size 
+      });
+      setStep(5);
+    } catch (err) {
+      console.error('Import execution error:', err);
+      alert(`Erreur lors de l'importation: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   return (
