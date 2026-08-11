@@ -37,7 +37,8 @@ import {
   INITIAL_CHEQUES_EFFETS, 
   INITIAL_TREASURY_ACCOUNTS, 
   INITIAL_EXPENSES,
-  INITIAL_COMPANY_INFO
+  INITIAL_COMPANY_INFO,
+  INITIAL_STOCK_MOVEMENTS
 } from '../data/mockData';
 
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
@@ -335,8 +336,13 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [stockMovements, setStockMovements] = useState<ProductStockMovement[]>(() => {
     if (isWiped) return [];
     const saved = localStorage.getItem('erp_stock_movements');
-    if (saved) return JSON.parse(saved);
-    return [];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_STOCK_MOVEMENTS;
   });
 
 
@@ -403,6 +409,11 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     INITIAL_DELIVERY_NOTES.forEach(bl => {
       setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl), { merge: true }).catch(() => {});
     });
+
+    // Seed Stock Movements
+    INITIAL_STOCK_MOVEMENTS.forEach(sm => {
+      setDoc(doc(db, 'stock_movements', sm.id), sanitizeForFirestore(sm), { merge: true }).catch(() => {});
+    });
   }, []);
 
   // Firestore Real-Time Syncing (Bidirectional Live Sync Desktop <-> Mobile PWA)
@@ -424,22 +435,58 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Client);
-      if (docs.length > 0) setClients(docs);
+      if (docs.length > 0) {
+        setClients(prev => {
+          const map = new Map<string, Client>();
+          INITIAL_CLIENTS.forEach(c => map.set(c.id, c));
+          docs.forEach(c => map.set(c.id, c));
+          return Array.from(map.values());
+        });
+      } else if (!isWiped) {
+        setClients(INITIAL_CLIENTS);
+      }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
 
     const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Product);
-      if (docs.length > 0) setProducts(docs);
+      if (docs.length > 0) {
+        setProducts(prev => {
+          const map = new Map<string, Product>();
+          INITIAL_PRODUCTS.forEach(p => map.set(p.id, p));
+          docs.forEach(p => map.set(p.id, p));
+          return Array.from(map.values());
+        });
+      } else if (!isWiped) {
+        setProducts(INITIAL_PRODUCTS);
+      }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'products'));
 
     const unsubSuppliers = onSnapshot(collection(db, 'suppliers'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Supplier);
-      if (docs.length > 0) setSuppliers(docs);
+      if (docs.length > 0) {
+        setSuppliers(prev => {
+          const map = new Map<string, Supplier>();
+          INITIAL_SUPPLIERS.forEach(s => map.set(s.id, s));
+          docs.forEach(s => map.set(s.id, s));
+          return Array.from(map.values());
+        });
+      } else if (!isWiped) {
+        setSuppliers(INITIAL_SUPPLIERS);
+      }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'suppliers'));
 
     const unsubFrigos = onSnapshot(collection(db, 'frigos'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as ColdStorageFrigo);
-      if (docs.length > 0) setFrigos(docs);
+      if (docs.length > 0) {
+        setFrigos(prev => {
+          const map = new Map<string, ColdStorageFrigo>();
+          INITIAL_FRIGOS.forEach(f => map.set(f.id, f));
+          docs.forEach(f => map.set(f.id, f));
+          return Array.from(map.values());
+        });
+      } else if (!isWiped) {
+        setFrigos(INITIAL_FRIGOS);
+      }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'frigos'));
 
     const unsubStocks = onSnapshot(collection(db, 'stocks'), (snapshot) => {
@@ -500,7 +547,16 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubStockMovements = onSnapshot(collection(db, 'stock_movements'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as ProductStockMovement);
-      if (docs.length > 0) setStockMovements(docs);
+      if (docs.length > 0) {
+        setStockMovements(prev => {
+          const map = new Map<string, ProductStockMovement>();
+          INITIAL_STOCK_MOVEMENTS.forEach(sm => map.set(sm.id, sm));
+          docs.forEach(sm => map.set(sm.id, sm));
+          return Array.from(map.values());
+        });
+      } else if (!isWiped) {
+        setStockMovements(INITIAL_STOCK_MOVEMENTS);
+      }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'stock_movements'));
 
     return () => {

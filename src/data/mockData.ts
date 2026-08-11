@@ -11,7 +11,8 @@ import {
   TreasuryAccount, 
   Expense, 
   UserProfile,
-  CompanyInfo
+  CompanyInfo,
+  ProductStockMovement
 } from '../types';
 
 export const INITIAL_COMPANY_INFO: CompanyInfo = {
@@ -573,6 +574,85 @@ const buildExcelBLs = (): DeliveryNoteBL[] => {
 };
 
 export const INITIAL_DELIVERY_NOTES: DeliveryNoteBL[] = buildExcelBLs();
+
+const buildInitialStockMovements = (): ProductStockMovement[] => {
+  const movements: ProductStockMovement[] = [];
+
+  let sibortStock = 0;
+  let datte11Stock = 0;
+
+  const sibortEntreeKg = 78090;
+  const datte11EntreeKg = 168966;
+
+  movements.push({
+    id: 'sm-in-sibort',
+    productId: 'prd-alg-sibort-5kg',
+    productName: 'Datte Algérienne Sibort 5 KG',
+    productCode: 'ALG SIBORT 5KG',
+    frigoId: 'frigo-condi-sk',
+    frigoName: 'Condiferie SK',
+    type: 'ENTRÉE_ACHAT',
+    quantityKg: sibortEntreeKg,
+    previousStockKg: 0,
+    newStockKg: sibortEntreeKg,
+    referenceDoc: 'ENTRÉE-ALG-001',
+    date: '2025-04-01 08:00',
+    performedBy: 'Fournisseur ALG',
+    notes: 'Entrée en frigo Condiferie SK (13 015 colis - 78,09 Tonnes)',
+  });
+  sibortStock = sibortEntreeKg;
+
+  movements.push({
+    id: 'sm-in-11kg',
+    productId: 'prd-alg-11kg',
+    productName: 'Datte Algérienne 11 KG',
+    productCode: 'ALG 11KG',
+    frigoId: 'frigo-condi-sk',
+    frigoName: 'Condiferie SK',
+    type: 'ENTRÉE_ACHAT',
+    quantityKg: datte11EntreeKg,
+    previousStockKg: 0,
+    newStockKg: datte11EntreeKg,
+    referenceDoc: 'ENTRÉE-ALG-002',
+    date: '2025-04-01 08:30',
+    performedBy: 'Fournisseur ALG',
+    notes: 'Entrée en frigo Condiferie SK (16 092 colis - 168,97 Tonnes)',
+  });
+  datte11Stock = datte11EntreeKg;
+
+  INITIAL_DELIVERY_NOTES.forEach((bl, idx) => {
+    const item = bl.items[0];
+    if (!item) return;
+
+    const isSibort = item.productId === 'prd-alg-sibort-5kg';
+    const prevKg = isSibort ? sibortStock : datte11Stock;
+    const newKg = Math.max(0, prevKg - item.quantityKg);
+
+    if (isSibort) sibortStock = newKg;
+    else datte11Stock = newKg;
+
+    movements.push({
+      id: `sm-out-${idx + 1}`,
+      productId: item.productId,
+      productName: item.productName,
+      productCode: item.productCode,
+      frigoId: bl.frigoId || 'frigo-condi-sk',
+      frigoName: bl.frigoName || 'Condiferie SK',
+      type: 'EXPÉDITION_VENTE',
+      quantityKg: item.quantityKg,
+      previousStockKg: prevKg,
+      newStockKg: newKg,
+      referenceDoc: bl.blNumber,
+      date: `${bl.date} 09:00`,
+      performedBy: 'Super Admin',
+      notes: `Sortie BL client ${bl.clientName} (${item.quantityCartons || 0} colis)`,
+    });
+  });
+
+  return movements;
+};
+
+export const INITIAL_STOCK_MOVEMENTS: ProductStockMovement[] = buildInitialStockMovements();
 
 export const INITIAL_INVOICES: Invoice[] = [];
 export const INITIAL_CHEQUES_EFFETS: ChequeEffet[] = [];
