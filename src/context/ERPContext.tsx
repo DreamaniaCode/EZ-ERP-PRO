@@ -375,6 +375,24 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('erp_current_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
+  // Initial population of initial BLs (including the 11 user screenshot BLs)
+  useEffect(() => {
+    setDeliveryNotes(prev => {
+      const map = new Map<string, DeliveryNoteBL>();
+      INITIAL_DELIVERY_NOTES.forEach(b => map.set(b.id, b));
+      (prev || []).forEach(b => map.set(b.id, b));
+      const merged = Array.from(map.values());
+
+      if (merged.length > (prev || []).length) {
+        merged.forEach(bl => {
+          setDoc(doc(db, 'deliveryNotes', bl.id), sanitizeForFirestore(bl), { merge: true }).catch(() => {});
+        });
+        return merged;
+      }
+      return prev;
+    });
+  }, []);
+
   // Automatic Recovery: If an Invoice exists in system, but its parent BL is missing from deliveryNotes, reconstruct and restore the BL!
   useEffect(() => {
     if (!invoices || invoices.length === 0) return;
