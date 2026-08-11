@@ -95,12 +95,12 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   const [activeHistoryBL, setActiveHistoryBL] = useState<DeliveryNoteBL | null>(null);
   const [activeWeighingBL, setActiveWeighingBL] = useState<DeliveryNoteBL | null>(null);
   const [showExcelModal, setShowExcelModal] = useState<boolean>(false);
+  const [showAllCompanies, setShowAllCompanies] = useState<boolean>(true);
 
-  
   // Filter BLs by Active Company, User Role, Frigo, Status, Search
   const filteredBLs = deliveryNotes.filter(bl => {
-    // 1. Company Filter (if BL has companyId specified)
-    if (activeCompanyId !== 'ALL' && bl.companyId) {
+    // 1. Company Filter (if enabled via showAllCompanies toggle)
+    if (!showAllCompanies && activeCompanyId !== 'ALL' && bl.companyId) {
       const normActive = activeCompanyId.toLowerCase().replace(/[^a-z0-9]/g, '');
       const normBLComp = bl.companyId.toLowerCase().replace(/[^a-z0-9]/g, '');
       

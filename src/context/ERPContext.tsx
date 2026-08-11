@@ -527,13 +527,18 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as DeliveryNoteBL);
-      if (docs.length > 0) {
-        setDeliveryNotes(docs);
-      } else if (!isWiped) {
-        setDeliveryNotes(INITIAL_DELIVERY_NOTES);
-      } else {
-        setDeliveryNotes([]);
-      }
+      setDeliveryNotes(prev => {
+        const map = new Map<string, DeliveryNoteBL>();
+        // 1. Include initial delivery notes (contains exact screenshot BLs)
+        INITIAL_DELIVERY_NOTES.forEach(d => { if (d && d.id) map.set(d.id, d); });
+        // 2. Include existing local state
+        (prev || []).forEach(d => { if (d && d.id) map.set(d.id, d); });
+        // 3. Override with live Firestore docs
+        docs.forEach(d => { if (d && d.id) map.set(d.id, d); });
+
+        const merged = Array.from(map.values());
+        return merged.length > 0 ? merged : (isWiped ? [] : INITIAL_DELIVERY_NOTES);
+      });
     }, (error) => handleFirestoreError(error, OperationType.GET, 'deliveryNotes'));
 
     const unsubInvoices = onSnapshot(collection(db, 'invoices'), (snapshot) => {
