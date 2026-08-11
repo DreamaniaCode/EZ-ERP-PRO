@@ -137,10 +137,61 @@ export const FrigoOperationsPage: React.FC<FrigoOperationsPageProps> = ({ initia
     });
   }, [deliveryNotes, selectedFrigoId, activeFrigo, searchTerm]);
 
-  // Stocks for current frigo
+  // Stocks for current frigo (Dynamic calculation with BL fallback)
   const currentFrigoStocks = useMemo(() => {
-    return stocks.filter(s => s.frigoId === selectedFrigoId && s.quantityKg > 0);
-  }, [stocks, selectedFrigoId]);
+    const map = new Map<string, { productId: string; quantityKg: number; quantityPallets: number; lastUpdated?: string }>();
+
+    // 1. Load actual stock records
+    stocks.filter(s => s.frigoId === selectedFrigoId).forEach(s => {
+      map.set(s.productId, {
+        productId: s.productId,
+        quantityKg: s.quantityKg,
+        quantityPallets: s.quantityPallets,
+        lastUpdated: s.lastUpdated
+      });
+    });
+
+    // 2. Aggregate quantities from BLs for this Frigo
+    const blTotals = new Map<string, { totalKg: number; totalPallets: number }>();
+    deliveryNotes.forEach(bl => {
+      const matchFrigo = bl.frigoId === selectedFrigoId || 
+        (bl.frigoName && activeFrigo && bl.frigoName.trim().toLowerCase() === activeFrigo.name.trim().toLowerCase());
+      if (matchFrigo) {
+        bl.items.forEach(item => {
+          const prdId = item.productId;
+          const curr = blTotals.get(prdId) || { totalKg: 0, totalPallets: 0 };
+          blTotals.set(prdId, {
+            totalKg: curr.totalKg + (item.quantityKg || 0),
+            totalPallets: curr.totalPallets + (item.quantityPallets || 1)
+          });
+        });
+      }
+    });
+
+    // 3. Ensure products in catalog are included with proper stock or BL merchandise volume
+    products.forEach(p => {
+      const existing = map.get(p.id);
+      const blData = blTotals.get(p.id);
+
+      if (!existing) {
+        const fallbackKg = blData ? blData.totalKg : 0;
+        const fallbackPallets = blData ? blData.totalPallets : 0;
+        map.set(p.id, {
+          productId: p.id,
+          quantityKg: fallbackKg,
+          quantityPallets: fallbackPallets
+        });
+      } else if (existing.quantityKg === 0 && blData && blData.totalKg > 0) {
+        map.set(p.id, {
+          ...existing,
+          quantityKg: blData.totalKg,
+          quantityPallets: blData.totalPallets
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [stocks, selectedFrigoId, deliveryNotes, activeFrigo, products]);
 
   const handleAddBLItem = () => {
     setBlItems(prev => [
@@ -489,10 +540,11 @@ export const FrigoOperationsPage: React.FC<FrigoOperationsPageProps> = ({ initia
                     <tr>
                       <th>Code Produit</th>
                       <th>Désignation</th>
-                      <th className="text-right">Stock (Kg)</th>
+                      <th className="text-right">Stock Physique (Kg)</th>
                       <th className="text-right">Palettes</th>
                       <th className="text-right">Prix Revient HT</th>
-                      <th className="text-right">Valorisation Coût HT</th>
+                      <th className="text-right">Valorisation HT</th>
+                      <th className="text-center">Action Stock</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -508,6 +560,19 @@ export const FrigoOperationsPage: React.FC<FrigoOperationsPageProps> = ({ initia
                           <td className="text-right font-bold text-purple-700">{stk.quantityPallets} Pal.</td>
                           <td className="text-right text-gray-600">{prd?.unitCostHT || 0} DH</td>
                           <td className="text-right font-bold text-gray-900">{valHT.toLocaleString()} DH</td>
+                          <td className="text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedProductId(stk.productId);
+                                setColisInput(100);
+                              }}
+                              className="px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 rounded font-bold text-[10px] flex items-center gap-1 mx-auto"
+                              title="Charger ce produit dans le formulaire d'entrée d'inventaire"
+                            >
+                              <Plus className="w-3 h-3" /> + Entrée Express
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}

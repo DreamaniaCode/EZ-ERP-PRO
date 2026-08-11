@@ -2082,8 +2082,8 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               const currentKg = existingStock ? existingStock.quantityKg : 0;
               const currentPallets = existingStock ? existingStock.quantityPallets : 0;
 
-              const newKg = Math.max(0, currentKg - qtyKg);
-              const newPallets = Math.max(0, currentPallets - qtyPallets);
+              const newKg = currentKg + qtyKg;
+              const newPallets = currentPallets + qtyPallets;
 
               const updatedStock: FrigoStockLevel = {
                 frigoId: targetFrigoId,
@@ -2096,7 +2096,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               logStockMovement(
                 productIdToUse,
                 targetFrigoId,
-                'EXPÉDITION_VENTE',
+                'ENTRÉE_INVENTAIRE',
                 qtyKg,
                 currentKg,
                 newKg,
