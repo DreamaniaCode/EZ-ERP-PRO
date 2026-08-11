@@ -48,12 +48,13 @@ const BLImportPage = lazy(() => import('./components/sales/BLImportPage').then(m
 const BackupRestore = lazy(() => import('./components/settings/BackupRestore').then(m => ({ default: m.BackupRestore })));
 const BLSignaturePage = lazy(() => import('./components/sales/BLSignaturePage').then(m => ({ default: m.BLSignaturePage })));
 const BLPdfPage = lazy(() => import('./components/sales/BLPdfPage').then(m => ({ default: m.BLPdfPage })));
+const FrigoOperationsPage = lazy(() => import('./components/stock/FrigoOperationsPage').then(m => ({ default: m.FrigoOperationsPage })));
 
 // Extended NavTab type with edit sub-views
 export type ExtendedNavTab = NavTab | 
   'PRODUCT_EDIT' | 'CLIENT_EDIT' | 'SUPPLIER_EDIT' | 'FRIGO_EDIT' |
   'BL_EDIT' | 'ORDER_EDIT' | 'EXPENSE_EDIT' | 'CHEQUE_EDIT' |
-  'USERS' | 'IMPORT_BL' | 'BACKUP' | 'BL_SIGN' | 'BL_PDF';
+  'USERS' | 'IMPORT_BL' | 'BACKUP' | 'BL_SIGN' | 'BL_PDF' | 'FRIGO_OPS';
 
 function LoadingSpinner() {
   return (
@@ -277,6 +278,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
         return <BLImportPage onBack={() => setNavTab('DELIVERY_NOTES')} />;
       case 'BACKUP':
         return <BackupRestore />;
+      case 'FRIGO_OPS':
+        return <FrigoOperationsPage initialFrigoId={editingEntityId} onBack={navigateBack} />;
 
       default:
         return <DashboardOverview onNavigate={(tab: NavTab) => setNavTab(tab)} />;

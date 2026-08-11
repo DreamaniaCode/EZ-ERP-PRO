@@ -378,7 +378,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
               </div>
 
               {/* Card Footer Actions */}
-              <div className="p-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+              <div className="p-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between gap-2">
                 <button
                   onClick={() => {
                     if (onViewFrigoDetail) {
@@ -387,10 +387,24 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
                       setSelectedFrigoDetailId(frigo.id);
                     }
                   }}
-                  className="w-full text-center text-xs font-semibold text-[#0f62fe] bg-white border border-[#0f62fe] hover:bg-blue-50 py-1.5 rounded transition flex items-center justify-center gap-1.5"
+                  className="flex-1 text-center text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 py-1.5 rounded transition flex items-center justify-center gap-1"
                 >
                   <Package className="w-3.5 h-3.5" />
-                  <span>Voir Fiche Entrepôt & Valorisation (Page)</span>
+                  <span>Fiche Detail</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (onViewFrigoDetail) {
+                      onViewFrigoDetail(frigo.id);
+                    } else {
+                      setSelectedFrigoDetailId(frigo.id);
+                    }
+                  }}
+                  className="flex-1 text-center text-xs font-bold text-white bg-[#0f62fe] hover:bg-blue-700 py-1.5 rounded transition flex items-center justify-center gap-1 shadow-xs"
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                  <span>Opérations Frigo</span>
                 </button>
               </div>
 
