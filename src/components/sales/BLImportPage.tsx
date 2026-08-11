@@ -518,16 +518,28 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       let calculatedTotalHT = 0;
 
       const formattedBLs: DeliveryNoteBL[] = toImport.map((row, idx) => {
-        const qtyKg = parseFloat(row.quantityKg) || 1000;
-        const qtyColis = parseFloat(row.quantityColis) || Math.ceil(qtyKg / 6);
+        const rawPrd = String(row.productName || '');
+        const is11kg = rawPrd.toUpperCase().includes('11');
+        const kgPerCtn = is11kg ? 11 : 5;
+
+        let qtyKg = parseFloat(row.quantityKg) || 0;
+        let qtyColis = parseFloat(row.quantityColis) || 0;
+
+        if (qtyColis > 0 && qtyKg === 0) {
+          qtyKg = qtyColis * kgPerCtn;
+        } else if (qtyKg > 0 && qtyColis === 0) {
+          qtyColis = Math.round(qtyKg / kgPerCtn);
+        } else if (qtyColis === 0 && qtyKg === 0) {
+          qtyColis = 100;
+          qtyKg = 100 * kgPerCtn;
+        }
+
         const unitPrice = parseFloat(row.unitPriceHT) || row._unitPriceHT || defaultUnitPrice;
         const totalHT = row.totalHT ? parseFloat(row.totalHT) : qtyKg * unitPrice;
         const totalTTC = totalHT;
 
         calculatedTotalHT += totalHT;
 
-        const rawPrd = String(row.productName || '');
-        const is11kg = rawPrd.toUpperCase().includes('11');
         const linkedPrdId = productMapping[rawPrd] || (is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg');
         const catalogPrd = products.find(p => p.id === linkedPrdId);
         
@@ -566,6 +578,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               productCode: canonicalPrdCode,
               productName: canonicalPrdName,
               quantityKg: qtyKg,
+              quantityCartons: qtyColis,
               quantityPallets: pallets,
               unitPriceHT: unitPrice,
               totalHT: totalHT,
@@ -573,6 +586,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             }
           ],
           totalKg: qtyKg,
+          totalCartons: qtyColis,
           totalPallets: pallets,
           totalHT: totalHT,
           totalTTC: totalTTC,

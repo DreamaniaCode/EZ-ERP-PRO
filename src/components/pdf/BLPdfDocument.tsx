@@ -196,8 +196,8 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
     let computedTotalCartons = 0;
     let anyWeighed = false;
     bl.items.forEach((item, idx) => {
-      const bg = idx % 2 === 0 ? [255, 255, 255] : [248, 250, 252];
-      const cartons = item.quantityCartons || (item.quantityKg ? Math.round(item.quantityKg / 10) : 0);
+      const is11kg = (item.productName || item.productCode || '').toUpperCase().includes('11');
+      const cartons = item.quantityCartons || (item.quantityKg ? Math.round(item.quantityKg / (is11kg ? 11 : 5)) : 0);
       computedTotalCartons += cartons;
       const isItemWeighed = Boolean(item.isWeighed || (item.weighedKg !== undefined && item.weighedKg !== null && Number(item.weighedKg) > 0));
       if (isItemWeighed) anyWeighed = true;
@@ -656,7 +656,8 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
               </thead>
               <tbody>
                 {bl.items.map((item, idx) => {
-                  const cartons = item.quantityCartons || (item.quantityKg ? Math.round(item.quantityKg / 10) : 0);
+                  const is11kg = (item.productName || item.productCode || '').toUpperCase().includes('11');
+                  const cartons = item.quantityCartons || (item.quantityKg ? Math.round(item.quantityKg / (is11kg ? 11 : 5)) : 0);
                   return (
                     <tr key={idx} className="border-b" style={{ borderColor: '#e2e8f0', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
                       <td className="p-2 border font-bold" style={{ borderColor: '#cbd5e1', color: '#0f62fe' }}>{item.productCode}</td>
@@ -683,7 +684,7 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
             <div className="p-4 rounded border text-right space-y-1 text-xs" style={{ backgroundColor: '#f8fafc', borderColor: '#cbd5e1' }}>
               <div className="text-amber-800 text-[10px] font-bold">TOTAL CARTONS</div>
               <div className="font-bold text-sm text-amber-900 mb-1">
-                {formatNumber(bl.totalCartons || bl.items.reduce((s, it) => s + (it.quantityCartons || (it.quantityKg ? Math.round(it.quantityKg / 10) : 0)), 0))} Cartons
+                {formatNumber(bl.totalCartons || bl.items.reduce((s, it) => s + (it.quantityCartons || (it.quantityKg ? Math.round(it.quantityKg / ((it.productName || it.productCode || '').toUpperCase().includes('11') ? 11 : 5)) : 0)), 0))} Cartons
               </div>
               <div className="text-gray-500 text-[10px]">POIDS TOTAL EXPÉDIÉ</div>
               <div className="font-bold text-base text-emerald-700">{formatNumber(bl.totalKg)} Kg</div>
