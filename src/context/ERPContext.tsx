@@ -423,7 +423,20 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Product);
-      setProducts(docs);
+      const validProducts = docs.filter(p => p.name && !p.name.includes('Produit Inconnu') && !p.name.includes('PAGE 1'));
+      if (validProducts.length > 0) {
+        setProducts(validProducts);
+      } else {
+        setProducts(INITIAL_PRODUCTS);
+      }
+
+      // Auto-purge fake product documents from Firestore
+      snapshot.docs.forEach(d => {
+        const pData = d.data() as Product;
+        if (pData.name && (pData.name.includes('Produit Inconnu') || pData.name.includes('PAGE 1'))) {
+          deleteDoc(d.ref).catch(() => {});
+        }
+      });
     }, (error) => handleFirestoreError(error, OperationType.GET, 'products'));
 
     const unsubSuppliers = onSnapshot(collection(db, 'suppliers'), (snapshot) => {
@@ -438,7 +451,22 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubStocks = onSnapshot(collection(db, 'stocks'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as FrigoStockLevel);
-      setStocks(docs);
+      // Keep only stocks matching the 2 real products or valid catalog items
+      const validDocs = docs.filter(s => 
+        s.productId === 'prd-sibort-5kg' || 
+        s.productId === 'prd-datte-11kg' || 
+        s.productId === 'PRD-SIBORT-5KG' || 
+        s.productId === 'PRD-DATTE-11KG'
+      );
+      setStocks(validDocs);
+
+      // Auto-purge orphan stock documents from Firestore
+      snapshot.docs.forEach(d => {
+        const sData = d.data() as FrigoStockLevel;
+        if (!validDocs.some(v => v.productId === sData.productId)) {
+          deleteDoc(d.ref).catch(() => {});
+        }
+      });
     }, (error) => handleFirestoreError(error, OperationType.GET, 'stocks'));
 
     const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
@@ -2074,56 +2102,58 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         (clientAdditionsMap.get(clientObj.id) || 0) + blAmount
       );
 
-      // Process product lines & Frigo stock updates
+      // Process product lines & Frigo stock updates (SORTIES BLs decrementing stock)
       bl.items.forEach(item => {
-        const prdName = item.productName || item.productCode;
-        if (prdName) {
-          const prd = autoCreateMissingProduct(prdName, item.unitPriceHT);
-          const productIdToUse = prd ? prd.id : item.productId;
-          const targetFrigoId = bl.frigoId || (frigos[0] ? frigos[0].id : 'frigo-1');
+        const prdName = item.productName || item.productCode || '';
+        const is11kg = prdName.toUpperCase().includes('11');
+        const productIdToUse = is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg';
+        const targetFrigoId = bl.frigoId || (frigos[0] ? frigos[0].id : 'frigo-1');
 
-          if (productIdToUse && targetFrigoId) {
-            const qtyKg = item.quantityKg || 0;
-            const palletRatio = prd ? prd.kgPerPallet : 500;
-            const qtyPallets = item.quantityPallets > 0 ? item.quantityPallets : Math.ceil(qtyKg / palletRatio);
+        if (targetFrigoId) {
+          const qtyKg = item.quantityKg || 0;
+          const palletRatio = is11kg ? 1100 : 500;
+          const qtyPallets = item.quantityPallets > 0 ? item.quantityPallets : Math.ceil(qtyKg / palletRatio);
 
-            setStocks(prevStocks => {
-              const existingStock = prevStocks.find(s => s.frigoId === targetFrigoId && s.productId === productIdToUse);
-              const currentKg = existingStock ? existingStock.quantityKg : 0;
-              const currentPallets = existingStock ? existingStock.quantityPallets : 0;
+          setStocks(prevStocks => {
+            const existingStock = prevStocks.find(s => s.frigoId === targetFrigoId && s.productId === productIdToUse);
+            const defaultInitialKg = is11kg ? (9135 * 11) : (22924 * 5);
+            const currentKg = existingStock ? existingStock.quantityKg : defaultInitialKg;
+            const currentPallets = existingStock ? existingStock.quantityPallets : Math.ceil(currentKg / palletRatio);
 
-              const newKg = currentKg + qtyKg;
-              const newPallets = currentPallets + qtyPallets;
+            const newKg = Math.max(0, currentKg - qtyKg);
+            const newPallets = Math.max(0, currentPallets - qtyPallets);
 
-              const updatedStock: FrigoStockLevel = {
-                frigoId: targetFrigoId,
-                productId: productIdToUse,
-                quantityKg: newKg,
-                quantityPallets: newPallets,
-                lastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' '),
-              };
+            const updatedStock: FrigoStockLevel = {
+              frigoId: targetFrigoId,
+              productId: productIdToUse,
+              quantityKg: newKg,
+              quantityPallets: newPallets,
+              lastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' '),
+            };
 
-              logStockMovement(
-                productIdToUse,
-                targetFrigoId,
-                'ENTRÉE_INVENTAIRE',
-                qtyKg,
-                currentKg,
-                newKg,
-                bl.blNumber
-              );
+            logStockMovement(
+              productIdToUse,
+              targetFrigoId,
+              'EXPÉDITION_VENTE',
+              qtyKg,
+              currentKg,
+              newKg,
+              bl.blNumber
+            );
 
-              setDoc(doc(db, 'stocks', `${targetFrigoId}_${productIdToUse}`), sanitizeForFirestore(updatedStock), { merge: true }).catch(err => {
-                handleFirestoreError(err, OperationType.WRITE, `stocks/${targetFrigoId}_${productIdToUse}`);
-              });
-
-              if (existingStock) {
-                return prevStocks.map(s => s.frigoId === targetFrigoId && s.productId === productIdToUse ? updatedStock : s);
-              } else {
-                return [...prevStocks, updatedStock];
-              }
+            setDoc(doc(db, 'stocks', `${targetFrigoId}_${productIdToUse}`), sanitizeForFirestore(updatedStock), { merge: true }).catch(err => {
+              handleFirestoreError(err, OperationType.WRITE, `stocks/${targetFrigoId}_${productIdToUse}`);
             });
-          }
+
+            const cleanPrev = prevStocks.filter(s => s.productId === 'prd-sibort-5kg' || s.productId === 'prd-datte-11kg');
+            const hasExisting = cleanPrev.some(s => s.frigoId === targetFrigoId && s.productId === productIdToUse);
+
+            if (hasExisting) {
+              return cleanPrev.map(s => s.frigoId === targetFrigoId && s.productId === productIdToUse ? updatedStock : s);
+            } else {
+              return [...cleanPrev, updatedStock];
+            }
+          });
         }
       });
 
