@@ -168,6 +168,7 @@ interface ERPContextType {
   deduplicateClients: () => number;
   mergeClients: (targetClientId: string, clientIdsToMerge: string[]) => void;
   mergeProducts: (targetProductId: string, productIdsToMerge: string[]) => void;
+  purgeOrphanStocks: () => number; // Remove ghost stock records with no matching product
 }
 
 const ERPContext = createContext<ERPContextType | undefined>(undefined);
@@ -472,18 +473,34 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubStocks = onSnapshot(collection(db, 'stocks'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as FrigoStockLevel);
-      // Keep stock records for valid catalog products (not orphan imp- ids)
-      const validDocs = docs.filter(s => 
-        s.productId && 
+      // SAFE filter: only remove stocks with explicitly invalid/legacy IDs
+      // NEVER delete based on current in-memory 'products' list - that causes 'Produit Inconnu'
+      // because products may not be fully loaded yet when this listener fires
+      const validDocs = docs.filter(s =>
+        s.productId &&
+        s.productId.trim() !== '' &&
         !s.productId.includes('prd-imp-') &&
-        (products.some(p => p.id === s.productId) || s.productId === 'prd-sibort-5kg' || s.productId === 'prd-datte-11kg')
+        !s.productId.includes('undefined') &&
+        !s.productId.includes('null')
       );
-      setStocks(validDocs);
+      // MERGE stocks: Firestore overrides local, but local stock records survive
+      setStocks(prev => {
+        if (validDocs.length === 0 && prev.length > 0) return prev;
+        const merged = new Map<string, FrigoStockLevel>();
+        prev.forEach(s => merged.set(`${s.frigoId}_${s.productId}`, s));
+        validDocs.forEach(s => merged.set(`${s.frigoId}_${s.productId}`, s));
+        return Array.from(merged.values());
+      });
 
-      // Auto-purge orphan stock documents from Firestore
+      // Auto-purge ONLY explicitly invalid stock documents from Firestore
       snapshot.docs.forEach(d => {
         const sData = d.data() as FrigoStockLevel;
-        if (!validDocs.some(v => v.productId === sData.productId)) {
+        const isInvalid = !sData.productId ||
+          sData.productId.trim() === '' ||
+          sData.productId.includes('prd-imp-') ||
+          sData.productId.includes('undefined') ||
+          sData.productId.includes('null');
+        if (isInvalid) {
           deleteDoc(d.ref).catch(() => {});
         }
       });
@@ -492,8 +509,16 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as DeliveryNoteBL);
       const deletedSet = new Set<string>(JSON.parse(localStorage.getItem('erp_deleted_bls') || '[]'));
-      const activeDocs = docs.filter(b => !deletedSet.has(b.id));
-      setDeliveryNotes(activeDocs);
+      const activeDocs = docs.filter(b => b && b.id && !deletedSet.has(b.id));
+      // MERGE: never overwrite a local BL with empty Firestore snapshot
+      // This prevents BLs from vanishing due to Firestore race conditions
+      setDeliveryNotes(prev => {
+        if (activeDocs.length === 0 && prev.length > 0) return prev; // Keep local if Firestore is empty
+        const merged = new Map<string, DeliveryNoteBL>();
+        prev.forEach(b => { if (b && b.id && !deletedSet.has(b.id)) merged.set(b.id, b); });
+        activeDocs.forEach(b => { if (b && b.id) merged.set(b.id, b); });
+        return Array.from(merged.values());
+      });
     }, (error) => handleFirestoreError(error, OperationType.GET, 'deliveryNotes'));
 
     const unsubInvoices = onSnapshot(collection(db, 'invoices'), (snapshot) => {
@@ -2488,6 +2513,26 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
+  // Purge orphan stocks: delete all stock records whose productId doesn't match any real product
+  const purgeOrphanStocks = (): number => {
+    const validProductIds = new Set(products.map(p => p.id));
+    const orphanStocks = stocks.filter(s => !validProductIds.has(s.productId));
+    
+    if (orphanStocks.length === 0) return 0;
+
+    // Remove from local state
+    setStocks(prev => prev.filter(s => validProductIds.has(s.productId)));
+
+    // Remove from Firestore
+    orphanStocks.forEach(s => {
+      const docKey = `${s.frigoId}_${s.productId}`;
+      deleteDoc(doc(db, 'stocks', docKey)).catch(() => {});
+    });
+
+    console.log(`Purged ${orphanStocks.length} orphan stock records:`, orphanStocks.map(s => s.productId));
+    return orphanStocks.length;
+  };
+
   const contextValue = React.useMemo(() => ({
     currentUser,
     setCurrentUser,
@@ -2557,6 +2602,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     deduplicateClients,
     mergeClients,
     mergeProducts,
+    purgeOrphanStocks,
   }), [
     currentUser,
     users,
@@ -2645,6 +2691,7 @@ const defaultFallbackContext: ERPContextType = {
   deduplicateClients: () => 0,
   mergeClients: () => {},
   mergeProducts: () => {},
+  purgeOrphanStocks: () => 0,
 };
 
 export const useERP = () => {

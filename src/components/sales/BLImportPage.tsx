@@ -68,7 +68,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { t } = useTranslation();
   const { 
     products, clients, frigos, suppliers, 
-    importExcelBLs, addFrigo, addSupplier, resetAllData, adjustStock 
+    importExcelBLs, addFrigo, addSupplier, resetAllData, adjustStock, purgeOrphanStocks
   } = useERP();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -698,12 +698,28 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </button>
 
           <button
+            onClick={() => {
+              const n = purgeOrphanStocks();
+              if (n > 0) {
+                alert(`✅ ${n} stock(s) fantôme(s) "Produit Inconnu" supprimé(s) définitivement !`);
+              } else {
+                alert('✅ Aucun stock fantôme trouvé — frigo propre.');
+              }
+            }}
+            className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-3.5 py-2 rounded shadow flex items-center gap-1.5 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Nettoyer Stocks Fantômes</span>
+          </button>
+
+          <button
             onClick={loadExtractedPDFData}
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded shadow flex items-center gap-1.5 transition-colors"
           >
             <FileText className="w-4 h-4" />
             <span>Extrait PDF (35 BLs)</span>
           </button>
+
         </div>
       </div>
 
