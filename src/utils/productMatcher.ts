@@ -73,6 +73,27 @@ export const findMatchingProduct = (
     if (prdByWords) return prdByWords;
   }
 
+  // 6. 11kg vs 5kg smart fallback matching for date products
+  const combinedText = ((itemName || '') + ' ' + (itemCode || '') + ' ' + (itemId || '')).toUpperCase();
+  const is11kg = combinedText.includes('11');
+  if (is11kg) {
+    const prd11 = products.find(p => 
+      p.id === 'prd-datte-11kg' || 
+      (p.code || '').toUpperCase().includes('11') || 
+      (p.name || '').toUpperCase().includes('11')
+    );
+    if (prd11) return prd11;
+  } else {
+    const prd5 = products.find(p => 
+      p.id === 'prd-sibort-5kg' || 
+      (p.code || '').toUpperCase().includes('5') || 
+      (p.name || '').toUpperCase().includes('5') || 
+      (p.name || '').toUpperCase().includes('SIBORT') || 
+      !(p.name || '').includes('11')
+    );
+    if (prd5) return prd5;
+  }
+
   return undefined;
 };
 

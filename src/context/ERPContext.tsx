@@ -643,6 +643,25 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('erp_stocks', JSON.stringify(stocks));
   }, [stocks]);
 
+  // Auto-reconcile stock records to match actual catalog product IDs
+  // (e.g. maps orphan 'prd-datte-11kg' or 'prd-sibort-5kg' stock records to actual catalog product IDs like 'PRD-DAT-001' / 'PRD-DAT-002')
+  useEffect(() => {
+    if (!products || products.length === 0 || !stocks || stocks.length === 0) return;
+
+    setStocks(prevStocks => {
+      let hasChanges = false;
+      const updated = prevStocks.map(s => {
+        const matched = findMatchingProduct({ productId: s.productId, productName: s.productId }, products);
+        if (matched && matched.id !== s.productId) {
+          hasChanges = true;
+          return { ...s, productId: matched.id };
+        }
+        return s;
+      });
+      return hasChanges ? updated : prevStocks;
+    });
+  }, [products]);
+
   useEffect(() => {
     localStorage.setItem('erp_orders', JSON.stringify(orders));
   }, [orders]);
@@ -2235,10 +2254,17 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       // Process product lines & Frigo stock updates (SORTIES BLs decrementing stock)
       bl.items.forEach(item => {
+        const matchedPrd = findMatchingProduct(item, products);
         const prdName = item.productName || item.productCode || '';
-        const is11kg = prdName.toUpperCase().includes('11');
-        const productIdToUse = is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg';
+        const is11kg = prdName.toUpperCase().includes('11') || (matchedPrd && (matchedPrd.name.includes('11') || matchedPrd.code.includes('11')));
+        const productIdToUse = matchedPrd ? matchedPrd.id : (is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg');
         const targetFrigoId = bl.frigoId || (frigos[0] ? frigos[0].id : 'frigo-1');
+
+        if (matchedPrd) {
+          item.productId = matchedPrd.id;
+          item.productCode = matchedPrd.code;
+          item.productName = matchedPrd.name;
+        }
 
         if (targetFrigoId) {
           const qtyKg = item.quantityKg || 0;

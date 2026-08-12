@@ -9,6 +9,7 @@ import {
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 import { DeliveryNoteBL } from '../../types';
+import { findMatchingProduct } from '../../utils/productMatcher';
 
 // Set worker for pdfjs-dist
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '4.0.379'}/pdf.worker.min.mjs`;
@@ -553,8 +554,9 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
         calculatedTotalHT += totalHT;
 
-        const linkedPrdId = productMapping[rawPrd] || (is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg');
-        const catalogPrd = products.find(p => p.id === linkedPrdId);
+        const catalogPrd = productMapping[rawPrd] 
+          ? products.find(p => p.id === productMapping[rawPrd])
+          : findMatchingProduct({ productName: rawPrd, productCode: rawPrd }, products);
         
         const canonicalPrdName = catalogPrd ? catalogPrd.name : (is11kg ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG');
         const canonicalPrdCode = catalogPrd ? catalogPrd.code : (is11kg ? 'PRD-DATTE-11KG' : 'PRD-SIBORT-5KG');
@@ -638,11 +640,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const kgPerColis = productColisWeights[prdName] || 6;
         const initialKg = initialColis * kgPerColis;
         if (initialKg > 0) {
-          const prd = products.find(p => 
-            cleanDisplayName(p.name) === cleanDisplayName(prdName) || 
-            p.name.toUpperCase().includes(prdName.toUpperCase()) || 
-            prdName.toUpperCase().includes(p.name.toUpperCase())
-          ) || (prdName.toUpperCase().includes('11') ? products.find(p => p.id === 'prd-datte-11kg') : products.find(p => p.id === 'prd-sibort-5kg')) || products[0];
+          const prd = findMatchingProduct({ productName: prdName, productCode: prdName }, products) || products[0];
 
           if (prd) {
             const pallets = Math.max(1, Math.ceil(initialKg / (prd.kgPerPallet || 500)));
@@ -1040,7 +1038,8 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     {Object.keys(productColisWeights).map(excelPrdName => {
-                      const selectedPrdId = productMapping[excelPrdName] || (excelPrdName.includes('11') ? 'prd-datte-11kg' : 'prd-sibort-5kg');
+                      const matched = findMatchingProduct({ productName: excelPrdName, productCode: excelPrdName }, products);
+                      const selectedPrdId = productMapping[excelPrdName] || (matched ? matched.id : (products[0]?.id || ''));
 
                       return (
                         <div key={excelPrdName} className="bg-white p-3 rounded-lg border border-emerald-300 space-y-1.5 shadow-xs">
