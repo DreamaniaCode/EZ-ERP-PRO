@@ -2,7 +2,7 @@ import { Product } from '../types';
 
 /**
  * Advanced multi-fallback product matcher for ERP product catalogs.
- * Matches by exact Code -> ID -> normalized Code -> exact/substring Name -> tokenized word overlap.
+ * Uses weighted scoring to prevent false matches between similar products (e.g. 5kg vs 11kg).
  */
 export const findMatchingProduct = (
   item: { productId?: string; productCode?: string; productName?: string },
@@ -38,16 +38,16 @@ export const findMatchingProduct = (
     }
   }
 
-  // 4. Exact or Substring Name match
+  // 4. Exact Name match only (substring can cause 5kg → 11kg confusion)
   if (itemName.length >= 2) {
-    const prdByName = products.find(p => {
+    const prdByExactName = products.find(p => {
       const pName = (p.name || '').toLowerCase().trim();
-      return pName && (pName === itemName || pName.includes(itemName) || itemName.includes(pName));
+      return pName && pName === itemName;
     });
-    if (prdByName) return prdByName;
+    if (prdByExactName) return prdByExactName;
   }
 
-  // 5. Tokenized Word Overlap (e.g. "dattes" + "branche" + "5kg")
+  // 5. Weighted Scoring — discrimine correctement entre produits similaires (5kg vs 11kg)
   const normalize = (str: string) =>
     str
       .toLowerCase()
@@ -56,44 +56,62 @@ export const findMatchingProduct = (
       .replace(/[^a-z0-9]/g, ' ')
       .trim();
 
-  const itemWords = normalize(itemName || itemCode)
-    .split(/\s+/)
-    .filter(w => w.length >= 2);
+  const combinedInput = normalize((itemName || '') + ' ' + (itemCode || ''));
+  const inputWords = combinedInput.split(/\s+/).filter(w => w.length >= 2);
 
-  if (itemWords.length > 0) {
-    const prdByWords = products.find(p => {
-      const pWords = normalize(p.name + ' ' + p.code)
-        .split(/\s+/)
-        .filter(w => w.length >= 2);
+  // Détecter le discriminant numérique dans l'input (5 ou 11)
+  const inputHas11 = /\b11\b/.test(combinedInput) || combinedInput.includes('11kg') || combinedInput.includes('11 kg');
+  const inputHas5 = !inputHas11 && (
+    /\b5\b/.test(combinedInput) ||
+    combinedInput.includes('5kg') ||
+    combinedInput.includes('5 kg') ||
+    combinedInput.includes('sibort') ||
+    combinedInput.includes('support')
+  );
 
-      return itemWords.some(iw =>
-        pWords.some(pw => pw === iw || pw.startsWith(iw) || iw.startsWith(pw))
+  if (inputWords.length > 0) {
+    let bestMatch: Product | undefined;
+    let bestScore = -Infinity;
+
+    products.forEach(p => {
+      const pCombined = normalize((p.name || '') + ' ' + (p.code || ''));
+
+      // Détecter le discriminant numérique du produit
+      const productHas11 = /\b11\b/.test(pCombined) || pCombined.includes('11kg');
+      const productHas5 = !productHas11 && (
+        /\b5\b/.test(pCombined) ||
+        pCombined.includes('5kg') ||
+        pCombined.includes('sibort') ||
+        pCombined.includes('support')
       );
-    });
-    if (prdByWords) return prdByWords;
-  }
 
-  // 6. 11kg vs 5kg smart fallback matching for date products
-  const combinedText = ((itemName || '') + ' ' + (itemCode || '') + ' ' + (itemId || '')).toUpperCase();
-  const is11kg = combinedText.includes('11');
-  if (is11kg) {
-    const prd11 = products.find(p => 
-      p.id === 'prd-datte-11kg' || 
-      (p.code || '').toUpperCase().includes('11') || 
-      (p.name || '').toUpperCase().includes('11')
-    );
-    if (prd11) return prd11;
-  } else {
-    const prd5 = products.find(p => 
-      p.id === 'prd-sibort-5kg' || 
-      (p.code || '').toUpperCase().includes('5') || 
-      (p.name || '').toUpperCase().includes('5') || 
-      (p.name || '').toUpperCase().includes('SIBORT') || 
-      !(p.name || '').includes('11')
-    );
-    if (prd5) return prd5;
+      let score = 0;
+
+      // Bonus fort sur correspondance du discriminant numérique
+      if (inputHas11 && productHas11) score += 50;
+      if (inputHas5 && productHas5) score += 50;
+
+      // Malus fort si le discriminant numérique est OPPOSÉ
+      if (inputHas11 && productHas5) score -= 100;
+      if (inputHas5 && productHas11) score -= 100;
+
+      // Score sur les mots communs (excluant les chiffres discriminants)
+      const pWords = pCombined.split(/\s+/).filter(w => w.length >= 2);
+      const nonNumericInputWords = inputWords.filter(w => w !== '11' && w !== '5');
+      const wordOverlap = nonNumericInputWords.filter(iw =>
+        pWords.some(pw => pw === iw || pw.startsWith(iw) || iw.startsWith(pw))
+      ).length;
+      score += wordOverlap * 10;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = p;
+      }
+    });
+
+    // N'accepter que si le score est positif (éviter les faux positifs)
+    if (bestMatch && bestScore > 0) return bestMatch;
   }
 
   return undefined;
 };
-

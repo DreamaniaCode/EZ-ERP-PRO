@@ -2,9 +2,9 @@ import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
 import { 
-  Upload, ArrowLeft, ArrowRight, CheckCircle, AlertCircle, XCircle, 
-  FileSpreadsheet, FileText, Check, Warehouse, Users, Receipt, Settings, 
-  Layers, ListFilter, Plus, Trash2, RefreshCw, Truck
+  Upload, ArrowLeft, CheckCircle,
+  FileSpreadsheet, FileText, Check, Warehouse, Receipt, Settings, 
+  Trash2, RefreshCw, Truck
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -89,7 +89,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { t } = useTranslation();
   const { 
     products, clients, frigos, suppliers, 
-    importExcelBLs, addFrigo, addSupplier, resetAllData, adjustStock, purgeOrphanStocks
+    importExcelBLs, resetAllData, purgeOrphanStocks
   } = useERP();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -111,43 +111,19 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     frigos.length > 0 ? frigos[0].id : ''
   );
 
-  // Target Supplier Selection state
-  const [targetSupplierId, setTargetSupplierId] = useState<string>(
-    suppliers.length > 0 ? suppliers[0].id : ''
-  );
-
-  // Inline Creation Modal States
-  const [showNewFrigoModal, setShowNewFrigoModal] = useState(false);
-  const [newFrigoData, setNewFrigoData] = useState({ name: '', location: 'Site Principal', managerName: 'Responsable Quai' });
-
-  const [showNewSupplierModal, setShowNewSupplierModal] = useState(false);
-  const [newSupplierData, setNewSupplierData] = useState({ name: '', companyName: '', country: 'Algérie' });
-
   // Additional Upload Options
   const [autoUpdateClientBalance, setAutoUpdateClientBalance] = useState<boolean>(true);
-  const [decrementFrigoStock, setDecrementFrigoStock] = useState<boolean>(true);
   const [defaultUnitPrice, setDefaultUnitPrice] = useState<number>(50);
 
-  // Product Colis Conversion Settings Map: Product Name -> KgPerColis
-  const [productColisWeights, setProductColisWeights] = useState<Record<string, number>>({});
-  // Product Initial Stock Entry Map: Product Name -> Initial Colis Entrée
-  const [productInitialStockEntrees, setProductInitialStockEntrees] = useState<Record<string, number>>({});
   // Product Linking Map: Excel Product String -> Catalog Product ID
   const [productMapping, setProductMapping] = useState<Record<string, string>>({});
 
-  const selectedTargetFrigo = frigos.find(f => f.id === targetFrigoId) || {
-    id: targetFrigoId || 'frigo-new',
-    name: 'Entrepôt Frigorifique',
-    code: 'FRG-01',
-    location: 'Site Logistique',
-    managerName: 'Agent Quai'
-  };
-
-  const selectedTargetSupplier = suppliers.find(s => s.id === targetSupplierId) || {
-    id: targetSupplierId || 'frs-new',
-    name: 'Fournisseur Import',
-    companyName: 'Fournisseur Dattes',
-    country: 'Algérie'
+  const selectedTargetFrigo = frigos.find(f => f.id === targetFrigoId) || frigos[0] || {
+    id: '',
+    name: 'Aucun frigo sélectionné',
+    code: '',
+    location: '',
+    managerName: ''
   };
 
   const [mapping, setMapping] = useState<{ [key: string]: string }>({
@@ -169,35 +145,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const [importStats, setImportStats] = useState({ success: 0, failed: 0, totalAmount: 0, clientCount: 0 });
 
-  // Inline Frigo Creation handler
-  const handleCreateFrigoInline = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFrigoData.name.trim()) return;
-    const created = addFrigo({
-      name: newFrigoData.name.trim(),
-      location: newFrigoData.location || 'Entrepôt Frigorifique',
-      managerName: newFrigoData.managerName || 'Responsable Quai',
-      capacityPallets: 50000,
-    });
-    setTargetFrigoId(created.id);
-    setShowNewFrigoModal(false);
-    setNewFrigoData({ name: '', location: 'Site Principal', managerName: 'Responsable Quai' });
-  };
 
-  // Inline Supplier Creation handler
-  const handleCreateSupplierInline = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSupplierData.name.trim()) return;
-    const created = addSupplier({
-      name: newSupplierData.name.trim(),
-      companyName: newSupplierData.companyName.trim() || newSupplierData.name.trim(),
-      country: newSupplierData.country || 'Algérie',
-      type: 'IMPORTATION',
-    });
-    setTargetSupplierId(created.id);
-    setShowNewSupplierModal(false);
-    setNewSupplierData({ name: '', companyName: '', country: 'Algérie' });
-  };
 
   // Parse Excel workbook with smart header detection and multi-sheet support
   const parseExcelWorkbook = (wb: XLSX.WorkBook, sheetToUse = 'ALL', overrideHeaderIdx = -1) => {
@@ -281,19 +229,6 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         if (!newMap.totalHT && (lower.includes('total') || lower.includes('montant') || lower.includes('valeur'))) newMap.totalHT = h;
       });
       setMapping(newMap);
-
-      // Initialize productColisWeights and productInitialStockEntrees for the 2 true date products
-      const initialColisWeights: Record<string, number> = {
-        'Datte Algérienne Sibort 5 KG': 5.0,
-        'Datte Algérienne 11 KG': 11.0
-      };
-      const initialStockMap: Record<string, number> = {
-        'Datte Algérienne Sibort 5 KG': 22924,
-        'Datte Algérienne 11 KG': 9135
-      };
-
-      setProductColisWeights(initialColisWeights);
-      setProductInitialStockEntrees(initialStockMap);
     }
   };
 
@@ -477,7 +412,9 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       const canonicalPrdName = is11kg ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG';
       mappedRow.productName = canonicalPrdName;
 
-      const kgPerColis = is11kg ? 11 : 5;
+      // Utiliser le vrai kgPerCarton du catalogue (pas une valeur théorique)
+      const catalogPrdForValidation = findMatchingProduct({ productName: canonicalPrdName }, products);
+      const kgPerColis = catalogPrdForValidation ? (catalogPrdForValidation.kgPerCarton || (is11kg ? 11 : 5)) : (is11kg ? 11 : 5);
 
       // Colis vs Kg auto calculation — RESPECT EXACT EXCEL VALUES
       // Priority: if both columns exist, use them both as-is
@@ -535,6 +472,10 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const executeImport = () => {
+    if (!selectedTargetFrigo.id) {
+      alert('⚠️ Veuillez sélectionner un frigo dans la liste avant d\'importer.');
+      return;
+    }
     try {
       const toImport = [...validationResults.valid, ...validationResults.warnings, ...validationResults.errors];
       const frigoTarget = selectedTargetFrigo;
@@ -545,35 +486,41 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       const formattedBLs: DeliveryNoteBL[] = toImport.map((row, idx) => {
         const rawPrd = String(row.productName || '');
         const is11kg = rawPrd.toUpperCase().includes('11');
-        const kgPerCtn = is11kg ? 11 : 5;
+
+        // Résolution du produit catalogue pour récupérer le vrai kgPerCarton
+        const catalogPrd = productMapping[rawPrd]
+          ? products.find(p => p.id === productMapping[rawPrd])
+          : findMatchingProduct({ productName: rawPrd }, products);
+
+        // kgPerColis basé sur le produit catalogue, PAS sur une valeur théorique saisie
+        const kgPerCtn = catalogPrd ? (catalogPrd.kgPerCarton || (is11kg ? 11 : 5)) : (is11kg ? 11 : 5);
 
         let qtyKg = parseFloat(row.quantityKg) || 0;
         let qtyColis = parseFloat(row.quantityColis) || 0;
 
-        // RESPECT EXACT EXCEL VALUES: if both provided keep both, else calc the missing one
-        if (qtyColis > 0 && qtyKg === 0) {
-          qtyKg = qtyColis * kgPerCtn;
-        } else if (qtyKg > 0 && qtyColis === 0) {
+        // Priorité : poids du fichier. Si absent, calculer depuis colis × kgPerCarton catalogue
+        if (qtyKg > 0 && qtyColis === 0) {
+          // Poids fourni dans le fichier → calculer colis depuis catalogue
           qtyColis = Math.round(qtyKg / kgPerCtn);
-        } else if (qtyColis === 0 && qtyKg === 0) {
-          qtyColis = 100;
-          qtyKg = 100 * kgPerCtn;
+        } else if (qtyColis > 0 && qtyKg === 0) {
+          // Seulement colis → calculer kg via kgPerCarton du catalogue
+          qtyKg = qtyColis * kgPerCtn;
+        } else if (qtyColis > 0 && qtyKg > 0) {
+          // Les deux présents → utiliser les deux tels quels (valeurs Excel)
+        } else {
+          // Rien → skip
+          qtyKg = 0;
+          qtyColis = 0;
         }
-        // If BOTH qtyColis > 0 AND qtyKg > 0 → use both as-is (they came from Excel directly)
+
+        const canonicalPrdName = catalogPrd ? catalogPrd.name : (is11kg ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG');
+        const canonicalPrdCode = catalogPrd ? catalogPrd.code : (is11kg ? 'PRD-DATTE-11KG' : 'PRD-SIBORT-5KG');
+        const canonicalPrdId = catalogPrd ? catalogPrd.id : (is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg');
 
         const unitPrice = parseFloat(row.unitPriceHT) || row._unitPriceHT || defaultUnitPrice;
         const totalHT = row.totalHT ? parseFloat(row.totalHT) : qtyKg * unitPrice;
         const totalTTC = totalHT;
-
         calculatedTotalHT += totalHT;
-
-        const catalogPrd = productMapping[rawPrd] 
-          ? products.find(p => p.id === productMapping[rawPrd])
-          : findMatchingProduct({ productName: rawPrd, productCode: rawPrd }, products);
-        
-        const canonicalPrdName = catalogPrd ? catalogPrd.name : (is11kg ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG');
-        const canonicalPrdCode = catalogPrd ? catalogPrd.code : (is11kg ? 'PRD-DATTE-11KG' : 'PRD-SIBORT-5KG');
-        const canonicalPrdId = catalogPrd ? catalogPrd.id : (is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg');
 
         let rawClient = String(row.clientName || '').trim();
         if (!rawClient || rawClient.toLowerCase().includes('import') || rawClient.toLowerCase().includes('client 1') || rawClient === 'Client Import') {
@@ -587,17 +534,16 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           }
         }
         const clientName = cleanDisplayName(rawClient) || `CLIENT ${idx + 1}`;
-
         uniqueClientsSet.add(clientName);
 
-        const palletRatio = is11kg ? 1100 : 500;
-        const pallets = Math.ceil(qtyKg / palletRatio);
+        const palletRatio = catalogPrd ? (catalogPrd.kgPerPallet || (is11kg ? 1100 : 500)) : (is11kg ? 1100 : 500);
+        const pallets = qtyKg > 0 ? Math.ceil(qtyKg / palletRatio) : 0;
         const blDate = row.date || new Date().toISOString().split('T')[0];
 
         return {
           id: `bl-import-${Date.now()}-${idx}`,
-          blNumber: String(row.blNumber).startsWith('BL') || String(row.blNumber).startsWith('BON') 
-            ? String(row.blNumber) 
+          blNumber: String(row.blNumber).startsWith('BL') || String(row.blNumber).startsWith('BON')
+            ? String(row.blNumber)
             : `BL-2026-${row.blNumber}`,
           orderId: '',
           orderNumber: '',
@@ -630,9 +576,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           totalTTC: totalTTC,
           frigoEmployeeApproved: true,
           frigoApprovedBy: frigoTarget.managerName || 'Agent Frigo',
-          signedByClient: true,
-          signatureDate: blDate,
-          whatsappSent: true,
+          whatsappSent: false,
           emailSent: false,
           status: 'LIVRÉ',
           invoiceId: undefined,
@@ -641,34 +585,20 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             {
               id: `log-${idx}`,
               timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
-              action: `Importation BL depuis Frigo ${frigoTarget.name} (Fournisseur: ${selectedTargetSupplier.name}, Colis: ${qtyColis})`,
+              action: `Import BL — Frigo: ${frigoTarget.name} | ${qtyColis} colis × ${kgPerCtn} kg = ${qtyKg} kg`,
               author: 'Super Admin'
             }
           ]
         };
       });
 
-      // Register initial merchandise stock entry in target Frigo before BL exits
-      Object.entries(productInitialStockEntrees).forEach(([prdName, initialColis]) => {
-        const kgPerColis = productColisWeights[prdName] || 6;
-        const initialKg = initialColis * kgPerColis;
-        if (initialKg > 0) {
-          const prd = findMatchingProduct({ productName: prdName, productCode: prdName }, products) || products[0];
-
-          if (prd) {
-            const pallets = Math.max(1, Math.ceil(initialKg / (prd.kgPerPallet || 500)));
-            adjustStock(frigoTarget.id, prd.id, initialKg, pallets, `Stock Initial Quai Excel (${initialColis} Colis)`, 'ENTRÉE_INVENTAIRE');
-          }
-        }
-      });
-
       importExcelBLs(formattedBLs);
 
-      setImportStats({ 
-        success: formattedBLs.length, 
-        failed: 0, 
-        totalAmount: calculatedTotalHT, 
-        clientCount: uniqueClientsSet.size 
+      setImportStats({
+        success: formattedBLs.length,
+        failed: 0,
+        totalAmount: calculatedTotalHT,
+        clientCount: uniqueClientsSet.size
       });
       setStep(5);
     } catch (err) {
@@ -769,26 +699,18 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
               )}
 
-              {/* 1. FRIGO & FOURNISSEUR SELECTION & CREATION CARD */}
-              <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white p-5 rounded-xl shadow-md space-y-4">
-                
-                {/* Frigo Selector & Creator */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-amber-300">
-                      <Warehouse className="w-5 h-5 text-amber-400" />
-                      1. Choisir ou Créer l'Entrepôt Frigorifique Source (Obligatoire) :
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowNewFrigoModal(true)}
-                      className="bg-amber-400 hover:bg-amber-500 text-blue-950 font-extrabold text-xs px-3 py-1 rounded shadow flex items-center gap-1 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Créer Nouveau Frigo</span>
-                    </button>
+              {/* FRIGO SELECTION (lecture seule — créer les frigos dans le module Frigos) */}
+              <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white p-5 rounded-xl shadow-md space-y-3">
+                <label className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-amber-300">
+                  <Warehouse className="w-5 h-5 text-amber-400" />
+                  Sélectionner l'Entrepôt Frigorifique Source (Obligatoire) :
+                </label>
+
+                {frigos.length === 0 ? (
+                  <div className="bg-rose-900/60 border border-rose-400/40 rounded-lg px-4 py-3 text-rose-200 text-xs font-bold">
+                    ⚠️ Aucun frigo enregistré. Veuillez d'abord créer un frigo dans le module <strong>Frigos</strong>.
                   </div>
-                  
+                ) : (
                   <select
                     value={targetFrigoId}
                     onChange={(e) => setTargetFrigoId(e.target.value)}
@@ -796,81 +718,30 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   >
                     {frigos.map(f => (
                       <option key={f.id} value={f.id}>
-                        🏢 {f.code} — {f.name} ({f.location || 'Site Principal'}) — Responsable: {f.managerName || 'Agent Quai'}
+                        🏢 {f.code} — {f.name} ({f.location || 'Site Principal'})
                       </option>
                     ))}
-                    {frigos.length === 0 && (
-                      <option value="">⚠️ Aucun frigo enregistré — Cliquez sur "+ Créer Nouveau Frigo"</option>
-                    )}
                   </select>
-                </div>
-
-                {/* Supplier Selector & Creator */}
-                <div className="space-y-2 pt-2 border-t border-blue-800/60">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-emerald-300">
-                      <Truck className="w-5 h-5 text-emerald-400" />
-                      2. Choisir ou Créer le Fournisseur / Distributeur :
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowNewSupplierModal(true)}
-                      className="bg-emerald-400 hover:bg-emerald-500 text-blue-950 font-extrabold text-xs px-3 py-1 rounded shadow flex items-center gap-1 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Créer Nouveau Fournisseur</span>
-                    </button>
-                  </div>
-
-                  <select
-                    value={targetSupplierId}
-                    onChange={(e) => setTargetSupplierId(e.target.value)}
-                    className="w-full border-2 border-emerald-400/80 rounded-lg px-4 py-3 text-sm font-bold text-gray-900 bg-white shadow-md focus:ring-2 focus:ring-emerald-400"
-                  >
-                    {suppliers.map(s => (
-                      <option key={s.id} value={s.id}>
-                        🚚 {s.code} — {s.name} ({s.country || 'Maroc / Import'})
-                      </option>
-                    ))}
-                    {suppliers.length === 0 && (
-                      <option value="">⚠️ Aucun fournisseur — Cliquez sur "+ Créer Nouveau Fournisseur"</option>
-                    )}
-                  </select>
-                </div>
-
+                )}
               </div>
 
-              {/* 2. ADVANCED IMPORT OPTIONS PANEL */}
+              {/* OPTIONS IMPORT */}
               <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
                 <h4 className="font-bold text-gray-900 text-xs uppercase tracking-wider flex items-center gap-2 text-slate-800">
                   <Settings className="w-4 h-4 text-[#0f62fe]" />
-                  Options de Traitement des Comptes & Stocks :
+                  Options de l'import :
                 </h4>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   <label className="flex items-start gap-2.5 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-400 transition-colors">
-                    <input 
-                      type="checkbox" 
-                      checked={autoUpdateClientBalance} 
+                    <input
+                      type="checkbox"
+                      checked={autoUpdateClientBalance}
                       onChange={e => setAutoUpdateClientBalance(e.target.checked)}
                       className="mt-0.5 rounded text-[#0f62fe] focus:ring-[#0f62fe] w-4 h-4"
                     />
                     <div>
-                      <span className="font-bold text-gray-900">Régler les Comptes Clients (Créances)</span>
-                      <p className="text-[11px] text-gray-500 mt-0.5">Le montant des BLs importés sera ajouté au solde débiteur (`currentBalance`) de chaque client.</p>
-                    </div>
-                  </label>
-
-                  <label className="flex items-start gap-2.5 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-400 transition-colors">
-                    <input 
-                      type="checkbox" 
-                      checked={decrementFrigoStock} 
-                      onChange={e => setDecrementFrigoStock(e.target.checked)}
-                      className="mt-0.5 rounded text-[#0f62fe] focus:ring-[#0f62fe] w-4 h-4"
-                    />
-                    <div>
-                      <span className="font-bold text-gray-900">Décrémenter le Stock du Frigo Source</span>
-                      <p className="text-[11px] text-gray-500 mt-0.5">Met à jour les quantités du frigo <strong>"{selectedTargetFrigo.name}"</strong> et enregistre le mouvement de sortie.</p>
+                      <span className="font-bold text-gray-900">Mettre à jour les Créances Clients</span>
+                      <p className="text-[11px] text-gray-500 mt-0.5">Ajoute le montant de chaque BL au solde débiteur du client.</p>
                     </div>
                   </label>
 
@@ -878,21 +749,29 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <Receipt className="w-4 h-4 text-purple-700 shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold">Facturation : Aucune Facture Générée</span>
-                      <p className="text-[11px] text-purple-800 mt-0.5">Les documents importés restent strictement des Bons de Livraison en statut <strong>LIVRÉ</strong> sans créer de facture.</p>
+                      <p className="text-[11px] text-purple-800 mt-0.5">Les BLs importés restent en statut <strong>LIVRÉ</strong> sans créer de facture.</p>
                     </div>
                   </div>
 
                   <div className="p-3 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
                     <div>
                       <span className="font-bold text-gray-900">Prix Unitaire par défaut (DH) :</span>
-                      <p className="text-[11px] text-gray-500">Utilisé si le prix n'est pas spécifié dans le fichier.</p>
+                      <p className="text-[11px] text-gray-500">Utilisé si le prix n'est pas dans le fichier.</p>
                     </div>
-                    <input 
-                      type="number" 
-                      value={defaultUnitPrice} 
+                    <input
+                      type="number"
+                      value={defaultUnitPrice}
                       onChange={e => setDefaultUnitPrice(parseFloat(e.target.value) || 50)}
                       className="w-20 px-2 py-1 border border-gray-300 rounded font-bold text-right text-xs"
                     />
+                  </div>
+
+                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 flex items-start gap-2.5 text-amber-900">
+                    <Warehouse className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Stock : Décrémentation Automatique</span>
+                      <p className="text-[11px] text-amber-800 mt-0.5">Le stock du frigo <strong>"{selectedTargetFrigo.name}"</strong> sera décrémenté du poids exact du fichier. Les entrées de stock se font manuellement.</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1137,76 +1016,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
               )}
 
-              {/* COLIS TO KG GRAMMAGE CONFIGURATION PANEL */}
-              {/* INITIAL FRIGO STOCK ENTRY PANEL BEFORE BL DECREMENT */}
-              {Object.keys(productColisWeights).length > 0 && (
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200 space-y-4">
-                  <div className="flex flex-wrap justify-between items-center border-b border-blue-200 pb-2 gap-2">
-                    <h3 className="font-bold text-xs text-blue-950 uppercase tracking-wider flex items-center gap-2">
-                      <Warehouse className="w-4 h-4 text-[#0f62fe]" />
-                      Saisie du Stock Initial Entré au Frigo "{selectedTargetFrigo.name}" (Marchandise Quai) :
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const filled: Record<string, number> = {};
-                        Object.keys(productColisWeights).forEach(pName => {
-                          filled[pName] = 1000;
-                        });
-                        setProductInitialStockEntrees(filled);
-                      }}
-                      className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-bold transition-colors shadow-xs"
-                    >
-                      ⚡ Importer 1 000 Colis par Produit
-                    </button>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    {Object.entries(productColisWeights).map(([prdName, kgPerColis]) => {
-                      const initialColis = productInitialStockEntrees[prdName] ?? 1000;
-                      const initialKg = initialColis * kgPerColis;
-
-                      return (
-                        <div key={prdName} className="bg-white p-3 rounded-lg border border-blue-200 space-y-2 shadow-xs">
-                          <div className="flex justify-between font-bold text-gray-900">
-                            <span>{prdName}</span>
-                            <span className="text-emerald-700 font-mono">{initialKg.toLocaleString()} Kg</span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2 text-[11px]">
-                            <div>
-                              <label className="block text-gray-600 font-bold mb-0.5">Grammage (Kg/Colis) :</label>
-                              <input 
-                                type="number"
-                                step="0.5"
-                                value={kgPerColis}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value) || 1;
-                                  setProductColisWeights(prev => ({ ...prev, [prdName]: val }));
-                                }}
-                                className="w-full px-2 py-1 border border-gray-300 rounded font-bold text-right"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-blue-900 font-bold mb-0.5">Stock Entré (Colis) :</label>
-                              <input 
-                                type="number"
-                                min="0"
-                                value={initialColis}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value) || 0;
-                                  setProductInitialStockEntrees(prev => ({ ...prev, [prdName]: val }));
-                                }}
-                                className="w-full px-2 py-1 border border-blue-400 bg-blue-50 text-blue-900 rounded font-bold text-right"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               <div className="flex justify-between pt-4 border-t border-[#e0e0e0]">
                 <button onClick={() => setStep(1)} className="px-4 py-2 border border-gray-300 rounded text-xs font-bold hover:bg-gray-50">{t('back', 'Retour')}</button>
@@ -1343,131 +1153,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
       </div>
 
-      {/* MODAL : CRÉER NOUVEAU FRIGO */}
-      {showNewFrigoModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4 font-mono text-xs">
-            <h3 className="text-sm font-bold text-blue-950 flex items-center gap-2 border-b pb-2">
-              <Warehouse className="w-5 h-5 text-amber-500" />
-              Créer un Nouveau Frigo / Entrepôt Frigorifique
-            </h3>
-            <form onSubmit={handleCreateFrigoInline} className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-gray-700 mb-1">Nom du Frigo *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ex: Condiferie SK"
-                  value={newFrigoData.name}
-                  onChange={e => setNewFrigoData({ ...newFrigoData, name: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2 font-bold text-xs focus:ring-2 focus:ring-[#0f62fe]"
-                />
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-gray-700 mb-1">Emplacement / Adresse</label>
-                <input
-                  type="text"
-                  placeholder="ex: Zone Frigorifique Port"
-                  value={newFrigoData.location}
-                  onChange={e => setNewFrigoData({ ...newFrigoData, location: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2 font-bold text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-gray-700 mb-1">Responsable Quai / Frigo</label>
-                <input
-                  type="text"
-                  placeholder="ex: Responsable Frigo Condiferie"
-                  value={newFrigoData.managerName}
-                  onChange={e => setNewFrigoData({ ...newFrigoData, managerName: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2 font-bold text-xs"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowNewFrigoModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded text-xs font-bold hover:bg-gray-100"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-blue-950 font-bold text-xs rounded shadow"
-                >
-                  Enregistrer & Sélectionner
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL : CRÉER NOUVEAU FOURNISSEUR */}
-      {showNewSupplierModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4 font-mono text-xs">
-            <h3 className="text-sm font-bold text-blue-950 flex items-center gap-2 border-b pb-2">
-              <Truck className="w-5 h-5 text-emerald-500" />
-              Créer un Nouveau Fournisseur / Importateur
-            </h3>
-            <form onSubmit={handleCreateSupplierInline} className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-gray-700 mb-1">Nom / Sigle Fournisseur *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ex: ALG"
-                  value={newSupplierData.name}
-                  onChange={e => setNewSupplierData({ ...newSupplierData, name: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2 font-bold text-xs focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-gray-700 mb-1">Raison Sociale Complète</label>
-                <input
-                  type="text"
-                  placeholder="ex: Fournisseur Algérie Sarl"
-                  value={newSupplierData.companyName}
-                  onChange={e => setNewSupplierData({ ...newSupplierData, companyName: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2 font-bold text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-gray-700 mb-1">Pays d'Origine</label>
-                <input
-                  type="text"
-                  placeholder="ex: Algérie"
-                  value={newSupplierData.country}
-                  onChange={e => setNewSupplierData({ ...newSupplierData, country: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2 font-bold text-xs"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowNewSupplierModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded text-xs font-bold hover:bg-gray-100"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded shadow"
-                >
-                  Enregistrer & Sélectionner
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
     </div>
   );

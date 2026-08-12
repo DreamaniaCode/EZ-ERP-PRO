@@ -2338,16 +2338,22 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           item.productName = matchedPrd.name;
         }
 
-        if (targetFrigoId) {
-          const qtyKg = item.quantityKg || 0;
-          const palletRatio = is11kg ? 1100 : 500;
+        if (targetFrigoId && (item.quantityKg || 0) > 0) {
+          const qtyKg = item.quantityKg;
+          const palletRatio = matchedPrd ? (matchedPrd.kgPerPallet || 500) : (is11kg ? 1100 : 500);
           const qtyPallets = item.quantityPallets > 0 ? item.quantityPallets : Math.ceil(qtyKg / palletRatio);
 
           setStocks(prevStocks => {
             const existingStock = prevStocks.find(s => s.frigoId === targetFrigoId && s.productId === productIdToUse);
-            const defaultInitialKg = is11kg ? (9135 * 11) : (22924 * 5);
-            const currentKg = existingStock ? existingStock.quantityKg : defaultInitialKg;
-            const currentPallets = existingStock ? existingStock.quantityPallets : Math.ceil(currentKg / palletRatio);
+
+            // Ne décrémenter QUE si le stock a été entré manuellement — pas de stock fantôme
+            if (!existingStock) {
+              console.warn(`[BL Import] Aucun stock trouvé pour ${productIdToUse} dans ${targetFrigoId} — décrémentation ignorée.`);
+              return prevStocks;
+            }
+
+            const currentKg = existingStock.quantityKg;
+            const currentPallets = existingStock.quantityPallets;
 
             const newKg = Math.max(0, currentKg - qtyKg);
             const newPallets = Math.max(0, currentPallets - qtyPallets);
@@ -2374,14 +2380,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               handleFirestoreError(err, OperationType.WRITE, `stocks/${targetFrigoId}_${productIdToUse}`);
             });
 
-            // Preserve ALL stock records (not just the 2 hardcoded products)
-            const hasExisting = prevStocks.some(s => s.frigoId === targetFrigoId && s.productId === productIdToUse);
-
-            if (hasExisting) {
-              return prevStocks.map(s => s.frigoId === targetFrigoId && s.productId === productIdToUse ? updatedStock : s);
-            } else {
-              return [...prevStocks, updatedStock];
-            }
+            return prevStocks.map(s => s.frigoId === targetFrigoId && s.productId === productIdToUse ? updatedStock : s);
           });
         }
       });
