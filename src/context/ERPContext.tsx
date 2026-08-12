@@ -617,6 +617,20 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (fbUsers.length > 0) setUsers(fbUsers);
         }
 
+        // Load stock movements
+        const movementSnap = await getDocs(collection(db, 'stock_movements')).catch(() => null);
+        if (movementSnap && !movementSnap.empty) {
+          const fbMovements = movementSnap.docs.map(d => d.data() as ProductStockMovement).filter(m => m && m.id);
+          if (fbMovements.length > 0) {
+            setStockMovements(prev => {
+              const merged = new Map<string, ProductStockMovement>();
+              prev.forEach(m => merged.set(m.id, m));
+              fbMovements.forEach(m => merged.set(m.id, m));
+              return Array.from(merged.values());
+            });
+          }
+        }
+
       } catch (err) {
         console.warn('[Firebase Sync] One-shot load failed (working offline):', err);
         // No problem — localStorage data is already loaded, app works normally
@@ -661,6 +675,31 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return hasChanges ? updated : prevStocks;
     });
   }, [products]);
+
+  // Auto-deduplicate frigos array and ensure default frigo Ain Rabat exists if frigos is empty
+  useEffect(() => {
+    setFrigos(prevFrigos => {
+      let filtered = (prevFrigos || []).filter(f => 
+        f && f.id && f.name && 
+        !f.id.includes('undefined') && 
+        !f.id.includes('null') && 
+        !f.id.includes('new') && 
+        !f.name.toLowerCase().includes('inconnu')
+      );
+
+      // Deduplicate by name
+      const uniqueMap = new Map<string, ColdStorageFrigo>();
+      filtered.forEach(f => {
+        const key = f.name.toLowerCase().trim();
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, f);
+        }
+      });
+
+      const uniqueList = Array.from(uniqueMap.values());
+      return uniqueList.length > 0 ? uniqueList : INITIAL_FRIGOS;
+    });
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('erp_orders', JSON.stringify(orders));
@@ -1082,6 +1121,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       notes
     };
     setStockMovements(prev => [movement, ...prev]);
+    setDoc(doc(db, 'stock_movements', movement.id), sanitizeForFirestore(movement)).catch(() => {});
   };
 
   const adjustStock = (frigoId: string, productId: string, newKg: number, newPallets: number, referenceDoc?: string, type: StockMovementType = 'AJUSTEMENT_MANUEL') => {

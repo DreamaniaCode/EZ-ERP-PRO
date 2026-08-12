@@ -44,8 +44,19 @@ export const INITIAL_USERS: UserProfile[] = [
   }
 ];
 
-// Completely clear database (Start at 0 for all entities)
-export const INITIAL_FRIGOS: ColdStorageFrigo[] = [];
+export const INITIAL_FRIGOS: ColdStorageFrigo[] = [
+  {
+    id: 'frigo-1',
+    code: 'FRG-01',
+    name: 'Entrepôt Ain Rabat (Principal)',
+    location: 'Ain Rabat, Casablanca',
+    managerName: 'Responsable Quai',
+    managerPhone: '+212 600-000000',
+    capacityPallets: 50000,
+    whatsappGroup: 'Groupe WhatsApp Frigo Ain Rabat',
+    whatsappGroupLink: ''
+  }
+];
 export const INITIAL_SUPPLIERS: Supplier[] = [];
 export const INITIAL_PRODUCTS: Product[] = [
   {
