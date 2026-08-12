@@ -494,6 +494,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 import { ToastProvider } from './components/common/CarbonToastContainer';
+import { PWAUpdateBanner } from './components/common/PWAUpdateBanner';
 
 export default function App() {
   return (
@@ -503,6 +504,7 @@ export default function App() {
           <AuthGuard>
             {(appUser) => <ERPContent appUser={appUser} />}
           </AuthGuard>
+          <PWAUpdateBanner />
         </ERPProvider>
       </ToastProvider>
     </ErrorBoundary>

@@ -1,27 +1,39 @@
-const CACHE_NAME = 'easyerp-pwa-v23-bl-cartons-calc';
+const CACHE_NAME = 'easyerp-pwa-v25-live-update-2026';
 
-
-
-
-
-
-
-
-
+// Message Listener for client commands (Skip Waiting, Purge Caches)
+self.addEventListener('message', (event) => {
+  if (event.data) {
+    if (event.data.type === 'SKIP_WAITING') {
+      console.log('[PWA SW] Received SKIP_WAITING signal');
+      self.skipWaiting();
+    }
+    if (event.data.type === 'CLEAR_CACHE') {
+      console.log('[PWA SW] Received CLEAR_CACHE signal');
+      caches.keys().then((keys) => {
+        return Promise.all(keys.map((key) => caches.delete(key)));
+      });
+    }
+  }
+});
 
 // Install Event - Force immediate activation
 self.addEventListener('install', (event) => {
+  console.log('[PWA SW] Installing Service Worker:', CACHE_NAME);
   self.skipWaiting();
 });
 
-// Activate Event - PURGE ALL OLD CACHES IMMEDIATELY
+// Activate Event - PURGE ALL OLD CACHES IMMEDIATELY & CLAIM CLIENTS
 self.addEventListener('activate', (event) => {
+  console.log('[PWA SW] Activating Service Worker:', CACHE_NAME);
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cache) => {
-          console.log('[PWA SW] Purging old cache:', cache);
-          return caches.delete(cache);
+          if (cache !== CACHE_NAME) {
+            console.log('[PWA SW] Purging obsolete cache:', cache);
+            return caches.delete(cache);
+          }
+          return Promise.resolve();
         })
       );
     }).then(() => self.clients.claim())
@@ -68,3 +80,4 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+

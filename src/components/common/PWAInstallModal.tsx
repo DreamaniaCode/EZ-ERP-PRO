@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Download, ExternalLink, CheckCircle2, X, Share, PlusSquare, Monitor, Check } from 'lucide-react';
+import { Smartphone, Download, ExternalLink, CheckCircle2, X, Share, PlusSquare, Monitor, Check, RefreshCw } from 'lucide-react';
 
 interface PWAInstallModalProps {
   isOpen: boolean;
@@ -18,6 +18,21 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
   const [isStandalone, setIsStandalone] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [installSuccess, setInstallSuccess] = useState(false);
+  const [isForceUpdating, setIsForceUpdating] = useState(false);
+
+  const handleForceUpdate = async () => {
+    setIsForceUpdating(true);
+    try {
+      if ((window as any).forcePWAUpdate) {
+        await (window as any).forcePWAUpdate();
+      } else {
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Force update error:', err);
+      window.location.reload();
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -96,6 +111,30 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
 
         {/* Modal Content Body */}
         <div className="p-5 space-y-5 max-h-[80vh] overflow-y-auto">
+
+          {/* Force Update & Clear Cache Section */}
+          <div className="bg-[#161616] text-white p-3.5 rounded-xl border border-amber-500/40 shadow-md space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+                <RefreshCw className="w-4 h-4 text-amber-400" />
+                <span>Mise à jour & Purge du Cache Mobile</span>
+              </div>
+              <span className="text-[10px] font-mono bg-[#262626] text-emerald-400 px-1.5 py-0.5 rounded border border-[#393939] font-bold">
+                v2.5 PWA
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-300">
+              Si la version mobile installée sur votre écran d'accueil n'est pas à jour ou présente des lenteurs d'affichage, forcez la mise à jour immédiate.
+            </p>
+            <button
+              onClick={handleForceUpdate}
+              disabled={isForceUpdating}
+              className="w-full bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs py-2.5 px-3 rounded-lg transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isForceUpdating ? 'animate-spin' : ''}`} />
+              <span>{isForceUpdating ? 'Réinitialisation du cache...' : '⚡ Forcer la mise à jour (Vider le cache)'}</span>
+            </button>
+          </div>
 
           {/* Standalone status banner */}
           {isStandalone ? (
