@@ -18,37 +18,67 @@ import {
   Menu
 } from 'lucide-react';
 
-// Lazy-loaded page components
-const DashboardOverview = lazy(() => import('./components/dashboard/DashboardOverview').then(m => ({ default: m.DashboardOverview })));
-const ProductsList = lazy(() => import('./components/stock/ProductsList').then(m => ({ default: m.ProductsList })));
-const MultiFrigoInventory = lazy(() => import('./components/stock/MultiFrigoInventory').then(m => ({ default: m.MultiFrigoInventory })));
-const DeliveryNotesBL = lazy(() => import('./components/sales/DeliveryNotesBL').then(m => ({ default: m.DeliveryNotesBL })));
-const SalesOrders = lazy(() => import('./components/sales/SalesOrders').then(m => ({ default: m.SalesOrders })));
-const ImportInvoiceEntry = lazy(() => import('./components/purchases/ImportInvoiceEntry').then(m => ({ default: m.ImportInvoiceEntry })));
-const InvoicesList = lazy(() => import('./components/finance/InvoicesList').then(m => ({ default: m.InvoicesList })));
-const TreasuryCheques = lazy(() => import('./components/finance/TreasuryCheques').then(m => ({ default: m.TreasuryCheques })));
-const ExpensesManager = lazy(() => import('./components/finance/ExpensesManager').then(m => ({ default: m.ExpensesManager })));
-const ClientsSuppliers = lazy(() => import('./components/directory/ClientsSuppliers').then(m => ({ default: m.ClientsSuppliers })));
-const FrigoManagement = lazy(() => import('./components/stock/FrigoManagement').then(m => ({ default: m.FrigoManagement })));
-const CompanySettings = lazy(() => import('./components/company/CompanySettings').then(m => ({ default: m.CompanySettings })));
+// Helper function to safely lazy-load components and auto-reload on stale deployment chunk errors
+function safeLazy<T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T } | any>
+) {
+  return lazy(async () => {
+    try {
+      return await factory();
+    } catch (error: any) {
+      const errorStr = error?.message || error?.toString() || '';
+      const isChunkError = 
+        error?.name === 'ChunkLoadError' ||
+        /Failed to fetch dynamically imported module/i.test(errorStr) ||
+        /Importing a module script failed/i.test(errorStr) ||
+        /error loading dynamically imported module/i.test(errorStr);
+      
+      if (isChunkError) {
+        const storageKey = 'erp_chunk_load_reload';
+        const lastReload = sessionStorage.getItem(storageKey);
+        const now = Date.now();
+        if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+          sessionStorage.setItem(storageKey, now.toString());
+          window.location.reload();
+          return new Promise(() => {}); // Wait for reload
+        }
+      }
+      throw error;
+    }
+  });
+}
+
+// Lazy-loaded page components using safeLazy
+const DashboardOverview = safeLazy(() => import('./components/dashboard/DashboardOverview').then(m => ({ default: m.DashboardOverview })));
+const ProductsList = safeLazy(() => import('./components/stock/ProductsList').then(m => ({ default: m.ProductsList })));
+const MultiFrigoInventory = safeLazy(() => import('./components/stock/MultiFrigoInventory').then(m => ({ default: m.MultiFrigoInventory })));
+const DeliveryNotesBL = safeLazy(() => import('./components/sales/DeliveryNotesBL').then(m => ({ default: m.DeliveryNotesBL })));
+const SalesOrders = safeLazy(() => import('./components/sales/SalesOrders').then(m => ({ default: m.SalesOrders })));
+const ImportInvoiceEntry = safeLazy(() => import('./components/purchases/ImportInvoiceEntry').then(m => ({ default: m.ImportInvoiceEntry })));
+const InvoicesList = safeLazy(() => import('./components/finance/InvoicesList').then(m => ({ default: m.InvoicesList })));
+const TreasuryCheques = safeLazy(() => import('./components/finance/TreasuryCheques').then(m => ({ default: m.TreasuryCheques })));
+const ExpensesManager = safeLazy(() => import('./components/finance/ExpensesManager').then(m => ({ default: m.ExpensesManager })));
+const ClientsSuppliers = safeLazy(() => import('./components/directory/ClientsSuppliers').then(m => ({ default: m.ClientsSuppliers })));
+const FrigoManagement = safeLazy(() => import('./components/stock/FrigoManagement').then(m => ({ default: m.FrigoManagement })));
+const CompanySettings = safeLazy(() => import('./components/company/CompanySettings').then(m => ({ default: m.CompanySettings })));
 
 // New full-page edit components
-const ProductEditPage = lazy(() => import('./components/stock/ProductEditPage').then(m => ({ default: m.ProductEditPage })));
-const ClientEditPage = lazy(() => import('./components/directory/ClientEditPage').then(m => ({ default: m.ClientEditPage })));
-const SupplierEditPage = lazy(() => import('./components/directory/SupplierEditPage').then(m => ({ default: m.SupplierEditPage })));
-const FrigoEditPage = lazy(() => import('./components/stock/FrigoEditPage').then(m => ({ default: m.FrigoEditPage })));
-const BLEditPage = lazy(() => import('./components/sales/BLEditPage').then(m => ({ default: m.BLEditPage })));
-const OrderEditPage = lazy(() => import('./components/sales/OrderEditPage').then(m => ({ default: m.OrderEditPage })));
-const ExpenseEditPage = lazy(() => import('./components/finance/ExpenseEditPage').then(m => ({ default: m.ExpenseEditPage })));
-const ChequeEditPage = lazy(() => import('./components/finance/ChequeEditPage').then(m => ({ default: m.ChequeEditPage })));
+const ProductEditPage = safeLazy(() => import('./components/stock/ProductEditPage').then(m => ({ default: m.ProductEditPage })));
+const ClientEditPage = safeLazy(() => import('./components/directory/ClientEditPage').then(m => ({ default: m.ClientEditPage })));
+const SupplierEditPage = safeLazy(() => import('./components/directory/SupplierEditPage').then(m => ({ default: m.SupplierEditPage })));
+const FrigoEditPage = safeLazy(() => import('./components/stock/FrigoEditPage').then(m => ({ default: m.FrigoEditPage })));
+const BLEditPage = safeLazy(() => import('./components/sales/BLEditPage').then(m => ({ default: m.BLEditPage })));
+const OrderEditPage = safeLazy(() => import('./components/sales/OrderEditPage').then(m => ({ default: m.OrderEditPage })));
+const ExpenseEditPage = safeLazy(() => import('./components/finance/ExpenseEditPage').then(m => ({ default: m.ExpenseEditPage })));
+const ChequeEditPage = safeLazy(() => import('./components/finance/ChequeEditPage').then(m => ({ default: m.ChequeEditPage })));
 
 // New feature pages
-const UserManagement = lazy(() => import('./components/users/UserManagement').then(m => ({ default: m.UserManagement })));
-const BLImportPage = lazy(() => import('./components/sales/BLImportPage').then(m => ({ default: m.BLImportPage })));
-const BackupRestore = lazy(() => import('./components/settings/BackupRestore').then(m => ({ default: m.BackupRestore })));
-const BLSignaturePage = lazy(() => import('./components/sales/BLSignaturePage').then(m => ({ default: m.BLSignaturePage })));
-const BLPdfPage = lazy(() => import('./components/sales/BLPdfPage').then(m => ({ default: m.BLPdfPage })));
-const FrigoOperationsPage = lazy(() => import('./components/stock/FrigoOperationsPage').then(m => ({ default: m.FrigoOperationsPage })));
+const UserManagement = safeLazy(() => import('./components/users/UserManagement').then(m => ({ default: m.UserManagement })));
+const BLImportPage = safeLazy(() => import('./components/sales/BLImportPage').then(m => ({ default: m.BLImportPage })));
+const BackupRestore = safeLazy(() => import('./components/settings/BackupRestore').then(m => ({ default: m.BackupRestore })));
+const BLSignaturePage = safeLazy(() => import('./components/sales/BLSignaturePage').then(m => ({ default: m.BLSignaturePage })));
+const BLPdfPage = safeLazy(() => import('./components/sales/BLPdfPage').then(m => ({ default: m.BLPdfPage })));
+const FrigoOperationsPage = safeLazy(() => import('./components/stock/FrigoOperationsPage').then(m => ({ default: m.FrigoOperationsPage })));
 
 // Extended NavTab type with edit sub-views
 export type ExtendedNavTab = NavTab | 
@@ -402,6 +432,22 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 
   static getDerivedStateFromError(error: Error) {
+    const errorStr = error?.message || error?.toString() || '';
+    const isChunkError = 
+      error?.name === 'ChunkLoadError' ||
+      /Failed to fetch dynamically imported module/i.test(errorStr) ||
+      /Importing a module script failed/i.test(errorStr) ||
+      /error loading dynamically imported module/i.test(errorStr);
+
+    if (isChunkError) {
+      const storageKey = 'erp_chunk_load_reload';
+      const lastReload = sessionStorage.getItem(storageKey);
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+        sessionStorage.setItem(storageKey, now.toString());
+        window.location.reload();
+      }
+    }
     return { hasError: true, error };
   }
 
