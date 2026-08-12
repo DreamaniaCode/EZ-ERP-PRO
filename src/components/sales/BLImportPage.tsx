@@ -579,6 +579,8 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           whatsappSent: false,
           emailSent: false,
           status: 'LIVRÉ',
+          stockDecremented: true,
+          stockDeductedV2: true,
           invoiceId: undefined,
           invoiceNumber: undefined,
           logs: [

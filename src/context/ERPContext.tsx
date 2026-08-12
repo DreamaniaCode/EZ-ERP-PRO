@@ -1795,10 +1795,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       handleFirestoreError(err, OperationType.WRITE, `invoices/${newInvoice.id}`);
     });
 
-    // Safety net: if stock was never properly deducted (old buggy code set stockDecremented but never actually deducted), do it now
-    if (!(bl as any).stockDeductedV2) {
-      deductBLStockHelper(bl);
-    }
+    // Invoicing is purely financial — stock is handled when BL/Order is processed, NEVER at invoice creation time
 
     // Update BL status to FACTURÉ and save invoice pointers
     const updatedBLData = { 
@@ -2393,7 +2390,9 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         clientName: clientObj.companyName || clientObj.name,
         invoiceId: undefined, // Explicitly NO invoice created
         invoiceNumber: undefined,
-        status: bl.status || 'LIVRÉ'
+        status: bl.status || 'LIVRÉ',
+        stockDecremented: true,
+        stockDeductedV2: true
       };
     });
 
