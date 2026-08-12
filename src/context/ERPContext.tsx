@@ -1886,6 +1886,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
+
   const addSupplier = (supplierData: Omit<Supplier, 'id' | 'code' | 'currentBalance'>) => {
     const count = suppliers.length + 1;
     const code = `FRS-${String(count).padStart(3, '0')}`;
