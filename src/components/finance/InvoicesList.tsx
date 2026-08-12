@@ -59,7 +59,7 @@ export const InvoicesList: React.FC = () => {
             Facturation Intégrée & Suivi des Règlements
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            Génération Automatique depuis les Bons de Livraison (BL), TVA 20%, Solde Client & Échéances
+            Génération Automatique depuis les Bons de Livraison (BL), TVA selon ICE Client & Échéances
           </p>
         </div>
 
@@ -73,7 +73,7 @@ export const InvoicesList: React.FC = () => {
             'Date Émission': inv.date,
             'Date Échéance': inv.dueDate,
             'Montant HT (DH)': inv.totalHT,
-            'TVA (20%)': inv.vatAmount,
+            'Montant TVA (DH)': inv.totalVAT || (inv as any).vatAmount || 0,
             'Total TTC (DH)': inv.totalTTC,
             'Montant Payé (DH)': inv.amountPaid,
             'Solde Restant (DH)': inv.totalTTC - inv.amountPaid,
@@ -121,7 +121,7 @@ export const InvoicesList: React.FC = () => {
                 <th>Date Émission</th>
                 <th>Échéance</th>
                 <th>Total HT</th>
-                <th>TVA (20%)</th>
+                <th>Montant TVA</th>
                 <th>Total TTC</th>
                 <th>Reste à Payer</th>
                 <th>Statut & Actions</th>

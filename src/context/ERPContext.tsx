@@ -1743,12 +1743,14 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const clientICE = client ? client.ice : '';
     const companyName = client ? client.companyName : '';
 
-    // TVA Rule: Apply 20% TVA ONLY if ICE exists or companyName exists! Otherwise 0% TVA!
-    const hasIceOrCompany = Boolean(
-      (clientICE && clientICE !== '000000000000000' && clientICE.trim() !== '') || 
-      (companyName && companyName.trim() !== '')
+    // TVA Rule: Apply 20% TVA ONLY if valid client ICE exists! Otherwise 0% TVA!
+    const hasValidIce = Boolean(
+      clientICE && 
+      clientICE.trim() !== '' && 
+      clientICE !== '000000000000000' && 
+      clientICE.trim() !== '0'
     );
-    const activeVatRate = hasIceOrCompany ? 0.20 : 0.00;
+    const activeVatRate = hasValidIce ? 0.20 : 0.00;
 
     const invoiceItems = bl.items.map(it => ({
       productId: it.productId,

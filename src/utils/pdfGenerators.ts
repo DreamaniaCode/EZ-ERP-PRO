@@ -196,9 +196,10 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyData: any
   doc.setTextColor(17, 17, 17);
   doc.text(`${fmtNum(totalHT)} DH`, boxX + boxW - 3, y + 7, { align: 'right' });
 
+  const vatPct = totalHT > 0 && totalVAT > 0 ? Math.round((totalVAT / totalHT) * 100) : 0;
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(80, 80, 80);
-  doc.text('TVA (20%):', boxX + 3, y + 14);
+  doc.text(`TVA (${vatPct}%):`, boxX + 3, y + 14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(17, 17, 17);
   doc.text(`${fmtNum(totalVAT)} DH`, boxX + boxW - 3, y + 14, { align: 'right' });

@@ -168,10 +168,15 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
                 <span>Total HT:</span>
                 <span className="font-bold text-gray-900">{formatNumber(invoice.totalHT)} DH</span>
               </div>
-              <div className="flex justify-between items-center text-gray-700">
-                <span>TVA (20%):</span>
-                <span className="font-bold text-gray-900">{formatNumber(invoice.totalVAT)} DH</span>
-              </div>
+              {(() => {
+                const vatPct = invoice.totalHT > 0 && invoice.totalVAT > 0 ? Math.round((invoice.totalVAT / invoice.totalHT) * 100) : 0;
+                return (
+                  <div className="flex justify-between items-center text-gray-700">
+                    <span>TVA ({vatPct}%):</span>
+                    <span className="font-bold text-gray-900">{formatNumber(invoice.totalVAT)} DH</span>
+                  </div>
+                );
+              })()}
               <div className="border-t-2 border-gray-900 pt-2 flex justify-between items-center text-sm font-black text-gray-900" style={{ borderColor: '#111827' }}>
                 <span>NET À PAYER TTC:</span>
                 <span className="text-[#0f62fe]">{formatNumber(invoice.totalTTC)} DH</span>
