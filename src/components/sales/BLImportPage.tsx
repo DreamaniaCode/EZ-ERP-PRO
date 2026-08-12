@@ -14,6 +14,26 @@ import { findMatchingProduct } from '../../utils/productMatcher';
 // Set worker for pdfjs-dist
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '4.0.379'}/pdf.worker.min.mjs`;
 
+const isValidClientName = (str: string): boolean => {
+  if (!str || typeof str !== 'string') return false;
+  const trimmed = str.trim();
+  if (trimmed.length < 2 || trimmed === '-') return false;
+  if (/^\d+([\.,]\d+)?$/.test(trimmed)) return false;
+
+  const lower = trimmed.toLowerCase();
+  const invalidKeywords = [
+    'livreur', 'client', 'poids', 'releve', 'calcule', 'designation', 
+    'quantite', 'colis', 'carton', 'total', 'page', 'annotations', 'manuscrites'
+  ];
+
+  if (invalidKeywords.some(kw => lower === kw || lower.includes('livreur / client') || lower.includes('poids releve') || lower.includes('poids calcule'))) {
+    return false;
+  }
+
+  const letterCount = (trimmed.match(/[a-zA-Z]/g) || []).length;
+  return letterCount >= 2;
+};
+
 const cleanDisplayName = (raw: string): string => {
   if (!raw) return '';
   return raw
@@ -439,24 +459,17 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       // Smart Client Name Resolution with Text-Cell Fallback Scanner
       let clientVal = mappedRow.clientName;
-      if (!clientVal || String(clientVal).trim() === '' || String(clientVal).toUpperCase().includes('DIVERS')) {
-        // Scan all cells in the row for a non-numeric client name string
-        const textCells = Object.entries(row).filter(([key, val]) => {
+      if (!isValidClientName(String(clientVal || ''))) {
+        // Scan all cells in the row for a valid client name string
+        const validCell = Object.entries(row).find(([key, val]) => {
           if (!val || key.startsWith('_')) return false;
-          const str = String(val).trim().toUpperCase();
-          return str.length > 2 && 
-                 !str.includes('BL') && 
-                 !str.includes('PAGE') && 
-                 !str.includes('TOTAL') && 
-                 !str.includes('DATTE') && 
-                 !str.includes('SIBORT') && 
-                 !/^\d+$/.test(str);
+          return isValidClientName(String(val));
         });
-        if (textCells.length > 0) {
-          clientVal = textCells[0][1];
+        if (validCell) {
+          clientVal = validCell[1];
         }
       }
-      mappedRow.clientName = cleanDisplayName(String(clientVal || '')) || 'Client Import';
+      mappedRow.clientName = cleanDisplayName(String(clientVal || '')) || 'Client Divers';
 
       // Canonical Product Name Resolution (Never numeric or fake)
       const rawPrdStr = String(mappedRow.productName || row._sheetName || '').toUpperCase();

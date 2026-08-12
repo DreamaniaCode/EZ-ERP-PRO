@@ -2064,6 +2064,26 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const isValidClientName = (str: string): boolean => {
+    if (!str || typeof str !== 'string') return false;
+    const trimmed = str.trim();
+    if (trimmed.length < 2 || trimmed === '-') return false;
+    if (/^\d+([\.,]\d+)?$/.test(trimmed)) return false;
+
+    const lower = trimmed.toLowerCase();
+    const invalidKeywords = [
+      'livreur', 'client', 'poids', 'releve', 'calcule', 'designation', 
+      'quantite', 'colis', 'carton', 'total', 'page', 'annotations', 'manuscrites'
+    ];
+
+    if (invalidKeywords.some(kw => lower === kw || lower.includes('livreur / client') || lower.includes('poids releve') || lower.includes('poids calcule'))) {
+      return false;
+    }
+
+    const letterCount = (trimmed.match(/[a-zA-Z]/g) || []).length;
+    return letterCount >= 2;
+  };
+
   const cleanDisplayName = (raw: string): string => {
     if (!raw) return '';
     return raw
@@ -2082,6 +2102,18 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       .replace(/\b(mlhmd|ain\s*rabat|frigo|site|depot|wh|ste|societe|sarl|sarlau|sa|ets|ets.|s.a.r.l|s.a.r.l.)\b/gi, '')
       .replace(/\bqessb\b/g, 'qessab')
       .replace(/\brachide\b/g, 'rachid')
+      .replace(/\blaamoussi\b/g, 'laroussi')
+      .replace(/\blarousi\b/g, 'laroussi')
+      .replace(/\blaaroussi\b/g, 'laroussi')
+      .replace(/\bhammouda\b/g, 'hamouda')
+      .replace(/\bel\s*khasri\b/g, 'lkasri')
+      .replace(/\btetouane\b/g, 'tetouan')
+      .replace(/\bhikma\b/g, 'hikmat')
+      .replace(/\babdelatti\b/g, 'abdelati')
+      .replace(/\bbelgessab\b/g, 'lekassab')
+      .replace(/\bbelqessab\b/g, 'lekassab')
+      .replace(/\bsoufine\b/g, 'soufiane')
+      .replace(/\babdelooaheb\b/g, 'abdelouaheb')
       .replace(/[^a-z0-9]/gi, '')
       .trim();
   };
