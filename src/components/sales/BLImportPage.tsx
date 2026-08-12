@@ -850,10 +850,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   <label className="block font-bold text-blue-900 uppercase">Entrepôt Frigorifique Source :</label>
                   <span className="font-bold text-sm text-blue-950">🏢 {selectedTargetFrigo.code} - {selectedTargetFrigo.name}</span>
                 </div>
-                <div>
-                  <label className="block font-bold text-blue-900 uppercase">Fournisseur Associé :</label>
-                  <span className="font-bold text-sm text-emerald-950">🚚 {selectedTargetSupplier.code} - {selectedTargetSupplier.name}</span>
-                </div>
+
               </div>
 
               {/* EXCEL MULTI-SHEET & HEADER ROW CONTROLS */}
@@ -1126,10 +1123,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   <span className="text-gray-600 font-bold">Frigo Source Assigné :</span>
                   <span className="font-bold text-gray-900">{selectedTargetFrigo.name} ({selectedTargetFrigo.code})</span>
                 </div>
-                <div className="flex justify-between border-b pb-1">
-                  <span className="text-gray-600 font-bold">Fournisseur Associé :</span>
-                  <span className="font-bold text-emerald-700">{selectedTargetSupplier.name}</span>
-                </div>
+
                 <div className="flex justify-between border-b pb-1">
                   <span className="text-gray-600 font-bold">Clients mis à jour (Comptes) :</span>
                   <span className="font-bold text-emerald-700">{importStats.clientCount} clients</span>
