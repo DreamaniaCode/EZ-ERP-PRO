@@ -400,175 +400,234 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
 
 
-  // Firestore Real-Time Syncing (Bidirectional Live Sync Desktop <-> Mobile PWA)
+
+  // ============================================================
+  // FIREBASE SYNC: One-shot load at startup (NO onSnapshot)
+  // localStorage is the PRIMARY source of truth.
+  // Firebase is loaded ONCE at startup to sync data from other devices.
+  // After that, all writes go to localStorage (instant) + Firebase (background async).
+  // This eliminates ALL race conditions, ghost products, vanishing BLs.
+  // ============================================================
   useEffect(() => {
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const docs = snapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return {
-          id: data.uid || docSnap.id,
-          name: data.displayName || data.name || data.email,
-          email: data.email,
-          role: data.role,
-          assignedFrigoId: data.assignedFrigoId,
-          avatar: data.avatar
-        } as UserProfile;
-      });
-      if (docs.length > 0) setUsers(docs);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'users'));
-
-    const unsubClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
-      const docs = snapshot.docs.map(docSnap => docSnap.data() as Client);
-      // MERGE: never overwrite local clients with empty or smaller Firestore list
-      // This prevents phantom clients appearing and real clients disappearing
-      setClients(prev => {
-        if (docs.length === 0) return prev; // Keep local if Firestore is empty
-        // Build merged map: Firestore takes priority but local-only clients survive
-        const merged = new Map<string, Client>();
-        prev.forEach(c => merged.set(c.id, c)); // Start with local
-        docs.forEach(c => { if (c && c.id) merged.set(c.id, c); }); // Overwrite with Firestore
-        // Filter out fake clients that should never exist
-        const fakePatterns = ['client import', 'client 1', 'client 2', 'client 3', 'clt-excel-', 'clt-import-'];
-        const result = Array.from(merged.values()).filter(c => {
-          if (!c.name) return false;
-          const lower = (c.name + (c.code || '')).toLowerCase();
-          return !fakePatterns.some(p => lower.includes(p));
-        });
-        return result;
-      });
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
-
-    const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
-      const docs = snapshot.docs.map(docSnap => docSnap.data() as Product);
-      // Auto-purge fake product documents from Firestore
-      snapshot.docs.forEach(d => {
-        const pData = d.data() as Product;
-        if (pData.name && (pData.name.includes('Produit Inconnu') || pData.name.includes('PAGE 1'))) {
-          deleteDoc(d.ref).catch(() => {});
+    const loadFromFirebaseOnce = async () => {
+      try {
+        // Load clients from Firebase and MERGE (Firestore takes priority for new data)
+        const clientSnap = await getDocs(collection(db, 'clients')).catch(() => null);
+        if (clientSnap && !clientSnap.empty) {
+          const fbClients = clientSnap.docs.map(d => d.data() as Client).filter(c =>
+            c && c.id && c.name &&
+            !['client import', 'client 1', 'client 2', 'clt-excel-', 'clt-import-'].some(p => (c.name + (c.code||'')).toLowerCase().includes(p))
+          );
+          if (fbClients.length > 0) {
+            setClients(prev => {
+              const merged = new Map<string, Client>();
+              prev.forEach(c => merged.set(c.id, c));
+              fbClients.forEach(c => merged.set(c.id, c));
+              return Array.from(merged.values());
+            });
+          }
         }
-      });
-      const validFromFirestore = docs.filter(p => p.name && !p.name.includes('Produit Inconnu') && !p.name.includes('PAGE 1'));
-      // MERGE: keep local products that exist in localStorage, overlay with Firestore
-      // This prevents losing products after they are edited locally
-      setProducts(prev => {
-        if (validFromFirestore.length === 0 && prev.length > 0) return prev; // Keep local if Firestore is empty
-        // Merge: Firestore is source of truth, but keep local-only products not yet pushed
-        const merged = new Map<string, Product>();
-        prev.forEach(p => { if (p && p.id) merged.set(p.id, p); }); // Start with local
-        validFromFirestore.forEach(p => { if (p && p.id) merged.set(p.id, p); }); // Firestore overrides
-        const result = Array.from(merged.values());
-        return result.length > 0 ? result : INITIAL_PRODUCTS;
-      });
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'products'));
 
-    const unsubSuppliers = onSnapshot(collection(db, 'suppliers'), (snapshot) => {
-      const docs = snapshot.docs.map(docSnap => docSnap.data() as Supplier);
-      setSuppliers(docs);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'suppliers'));
-
-    const unsubFrigos = onSnapshot(collection(db, 'frigos'), (snapshot) => {
-      const docs = snapshot.docs.map(docSnap => docSnap.data() as ColdStorageFrigo);
-      setFrigos(docs);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'frigos'));
-
-    const unsubStocks = onSnapshot(collection(db, 'stocks'), (snapshot) => {
-      const docs = snapshot.docs.map(docSnap => docSnap.data() as FrigoStockLevel);
-      // SAFE filter: only remove stocks with explicitly invalid/legacy IDs
-      // NEVER delete based on current in-memory 'products' list - that causes 'Produit Inconnu'
-      // because products may not be fully loaded yet when this listener fires
-      const validDocs = docs.filter(s =>
-        s.productId &&
-        s.productId.trim() !== '' &&
-        !s.productId.includes('prd-imp-') &&
-        !s.productId.includes('undefined') &&
-        !s.productId.includes('null')
-      );
-      // MERGE stocks: Firestore overrides local, but local stock records survive
-      setStocks(prev => {
-        if (validDocs.length === 0 && prev.length > 0) return prev;
-        const merged = new Map<string, FrigoStockLevel>();
-        prev.forEach(s => merged.set(`${s.frigoId}_${s.productId}`, s));
-        validDocs.forEach(s => merged.set(`${s.frigoId}_${s.productId}`, s));
-        return Array.from(merged.values());
-      });
-
-      // Auto-purge ONLY explicitly invalid stock documents from Firestore
-      snapshot.docs.forEach(d => {
-        const sData = d.data() as FrigoStockLevel;
-        const isInvalid = !sData.productId ||
-          sData.productId.trim() === '' ||
-          sData.productId.includes('prd-imp-') ||
-          sData.productId.includes('undefined') ||
-          sData.productId.includes('null');
-        if (isInvalid) {
-          deleteDoc(d.ref).catch(() => {});
+        // Load products from Firebase (filter out ghost products)
+        const productSnap = await getDocs(collection(db, 'products')).catch(() => null);
+        if (productSnap && !productSnap.empty) {
+          const fbProducts = productSnap.docs.map(d => d.data() as Product).filter(p =>
+            p && p.id && p.name &&
+            !p.name.includes('Produit Inconnu') &&
+            !p.name.includes('PAGE 1') &&
+            !p.name.includes('UNNAMED')
+          );
+          // Auto-purge ghost products from Firebase
+          productSnap.docs.forEach(d => {
+            const pData = d.data() as Product;
+            if (pData.name && (pData.name.includes('Produit Inconnu') || pData.name.includes('PAGE 1'))) {
+              deleteDoc(d.ref).catch(() => {});
+            }
+          });
+          if (fbProducts.length > 0) {
+            setProducts(prev => {
+              const merged = new Map<string, Product>();
+              prev.forEach(p => { if (p && p.id) merged.set(p.id, p); });
+              fbProducts.forEach(p => { if (p && p.id) merged.set(p.id, p); });
+              const result = Array.from(merged.values());
+              return result.length > 0 ? result : prev;
+            });
+          }
         }
-      });
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'stocks'));
 
-    const unsubDeliveryNotes = onSnapshot(collection(db, 'deliveryNotes'), (snapshot) => {
-      const docs = snapshot.docs.map(docSnap => docSnap.data() as DeliveryNoteBL);
-      const deletedSet = new Set<string>(JSON.parse(localStorage.getItem('erp_deleted_bls') || '[]'));
-      const activeDocs = docs.filter(b => b && b.id && !deletedSet.has(b.id));
-      // MERGE: never overwrite a local BL with empty Firestore snapshot
-      // This prevents BLs from vanishing due to Firestore race conditions
-      setDeliveryNotes(prev => {
-        if (activeDocs.length === 0 && prev.length > 0) return prev; // Keep local if Firestore is empty
-        const merged = new Map<string, DeliveryNoteBL>();
-        prev.forEach(b => { if (b && b.id && !deletedSet.has(b.id)) merged.set(b.id, b); });
-        activeDocs.forEach(b => { if (b && b.id) merged.set(b.id, b); });
-        return Array.from(merged.values());
-      });
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'deliveryNotes'));
+        // Load frigos
+        const frigoSnap = await getDocs(collection(db, 'frigos')).catch(() => null);
+        if (frigoSnap && !frigoSnap.empty) {
+          const fbFrigos = frigoSnap.docs.map(d => d.data() as ColdStorageFrigo).filter(f => f && f.id);
+          if (fbFrigos.length > 0) {
+            setFrigos(prev => {
+              const merged = new Map<string, ColdStorageFrigo>();
+              prev.forEach(f => merged.set(f.id, f));
+              fbFrigos.forEach(f => merged.set(f.id, f));
+              return Array.from(merged.values());
+            });
+          }
+        }
 
-    const unsubInvoices = onSnapshot(collection(db, 'invoices'), (snapshot) => {
-      const docs = snapshot.docs.map(docSnap => docSnap.data() as Invoice);
-      const deletedSet = new Set<string>(JSON.parse(localStorage.getItem('erp_deleted_invoices') || '[]'));
-      const activeDocs = docs.filter(inv => !deletedSet.has(inv.id));
-      setInvoices(activeDocs);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'invoices'));
+        // Load suppliers
+        const supplierSnap = await getDocs(collection(db, 'suppliers')).catch(() => null);
+        if (supplierSnap && !supplierSnap.empty) {
+          const fbSuppliers = supplierSnap.docs.map(d => d.data() as Supplier).filter(s => s && s.id);
+          if (fbSuppliers.length > 0) {
+            setSuppliers(prev => {
+              const merged = new Map<string, Supplier>();
+              prev.forEach(s => merged.set(s.id, s));
+              fbSuppliers.forEach(s => merged.set(s.id, s));
+              return Array.from(merged.values());
+            });
+          }
+        }
 
-    const unsubExpenses = onSnapshot(collection(db, 'expenses'), (snapshot) => {
-      const docs = snapshot.docs.map(docSnap => docSnap.data() as Expense);
-      if (docs.length > 0) setExpenses(docs);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'expenses'));
+        // Load stocks — ONLY for products that have valid IDs
+        const stockSnap = await getDocs(collection(db, 'stocks')).catch(() => null);
+        if (stockSnap && !stockSnap.empty) {
+          const fbStocks = stockSnap.docs.map(d => d.data() as FrigoStockLevel).filter(s =>
+            s && s.productId &&
+            s.productId.trim() !== '' &&
+            !s.productId.includes('prd-imp-') &&
+            !s.productId.includes('undefined') &&
+            !s.productId.includes('null')
+          );
+          // Purge invalid stocks from Firebase
+          stockSnap.docs.forEach(d => {
+            const sData = d.data() as FrigoStockLevel;
+            if (!sData.productId || sData.productId.includes('prd-imp-') || sData.productId.includes('undefined')) {
+              deleteDoc(d.ref).catch(() => {});
+            }
+          });
+          if (fbStocks.length > 0) {
+            setStocks(prev => {
+              const merged = new Map<string, FrigoStockLevel>();
+              prev.forEach(s => merged.set(`${s.frigoId}_${s.productId}`, s));
+              fbStocks.forEach(s => merged.set(`${s.frigoId}_${s.productId}`, s));
+              return Array.from(merged.values());
+            });
+          }
+        }
 
-    const unsubCheques = onSnapshot(collection(db, 'chequesEffets'), (snapshot) => {
-      const docs = snapshot.docs.map(docSnap => docSnap.data() as ChequeEffet);
-      if (docs.length > 0) setChequesEffets(docs);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'chequesEffets'));
+        // Load delivery notes (BLs) — MERGE, never overwrite local
+        const blSnap = await getDocs(collection(db, 'deliveryNotes')).catch(() => null);
+        if (blSnap && !blSnap.empty) {
+          const deletedSet = new Set<string>(JSON.parse(localStorage.getItem('erp_deleted_bls') || '[]'));
+          const fbBLs = blSnap.docs.map(d => d.data() as DeliveryNoteBL).filter(b =>
+            b && b.id && !deletedSet.has(b.id)
+          );
+          if (fbBLs.length > 0) {
+            setDeliveryNotes(prev => {
+              const merged = new Map<string, DeliveryNoteBL>();
+              prev.forEach(b => { if (b && b.id && !deletedSet.has(b.id)) merged.set(b.id, b); });
+              fbBLs.forEach(b => { if (b && b.id) merged.set(b.id, b); });
+              return Array.from(merged.values());
+            });
+          }
+        }
 
-    const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
-      const docs = snapshot.docs.map(docSnap => docSnap.data() as SalesOrder);
-      if (docs.length > 0) setOrders(docs);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'orders'));
+        // Load invoices
+        const invoiceSnap = await getDocs(collection(db, 'invoices')).catch(() => null);
+        if (invoiceSnap && !invoiceSnap.empty) {
+          const deletedSet = new Set<string>(JSON.parse(localStorage.getItem('erp_deleted_invoices') || '[]'));
+          const fbInvoices = invoiceSnap.docs.map(d => d.data() as Invoice).filter(inv =>
+            inv && inv.id && !deletedSet.has(inv.id)
+          );
+          if (fbInvoices.length > 0) {
+            setInvoices(prev => {
+              const merged = new Map<string, Invoice>();
+              prev.forEach(inv => { if (inv && inv.id) merged.set(inv.id, inv); });
+              fbInvoices.forEach(inv => merged.set(inv.id, inv));
+              return Array.from(merged.values());
+            });
+          }
+        }
 
-    const unsubPurchaseInvoices = onSnapshot(collection(db, 'purchase_invoices'), (snapshot) => {
-      const docs = snapshot.docs.map(docSnap => docSnap.data() as PurchaseImportInvoice);
-      if (docs.length > 0) setPurchaseInvoices(docs);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'purchase_invoices'));
+        // Load expenses
+        const expenseSnap = await getDocs(collection(db, 'expenses')).catch(() => null);
+        if (expenseSnap && !expenseSnap.empty) {
+          const fbExpenses = expenseSnap.docs.map(d => d.data() as Expense).filter(e => e && e.id);
+          if (fbExpenses.length > 0) {
+            setExpenses(prev => {
+              const merged = new Map<string, Expense>();
+              prev.forEach(e => { if (e && e.id) merged.set(e.id, e); });
+              fbExpenses.forEach(e => merged.set(e.id, e));
+              return Array.from(merged.values());
+            });
+          }
+        }
 
-    const unsubStockMovements = onSnapshot(collection(db, 'stock_movements'), (snapshot) => {
-      const docs = snapshot.docs.map(docSnap => docSnap.data() as ProductStockMovement);
-      setStockMovements(docs);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'stock_movements'));
+        // Load cheques
+        const chequeSnap = await getDocs(collection(db, 'chequesEffets')).catch(() => null);
+        if (chequeSnap && !chequeSnap.empty) {
+          const fbCheques = chequeSnap.docs.map(d => d.data() as ChequeEffet).filter(c => c && c.id);
+          if (fbCheques.length > 0) {
+            setChequesEffets(prev => {
+              const merged = new Map<string, ChequeEffet>();
+              prev.forEach(c => { if (c && c.id) merged.set(c.id, c); });
+              fbCheques.forEach(c => merged.set(c.id, c));
+              return Array.from(merged.values());
+            });
+          }
+        }
 
-    return () => {
-      unsubUsers();
-      unsubClients();
-      unsubProducts();
-      unsubSuppliers();
-      unsubFrigos();
-      unsubStocks();
-      unsubDeliveryNotes();
-      unsubInvoices();
-      unsubExpenses();
-      unsubCheques();
-      unsubOrders();
-      unsubPurchaseInvoices();
-      unsubStockMovements();
+        // Load orders
+        const orderSnap = await getDocs(collection(db, 'orders')).catch(() => null);
+        if (orderSnap && !orderSnap.empty) {
+          const fbOrders = orderSnap.docs.map(d => d.data() as SalesOrder).filter(o => o && o.id);
+          if (fbOrders.length > 0) {
+            setOrders(prev => {
+              const merged = new Map<string, SalesOrder>();
+              prev.forEach(o => { if (o && o.id) merged.set(o.id, o); });
+              fbOrders.forEach(o => merged.set(o.id, o));
+              return Array.from(merged.values());
+            });
+          }
+        }
+
+        // Load purchase invoices
+        const purSnap = await getDocs(collection(db, 'purchase_invoices')).catch(() => null);
+        if (purSnap && !purSnap.empty) {
+          const fbPur = purSnap.docs.map(d => d.data() as PurchaseImportInvoice).filter(p => p && p.id);
+          if (fbPur.length > 0) {
+            setPurchaseInvoices(prev => {
+              const merged = new Map<string, PurchaseImportInvoice>();
+              prev.forEach(p => { if (p && p.id) merged.set(p.id, p); });
+              fbPur.forEach(p => merged.set(p.id, p));
+              return Array.from(merged.values());
+            });
+          }
+        }
+
+        // Load users
+        const userSnap = await getDocs(collection(db, 'users')).catch(() => null);
+        if (userSnap && !userSnap.empty) {
+          const fbUsers = userSnap.docs.map(d => {
+            const data = d.data();
+            return {
+              id: data.uid || d.id,
+              name: data.displayName || data.name || data.email,
+              email: data.email,
+              role: data.role,
+              assignedFrigoId: data.assignedFrigoId,
+              avatar: data.avatar
+            } as UserProfile;
+          }).filter(u => u && u.id);
+          if (fbUsers.length > 0) setUsers(fbUsers);
+        }
+
+      } catch (err) {
+        console.warn('[Firebase Sync] One-shot load failed (working offline):', err);
+        // No problem — localStorage data is already loaded, app works normally
+      }
     };
-  }, []);
+
+    // Load from Firebase in background (don't block UI)
+    loadFromFirebaseOnce();
+    // No cleanup needed — no persistent listeners
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
 
 
 
