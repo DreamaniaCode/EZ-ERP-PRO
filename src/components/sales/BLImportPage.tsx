@@ -4,7 +4,7 @@ import { useERP } from '../../context/ERPContext';
 import { 
   Upload, ArrowLeft, CheckCircle,
   FileSpreadsheet, FileText, Check, Warehouse, Receipt, Settings, 
-  Trash2, RefreshCw, Truck
+  Trash2, RefreshCw, Truck, Layers, ListFilter, Users
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
