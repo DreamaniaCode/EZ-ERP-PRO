@@ -1,0 +1,2730 @@
+{
+  "products": [
+    {
+      "key": "DATTE ALGERIENNE SIBORT 5 KG",
+      "name": "DATTE ALGERIENNE SIBORT 5 KG",
+      "kgPerCarton": 5,
+      "totalKgOut": 61060,
+      "totalColis": 20309,
+      "count": 151
+    },
+    {
+      "key": "DATTE ALGERIENNE 11 KG",
+      "name": "DATTE ALGERIENNE 11 KG",
+      "kgPerCarton": 11,
+      "totalKgOut": 94688,
+      "totalColis": 8608,
+      "count": 100
+    },
+    {
+      "key": "DATTE ALGERIENNE 11 KG V",
+      "name": "DATTE ALGERIENNE 11 KG v",
+      "kgPerCarton": 11,
+      "totalKgOut": 2090,
+      "totalColis": 190,
+      "count": 2
+    }
+  ],
+  "clients": [
+    {
+      "key": "RACHID LAROUSSI",
+      "name": "RACHID LAROUSSI",
+      "totalKg": 40143,
+      "totalColis": 5397,
+      "blCount": 82
+    },
+    {
+      "key": "AZIZ REDA",
+      "name": "AZIZ REDA",
+      "totalKg": 12540,
+      "totalColis": 1140,
+      "blCount": 4
+    },
+    {
+      "key": "OMAR",
+      "name": "OMAR",
+      "totalKg": 10120,
+      "totalColis": 920,
+      "blCount": 4
+    },
+    {
+      "key": "ABDESSAMAD JGHAIDER",
+      "name": "ABDESSAMAD JGHAIDER",
+      "totalKg": 9590,
+      "totalColis": 1918,
+      "blCount": 10
+    },
+    {
+      "key": "HAMOUDA",
+      "name": "HAMOUDA",
+      "totalKg": 9515,
+      "totalColis": 865,
+      "blCount": 11
+    },
+    {
+      "key": "AZIZ FES",
+      "name": "AZIZ FES",
+      "totalKg": 9350,
+      "totalColis": 850,
+      "blCount": 4
+    },
+    {
+      "key": "QABLI",
+      "name": "QABLI",
+      "totalKg": 8380,
+      "totalColis": 1220,
+      "blCount": 5
+    },
+    {
+      "key": "MAROUANE HIKMAT",
+      "name": "MAROUANE HIKMAT",
+      "totalKg": 8250,
+      "totalColis": 1650,
+      "blCount": 24
+    },
+    {
+      "key": "KHALID",
+      "name": "khalid",
+      "totalKg": 6380,
+      "totalColis": 580,
+      "blCount": 7
+    },
+    {
+      "key": "HAMMOUDA",
+      "name": "HAMMOUDA",
+      "totalKg": 6150,
+      "totalColis": 1230,
+      "blCount": 13
+    },
+    {
+      "key": "MUSTAPHA TETOUANE",
+      "name": "MUSTAPHA TETOUANE",
+      "totalKg": 4730,
+      "totalColis": 946,
+      "blCount": 9
+    },
+    {
+      "key": "MUSTAPHA TETOUAN",
+      "name": "MUSTAPHA TETOUAN",
+      "totalKg": 4312,
+      "totalColis": 392,
+      "blCount": 6
+    },
+    {
+      "key": "ABDESSAMAD",
+      "name": "ABDESSAMAD",
+      "totalKg": 3080,
+      "totalColis": 280,
+      "blCount": 8
+    },
+    {
+      "key": "KHALID GHARNITI",
+      "name": "KHALID GHARNITI",
+      "totalKg": 2618,
+      "totalColis": 238,
+      "blCount": 2
+    },
+    {
+      "key": "AYOUB ESSAIDY",
+      "name": "AYOUB ESSAIDY",
+      "totalKg": 2500,
+      "totalColis": 500,
+      "blCount": 6
+    },
+    {
+      "key": "ABDELATI KHARBACH",
+      "name": "ABDELATI KHARBACH",
+      "totalKg": 2400,
+      "totalColis": 480,
+      "blCount": 5
+    },
+    {
+      "key": "MOUNAIM ZAGOURA",
+      "name": "MOUNAIM ZAGOURA",
+      "totalKg": 2200,
+      "totalColis": 200,
+      "blCount": 1
+    },
+    {
+      "key": "ABDELATTI KHARBACH",
+      "name": "ABDELATTI KHARBACH",
+      "totalKg": 1975,
+      "totalColis": 395,
+      "blCount": 6
+    },
+    {
+      "key": "AZIZ LKASRI",
+      "name": "AZIZ LKASRI",
+      "totalKg": 1870,
+      "totalColis": 170,
+      "blCount": 2
+    },
+    {
+      "key": "RACHID LAAROUSSI",
+      "name": "RACHID LAAROUSSI",
+      "totalKg": 1826,
+      "totalColis": 166,
+      "blCount": 2
+    },
+    {
+      "key": "ABDELKHALEQ ZAGOURA",
+      "name": "ABDELKHALEQ ZAGOURA",
+      "totalKg": 1760,
+      "totalColis": 160,
+      "blCount": 1
+    },
+    {
+      "key": "YASSINE TOUWAIL",
+      "name": "YASSINE TOUWAIL",
+      "totalKg": 1100,
+      "totalColis": 100,
+      "blCount": 1
+    },
+    {
+      "key": "ABDELOOAHEB",
+      "name": "ABDELOOAHEB",
+      "totalKg": 1100,
+      "totalColis": 100,
+      "blCount": 1
+    },
+    {
+      "key": "BOUJAMAA",
+      "name": "BOUJAMAA",
+      "totalKg": 762,
+      "totalColis": 102,
+      "blCount": 2
+    },
+    {
+      "key": "AZZEDINE AGADIRE",
+      "name": "AZZEDINE AGADIRE",
+      "totalKg": 600,
+      "totalColis": 120,
+      "blCount": 2
+    },
+    {
+      "key": "OMAR LGASSAB",
+      "name": "OMAR LGASSAB",
+      "totalKg": 600,
+      "totalColis": 120,
+      "blCount": 2
+    },
+    {
+      "key": "ERRAHALI MOHAMED",
+      "name": "ERRAHALI MOHAMED",
+      "totalKg": 600,
+      "totalColis": 120,
+      "blCount": 1
+    },
+    {
+      "key": "ABDELOUAHEB ZAGOURA",
+      "name": "ABDELOUAHEB ZAGOURA",
+      "totalKg": 500,
+      "totalColis": 100,
+      "blCount": 1
+    },
+    {
+      "key": "MILOUD ESPICE",
+      "name": "MILOUD ESPICE",
+      "totalKg": 500,
+      "totalColis": 100,
+      "blCount": 1
+    },
+    {
+      "key": "ABDEFATAH SALHI",
+      "name": "ABDEFATAH SALHI",
+      "totalKg": 500,
+      "totalColis": 100,
+      "blCount": 1
+    },
+    {
+      "key": "IDRISS ABDELAOUI RABAT",
+      "name": "IDRISS ABDELAOUI RABAT",
+      "totalKg": 400,
+      "totalColis": 80,
+      "blCount": 1
+    },
+    {
+      "key": "DRISS RABAT",
+      "name": "DRISS RABAT",
+      "totalKg": 400,
+      "totalColis": 80,
+      "blCount": 1
+    },
+    {
+      "key": "-",
+      "name": "-",
+      "totalKg": 300,
+      "totalColis": 60,
+      "blCount": 1
+    },
+    {
+      "key": "LAHCEN HJILA",
+      "name": "LAHCEN HJILA",
+      "totalKg": 300,
+      "totalColis": 60,
+      "blCount": 1
+    },
+    {
+      "key": "AHMED EL BOUKHARI",
+      "name": "AHMED EL BOUKHARI",
+      "totalKg": 225,
+      "totalColis": 45,
+      "blCount": 1
+    },
+    {
+      "key": "RACHID LAROUSSI/",
+      "name": "RACHID LAROUSSI/",
+      "totalKg": 220,
+      "totalColis": 20,
+      "blCount": 1
+    },
+    {
+      "key": "MAROUANE HIKMA",
+      "name": "MAROUANE HIKMA",
+      "totalKg": 22,
+      "totalColis": 2,
+      "blCount": 1
+    },
+    {
+      "key": "AZIZ EL KHASRI",
+      "name": "AZIZ EL KHASRI",
+      "totalKg": 10,
+      "totalColis": 2,
+      "blCount": 1
+    },
+    {
+      "key": "BOUCHAIB RHARDA",
+      "name": "BOUCHAIB RHARDA",
+      "totalKg": 10,
+      "totalColis": 2,
+      "blCount": 1
+    },
+    {
+      "key": "956.4",
+      "name": "956.4",
+      "totalKg": 0,
+      "totalColis": 162,
+      "blCount": 1
+    },
+    {
+      "key": "839.4",
+      "name": "839.4",
+      "totalKg": 0,
+      "totalColis": 162,
+      "blCount": 1
+    },
+    {
+      "key": "1788.8",
+      "name": "1788.8",
+      "totalKg": 0,
+      "totalColis": 324,
+      "blCount": 1
+    },
+    {
+      "key": "1703.8",
+      "name": "1703.8",
+      "totalKg": 0,
+      "totalColis": 324,
+      "blCount": 1
+    },
+    {
+      "key": "949.4",
+      "name": "949.4",
+      "totalKg": 0,
+      "totalColis": 162,
+      "blCount": 1
+    },
+    {
+      "key": "16158.45",
+      "name": "16158.45",
+      "totalKg": 0,
+      "totalColis": 324,
+      "blCount": 1
+    },
+    {
+      "key": "4100",
+      "name": "4100",
+      "totalKg": 0,
+      "totalColis": 810,
+      "blCount": 1
+    },
+    {
+      "key": "2699.2",
+      "name": "2699.2",
+      "totalKg": 0,
+      "totalColis": 486,
+      "blCount": 1
+    },
+    {
+      "key": "2405.2",
+      "name": "2405.2",
+      "totalKg": 0,
+      "totalColis": 536,
+      "blCount": 1
+    },
+    {
+      "key": "3415",
+      "name": "3415",
+      "totalKg": 0,
+      "totalColis": 648,
+      "blCount": 1
+    },
+    {
+      "key": "1889",
+      "name": "1889",
+      "totalKg": 0,
+      "totalColis": 324,
+      "blCount": 1
+    },
+    {
+      "key": "946.4",
+      "name": "946.4",
+      "totalKg": 0,
+      "totalColis": 162,
+      "blCount": 1
+    },
+    {
+      "key": "4680.4",
+      "name": "4680.4",
+      "totalKg": 0,
+      "totalColis": 820,
+      "blCount": 1
+    },
+    {
+      "key": "940.4",
+      "name": "940.4",
+      "totalKg": 0,
+      "totalColis": 162,
+      "blCount": 1
+    },
+    {
+      "key": "3621",
+      "name": "3621",
+      "totalKg": 0,
+      "totalColis": 612,
+      "blCount": 1
+    },
+    {
+      "key": "9531",
+      "name": "9531",
+      "totalKg": 0,
+      "totalColis": 153,
+      "blCount": 1
+    },
+    {
+      "key": "4729.1",
+      "name": "4729.1",
+      "totalKg": 0,
+      "totalColis": 810,
+      "blCount": 1
+    },
+    {
+      "key": "4699.1",
+      "name": "4699.1",
+      "totalKg": 0,
+      "totalColis": 810,
+      "blCount": 1
+    },
+    {
+      "key": "9291",
+      "name": "9291",
+      "totalKg": 0,
+      "totalColis": 153,
+      "blCount": 1
+    },
+    {
+      "key": "947.1",
+      "name": "947.1",
+      "totalKg": 0,
+      "totalColis": 153,
+      "blCount": 1
+    }
+  ],
+  "movements": [
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "Incomplète",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "AZZEDINE AGADIRE",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "Incomplète",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "AYOUB ESSAIDY",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "Incomplète",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "Incomplète",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "ABDELATTI KHARBACH",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "Incomplète",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 40,
+      "poidsKg": 200,
+      "client": "ABDELATTI KHARBACH",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "..//2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 67,
+      "poidsKg": 335,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "..//2027",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "HAMMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "..//2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "..//2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 85,
+      "poidsKg": 425,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "..//2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "..//2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "12/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "HAMMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "12/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "HAMMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "12/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "03/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "08/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "08/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "08/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 120,
+      "poidsKg": 600,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "09/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "09/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "HAMMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "09/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "13/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "12/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "12/09/2024",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "MUSTAPHA TETOUANE",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "16/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "16/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 61,
+      "poidsKg": 305,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "17/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "ABDELOUAHEB ZAGOURA",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "19/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "20/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "20/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "22/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 30,
+      "poidsKg": 150,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "24/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 185,
+      "poidsKg": 925,
+      "client": "MUSTAPHA TETOUANE",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "24/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 50,
+      "poidsKg": 250,
+      "client": "MAROUANE HIKMAT",
+      "notes": "Note: 51g sur imprimé"
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "27/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "27/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 62,
+      "poidsKg": 310,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "29/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "30/09/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "02/10/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "HAMMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "02/10/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "04/10/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 20,
+      "poidsKg": 100,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "06/10/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "06/10/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 70,
+      "poidsKg": 350,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "07/10/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 93,
+      "poidsKg": 465,
+      "client": "MUSTAPHA TETOUANE",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "07/10/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "07/10/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "08/10/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 70,
+      "poidsKg": 350,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 1",
+      "date": "11/10/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "Incomplète",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 50,
+      "poidsKg": 250,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "Incomplète",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "Incomplète",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 40,
+      "poidsKg": 200,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "Incomplète",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 50,
+      "poidsKg": 250,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "Incomplète",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "MUSTAPHA TETOUANE",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "..//2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 162,
+      "poidsKg": 810,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "..//2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "..//2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "..//2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 40,
+      "poidsKg": 200,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "..//2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "..//2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "..//2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "10/11/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "11/11/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 10,
+      "poidsKg": 50,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "11/11/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 35,
+      "poidsKg": 175,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "15/11/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 50,
+      "poidsKg": 250,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "16/11/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 70,
+      "poidsKg": 350,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "10/11/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 50,
+      "poidsKg": 250,
+      "client": "MUSTAPHA TETOUANE",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "11/11/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 250,
+      "poidsKg": 1250,
+      "client": "RACHID LAROUSSI",
+      "notes": "1865 Kg"
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "12/11/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 30,
+      "poidsKg": 150,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "13/11/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 50,
+      "poidsKg": 250,
+      "client": "MUSTAPHA TETOUANE",
+      "notes": "1732 Kg / +517 Kg"
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "19/11/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 324,
+      "poidsKg": 1620,
+      "client": "MUSTAPHA TETOUANE",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "06/12/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "ABDESSAMAD JGHAIDER",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "20/01/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 30,
+      "poidsKg": 150,
+      "client": "ABDESSAMAD JGHAIDER",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "22/01/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 40,
+      "poidsKg": 200,
+      "client": "QABLI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "04/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 4,
+      "poidsKg": 20,
+      "client": "MUSTAPHA TETOUANE",
+      "notes": "4531 Kg"
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "09/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 90,
+      "poidsKg": 450,
+      "client": "HAMMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "10/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 40,
+      "poidsKg": 200,
+      "client": "ABDESSAMAD JGHAIDER",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "10/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 40,
+      "poidsKg": 200,
+      "client": "MUSTAPHA TETOUANE",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "10/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 800,
+      "poidsKg": 4000,
+      "client": "QABLI",
+      "notes": "7651 Kg"
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "11/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 153,
+      "poidsKg": 765,
+      "client": "ABDESSAMAD JGHAIDER",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "11/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "ABDESSAMAD JGHAIDER",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "11/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 120,
+      "poidsKg": 600,
+      "client": "AYOUB ESSAIDY",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "11/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 50,
+      "poidsKg": 250,
+      "client": "ABDESSAMAD JGHAIDER",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "12/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "BOUJAMAA",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "12/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 120,
+      "poidsKg": 600,
+      "client": "ABDESSAMAD JGHAIDER",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "12/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "OMAR LGASSAB",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "12/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 600,
+      "poidsKg": 3000,
+      "client": "ABDESSAMAD JGHAIDER",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "12/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 6,
+      "poidsKg": 30,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "13/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 160,
+      "poidsKg": 800,
+      "client": "ABDESSAMAD JGHAIDER",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "14/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "OMAR LGASSAB",
+      "notes": "3763.7"
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "14/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 605,
+      "poidsKg": 3025,
+      "client": "ABDESSAMAD JGHAIDER",
+      "notes": "304"
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "21/02/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "MILOUD ESPICE",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 2",
+      "date": "12/06/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "-",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "..//2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 162,
+      "poidsKg": 0,
+      "client": "956.4",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "..//2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 162,
+      "poidsKg": 0,
+      "client": "839.4",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "..//2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 324,
+      "poidsKg": 0,
+      "client": "1788.8",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "..//2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 324,
+      "poidsKg": 0,
+      "client": "1703.8",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "..//2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 162,
+      "poidsKg": 0,
+      "client": "949.4",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "..//2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 324,
+      "poidsKg": 0,
+      "client": "16158.45",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "..//2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 810,
+      "poidsKg": 0,
+      "client": "4100",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "..//2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 486,
+      "poidsKg": 0,
+      "client": "2699.2",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "..//2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 536,
+      "poidsKg": 0,
+      "client": "2405.2",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "..//2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 648,
+      "poidsKg": 0,
+      "client": "3415",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "..//2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 324,
+      "poidsKg": 0,
+      "client": "1889",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "..//2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 162,
+      "poidsKg": 0,
+      "client": "946.4",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "14/06/2024",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 820,
+      "poidsKg": 0,
+      "client": "4680.4",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "25/06/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 162,
+      "poidsKg": 0,
+      "client": "940.4",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "27/06/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 612,
+      "poidsKg": 0,
+      "client": "3621",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "27/06/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 153,
+      "poidsKg": 0,
+      "client": "9531",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "27/06/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 810,
+      "poidsKg": 0,
+      "client": "4729.1",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "29/06/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 810,
+      "poidsKg": 0,
+      "client": "4699.1",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "25/06/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 153,
+      "poidsKg": 0,
+      "client": "9291",
+      "notes": ""
+    },
+    {
+      "sheet": "Sibort 5KG - Page 3",
+      "date": "24/07/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 153,
+      "poidsKg": 0,
+      "client": "947.1",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "04/07/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 100,
+      "poidsKg": 1100,
+      "client": "QABLI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "17/05/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 2,
+      "poidsKg": 22,
+      "client": "MAROUANE HIKMA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "28/07/2028",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 40,
+      "poidsKg": 440,
+      "client": "HAMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "04/08/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 140,
+      "poidsKg": 1540,
+      "client": "khalid",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "06/08/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 60,
+      "poidsKg": 660,
+      "client": "khalid",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "11/08/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 90,
+      "poidsKg": 990,
+      "client": "khalid",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "12/08/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 50,
+      "poidsKg": 550,
+      "client": "khalid",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "11/08/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 90,
+      "poidsKg": 990,
+      "client": "khalid",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "12/08/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 50,
+      "poidsKg": 550,
+      "client": "khalid",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "13/08/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 30,
+      "poidsKg": 330,
+      "client": "HAMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "16/08/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 100,
+      "poidsKg": 1100,
+      "client": "khalid",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "23/08/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 100,
+      "poidsKg": 1100,
+      "client": "YASSINE TOUWAIL",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "25/08/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 60,
+      "poidsKg": 660,
+      "client": "HAMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "08/09/2025",
+      "product": "DATTE ALGERIENNE 11 KG v",
+      "qtyColis": 20,
+      "poidsKg": 220,
+      "client": "RACHID LAROUSSI/",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "15/09/2025",
+      "product": "DATTE ALGERIENNE 11 KG v",
+      "qtyColis": 170,
+      "poidsKg": 1870,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "15/09/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 24,
+      "poidsKg": 264,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "15/09/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 170,
+      "poidsKg": 1870,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "16/09/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 40,
+      "poidsKg": 440,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "19/09/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 100,
+      "poidsKg": 1100,
+      "client": "AZIZ LKASRI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "20/09/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 120,
+      "poidsKg": 1320,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "22/09/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 80,
+      "poidsKg": 880,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "23/09/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 80,
+      "poidsKg": 880,
+      "client": "MUSTAPHA TETOUAN",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "25/09/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 70,
+      "poidsKg": 770,
+      "client": "AZIZ LKASRI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "27/09/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 50,
+      "poidsKg": 550,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "30/09/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 30,
+      "poidsKg": 330,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "02/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 10,
+      "poidsKg": 110,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "03/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 160,
+      "poidsKg": 1760,
+      "client": "ABDELKHALEQ ZAGOURA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "06/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 30,
+      "poidsKg": 330,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "07/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 180,
+      "poidsKg": 1980,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "07/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 50,
+      "poidsKg": 550,
+      "client": "MUSTAPHA TETOUAN",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "09/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 40,
+      "poidsKg": 440,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "07/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 60,
+      "poidsKg": 660,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "07/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 200,
+      "poidsKg": 2200,
+      "client": "MOUNAIM ZAGOURA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "08/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 40,
+      "poidsKg": 440,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "09/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 40,
+      "poidsKg": 440,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "11/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 30,
+      "poidsKg": 330,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "13/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 30,
+      "poidsKg": 330,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "14/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 60,
+      "poidsKg": 660,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "16/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 20,
+      "poidsKg": 220,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "18/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 70,
+      "poidsKg": 770,
+      "client": "MUSTAPHA TETOUAN",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "18/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 30,
+      "poidsKg": 330,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "23/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 30,
+      "poidsKg": 330,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "23/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 100,
+      "poidsKg": 1100,
+      "client": "HAMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "25/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 30,
+      "poidsKg": 330,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "27/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 50,
+      "poidsKg": 550,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "28/10/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 20,
+      "poidsKg": 220,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "01/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 30,
+      "poidsKg": 330,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "03/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 150,
+      "poidsKg": 1650,
+      "client": "HAMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "03/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 150,
+      "poidsKg": 1650,
+      "client": "HAMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "03/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 50,
+      "poidsKg": 550,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "04/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 30,
+      "poidsKg": 330,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "05/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 120,
+      "poidsKg": 1320,
+      "client": "HAMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 1",
+      "date": "05/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 20,
+      "poidsKg": 220,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "10/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 25,
+      "poidsKg": 275,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "10/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 70,
+      "poidsKg": 770,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "11/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 120,
+      "poidsKg": 1320,
+      "client": "HAMOUDA",
+      "notes": "12411kg / 620.8 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "12/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 56,
+      "poidsKg": 616,
+      "client": "MUSTAPHA TETOUAN",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "13/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 50,
+      "poidsKg": 550,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "17/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 25,
+      "poidsKg": 275,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "19/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 32,
+      "poidsKg": 352,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "22/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 125,
+      "poidsKg": 1375,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "24/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 40,
+      "poidsKg": 440,
+      "client": "HAMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "26/11/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 80,
+      "poidsKg": 880,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "01/12/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 15,
+      "poidsKg": 165,
+      "client": "HAMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "01/12/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 40,
+      "poidsKg": 440,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "03/12/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 52,
+      "poidsKg": 572,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "04/12/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 20,
+      "poidsKg": 220,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "06/12/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 40,
+      "poidsKg": 440,
+      "client": "HAMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "09/12/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 50,
+      "poidsKg": 550,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "13/12/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 25,
+      "poidsKg": 275,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "18/12/2025",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 70,
+      "poidsKg": 770,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "23/12/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 15,
+      "poidsKg": 165,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "23/12/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 100,
+      "poidsKg": 1100,
+      "client": "KHALID GHARNITI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "09/01/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 138,
+      "poidsKg": 1518,
+      "client": "KHALID GHARNITI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "12/01/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 42,
+      "poidsKg": 462,
+      "client": "BOUJAMAA",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "16/01/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 13,
+      "poidsKg": 143,
+      "client": "ABDESSAMAD",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "16/01/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 12,
+      "poidsKg": 132,
+      "client": "ABDESSAMAD",
+      "notes": "1166 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "17/01/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 106,
+      "poidsKg": 1166,
+      "client": "RACHID LAAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "17/01/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 25,
+      "poidsKg": 275,
+      "client": "ABDESSAMAD",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "24/01/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 60,
+      "poidsKg": 660,
+      "client": "RACHID LAAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "04/02/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 60,
+      "poidsKg": 660,
+      "client": "QABLI",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "04/02/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 50,
+      "poidsKg": 550,
+      "client": "ABDESSAMAD",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "05/02/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 50,
+      "poidsKg": 550,
+      "client": "ABDESSAMAD",
+      "notes": "994.1"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "06/02/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 100,
+      "poidsKg": 1100,
+      "client": "ABDELOOAHEB",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "09/02/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 95,
+      "poidsKg": 1045,
+      "client": "MUSTAPHA TETOUAN",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "10/02/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 40,
+      "poidsKg": 440,
+      "client": "ABDESSAMAD",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "11/02/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 40,
+      "poidsKg": 440,
+      "client": "ABDESSAMAD",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "12/02/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 50,
+      "poidsKg": 550,
+      "client": "ABDESSAMAD",
+      "notes": ""
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "20/05/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 41,
+      "poidsKg": 451,
+      "client": "MUSTAPHA TETOUAN",
+      "notes": "429.3 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "10/06/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 240,
+      "poidsKg": 2640,
+      "client": "AZIZ REDA",
+      "notes": "2649 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "16/06/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 300,
+      "poidsKg": 3300,
+      "client": "AZIZ REDA",
+      "notes": "3257 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "18/06/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 360,
+      "poidsKg": 3960,
+      "client": "AZIZ REDA",
+      "notes": "3948 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "19/06/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 240,
+      "poidsKg": 2640,
+      "client": "AZIZ REDA",
+      "notes": "2516 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "19/06/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 240,
+      "poidsKg": 2640,
+      "client": "OMAR",
+      "notes": "2500 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "20/06/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 210,
+      "poidsKg": 2310,
+      "client": "AZIZ FES",
+      "notes": "2112 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "22/06/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 120,
+      "poidsKg": 1320,
+      "client": "AZIZ FES",
+      "notes": "1249 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "22/06/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 140,
+      "poidsKg": 1540,
+      "client": "OMAR",
+      "notes": "1249 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "23/06/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 480,
+      "poidsKg": 5280,
+      "client": "OMAR",
+      "notes": "5098 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "23/06/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 120,
+      "poidsKg": 1320,
+      "client": "AZIZ FES",
+      "notes": "1318 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "24/06/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 400,
+      "poidsKg": 4400,
+      "client": "AZIZ FES",
+      "notes": "3702 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "25/06/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 220,
+      "poidsKg": 2420,
+      "client": "QABLI",
+      "notes": "2207 Kg"
+    },
+    {
+      "sheet": "Datte 11KG - Page 2",
+      "date": "27/06/2026",
+      "product": "DATTE ALGERIENNE 11 KG",
+      "qtyColis": 60,
+      "poidsKg": 660,
+      "client": "OMAR",
+      "notes": "590 Kg"
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "04/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 120,
+      "poidsKg": 600,
+      "client": "ABDELATI KHARBACH",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "07/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 144,
+      "poidsKg": 720,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "08/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "ABDELATI KHARBACH",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "14/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "14/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "17/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "ABDELATI KHARBACH",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "19/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 70,
+      "poidsKg": 350,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "22/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 75,
+      "poidsKg": 375,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "23/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "ABDELATI KHARBACH",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "24/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 75,
+      "poidsKg": 375,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "29/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "ABDELATI KHARBACH",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "16/05/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "20/05/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 2,
+      "poidsKg": 10,
+      "client": "AZIZ EL KHASRI",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "13/06/2026",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 2,
+      "poidsKg": 10,
+      "client": "BOUCHAIB RHARDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "16/06/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 20,
+      "poidsKg": 100,
+      "client": "AZZEDINE AGADIRE",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "26/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 40,
+      "poidsKg": 200,
+      "client": "ABDELATTI KHARBACH",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "30/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "IDRISS ABDELAOUI RABAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "02/04/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "ABDELATTI KHARBACH",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "10/05/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "ABDELATTI KHARBACH",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "07/05/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "DRISS RABAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "31/05/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 120,
+      "poidsKg": 600,
+      "client": "ERRAHALI MOHAMED",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "23/05/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 50,
+      "poidsKg": 250,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "03/05/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 55,
+      "poidsKg": 275,
+      "client": "ABDELATTI KHARBACH",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "30/06/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "13/06/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "HAMMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "05/07/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 10,
+      "poidsKg": 50,
+      "client": "RACHID LAROUSSI",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "01/07/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 45,
+      "poidsKg": 225,
+      "client": "AHMED EL BOUKHARI",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "15/07/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 50,
+      "poidsKg": 250,
+      "client": "HAMMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "21/07/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 30,
+      "poidsKg": 150,
+      "client": "HAMMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "28/07/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 60,
+      "poidsKg": 300,
+      "client": "LAHCEN HJILA",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "28/07/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 200,
+      "poidsKg": 1000,
+      "client": "HAMMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "23/07/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 200,
+      "poidsKg": 1000,
+      "client": "HAMMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "23/07/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "AYOUB ESSAIDY",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "01/08/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "ABDEFATAH SALHI",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "01/08/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 50,
+      "poidsKg": 250,
+      "client": "AYOUB ESSAIDY",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "02/08/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "HAMMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "02/08/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 100,
+      "poidsKg": 500,
+      "client": "HAMMOUDA",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "04/08/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 2,
+      "poidsKg": 10,
+      "client": "MAROUANE HIKMAT",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "05/08/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 80,
+      "poidsKg": 400,
+      "client": "AYOUB ESSAIDY",
+      "notes": ""
+    },
+    {
+      "sheet": "Ain Rabat 22924",
+      "date": "05/08/2025",
+      "product": "DATTE ALGERIENNE SIBORT 5 KG",
+      "qtyColis": 70,
+      "poidsKg": 350,
+      "client": "AYOUB ESSAIDY",
+      "notes": ""
+    }
+  ],
+  "stats": {
+    "totalSheets": 6,
+    "totalProducts": 3,
+    "totalClients": 59,
+    "totalMovements": 253,
+    "totalKg": 157838,
+    "totalColis": 29107
+  }
+}

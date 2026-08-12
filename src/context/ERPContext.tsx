@@ -418,24 +418,45 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const unsubClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Client);
-      setClients(docs);
+      // MERGE: never overwrite local clients with empty or smaller Firestore list
+      // This prevents phantom clients appearing and real clients disappearing
+      setClients(prev => {
+        if (docs.length === 0) return prev; // Keep local if Firestore is empty
+        // Build merged map: Firestore takes priority but local-only clients survive
+        const merged = new Map<string, Client>();
+        prev.forEach(c => merged.set(c.id, c)); // Start with local
+        docs.forEach(c => { if (c && c.id) merged.set(c.id, c); }); // Overwrite with Firestore
+        // Filter out fake clients that should never exist
+        const fakePatterns = ['client import', 'client 1', 'client 2', 'client 3', 'clt-excel-', 'clt-import-'];
+        const result = Array.from(merged.values()).filter(c => {
+          if (!c.name) return false;
+          const lower = (c.name + (c.code || '')).toLowerCase();
+          return !fakePatterns.some(p => lower.includes(p));
+        });
+        return result;
+      });
     }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
 
     const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
       const docs = snapshot.docs.map(docSnap => docSnap.data() as Product);
-      const validProducts = docs.filter(p => p.name && !p.name.includes('Produit Inconnu') && !p.name.includes('PAGE 1'));
-      if (validProducts.length > 0) {
-        setProducts(validProducts);
-      } else {
-        setProducts(INITIAL_PRODUCTS);
-      }
-
       // Auto-purge fake product documents from Firestore
       snapshot.docs.forEach(d => {
         const pData = d.data() as Product;
         if (pData.name && (pData.name.includes('Produit Inconnu') || pData.name.includes('PAGE 1'))) {
           deleteDoc(d.ref).catch(() => {});
         }
+      });
+      const validFromFirestore = docs.filter(p => p.name && !p.name.includes('Produit Inconnu') && !p.name.includes('PAGE 1'));
+      // MERGE: keep local products that exist in localStorage, overlay with Firestore
+      // This prevents losing products after they are edited locally
+      setProducts(prev => {
+        if (validFromFirestore.length === 0 && prev.length > 0) return prev; // Keep local if Firestore is empty
+        // Merge: Firestore is source of truth, but keep local-only products not yet pushed
+        const merged = new Map<string, Product>();
+        prev.forEach(p => { if (p && p.id) merged.set(p.id, p); }); // Start with local
+        validFromFirestore.forEach(p => { if (p && p.id) merged.set(p.id, p); }); // Firestore overrides
+        const result = Array.from(merged.values());
+        return result.length > 0 ? result : INITIAL_PRODUCTS;
       });
     }, (error) => handleFirestoreError(error, OperationType.GET, 'products'));
 
@@ -2171,13 +2192,13 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               handleFirestoreError(err, OperationType.WRITE, `stocks/${targetFrigoId}_${productIdToUse}`);
             });
 
-            const cleanPrev = prevStocks.filter(s => s.productId === 'prd-sibort-5kg' || s.productId === 'prd-datte-11kg');
-            const hasExisting = cleanPrev.some(s => s.frigoId === targetFrigoId && s.productId === productIdToUse);
+            // Preserve ALL stock records (not just the 2 hardcoded products)
+            const hasExisting = prevStocks.some(s => s.frigoId === targetFrigoId && s.productId === productIdToUse);
 
             if (hasExisting) {
-              return cleanPrev.map(s => s.frigoId === targetFrigoId && s.productId === productIdToUse ? updatedStock : s);
+              return prevStocks.map(s => s.frigoId === targetFrigoId && s.productId === productIdToUse ? updatedStock : s);
             } else {
-              return [...cleanPrev, updatedStock];
+              return [...prevStocks, updatedStock];
             }
           });
         }

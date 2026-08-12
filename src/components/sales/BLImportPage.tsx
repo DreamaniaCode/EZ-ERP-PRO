@@ -465,15 +465,26 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       const kgPerColis = is11kg ? 11 : 5;
 
-      // Colis vs Kg auto calculation
+      // Colis vs Kg auto calculation — RESPECT EXACT EXCEL VALUES
+      // Priority: if both columns exist, use them both as-is
+      // If only colis → calc kg; if only kg → calc colis; if neither → default
       let qtyKg = parseFloat(mappedRow.quantityKg);
       let qtyColis = parseFloat(mappedRow.quantityColis);
 
-      if (isNaN(qtyKg) && !isNaN(qtyColis)) {
+      const hasKg = !isNaN(qtyKg) && qtyKg > 0;
+      const hasColis = !isNaN(qtyColis) && qtyColis > 0;
+
+      if (hasColis && !hasKg) {
+        // Only colis provided → calc kg
         qtyKg = qtyColis * kgPerColis;
-      } else if (!isNaN(qtyKg) && isNaN(qtyColis)) {
+      } else if (hasKg && !hasColis) {
+        // Only kg provided → calc colis
         qtyColis = Math.ceil(qtyKg / kgPerColis);
-      } else if (isNaN(qtyKg) && isNaN(qtyColis)) {
+      } else if (hasColis && hasKg) {
+        // Both provided → TRUST BOTH as-is from Excel (do NOT recalculate)
+        // This preserves the exact Excel values (e.g. 140 colis = 1540 kg)
+      } else {
+        // Neither provided → fallback
         qtyKg = 500;
         qtyColis = Math.ceil(500 / kgPerColis);
       }
@@ -525,6 +536,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         let qtyKg = parseFloat(row.quantityKg) || 0;
         let qtyColis = parseFloat(row.quantityColis) || 0;
 
+        // RESPECT EXACT EXCEL VALUES: if both provided keep both, else calc the missing one
         if (qtyColis > 0 && qtyKg === 0) {
           qtyKg = qtyColis * kgPerCtn;
         } else if (qtyKg > 0 && qtyColis === 0) {
@@ -533,6 +545,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           qtyColis = 100;
           qtyKg = 100 * kgPerCtn;
         }
+        // If BOTH qtyColis > 0 AND qtyKg > 0 → use both as-is (they came from Excel directly)
 
         const unitPrice = parseFloat(row.unitPriceHT) || row._unitPriceHT || defaultUnitPrice;
         const totalHT = row.totalHT ? parseFloat(row.totalHT) : qtyKg * unitPrice;
