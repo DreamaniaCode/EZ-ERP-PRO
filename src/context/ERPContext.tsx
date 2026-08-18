@@ -1164,6 +1164,41 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Import Excel Batch BLs
   const importExcelBLs = (newBLs: DeliveryNoteBL[]) => {
+    // 1. Immediately update deliveryNotes in state and localStorage
+    setDeliveryNotes(prev => {
+      const existingMap = new Map(prev.map(b => [b.blNumber, b]));
+      newBLs.forEach(b => existingMap.set(b.blNumber, b));
+      const next = Array.from(existingMap.values());
+      localStorage.setItem('erp_delivery_notes', JSON.stringify(next));
+      return next;
+    });
+
+    // 2. Immediately decrement stocks in state and localStorage
+    setStocks(prevStocks => {
+      let next = [...prevStocks];
+      newBLs.forEach(bl => {
+        if (bl.frigoId && Array.isArray(bl.items)) {
+          bl.items.forEach(item => {
+            const deductedKg = Number(item.quantityKg) || 0;
+            const deductedPallets = Number(item.quantityPallets) || 0;
+            const existingIdx = next.findIndex(s => s.frigoId === bl.frigoId && s.productId === item.productId);
+
+            if (existingIdx >= 0) {
+              next[existingIdx] = {
+                ...next[existingIdx],
+                quantityKg: Math.max(0, next[existingIdx].quantityKg - deductedKg),
+                quantityPallets: Math.max(0, next[existingIdx].quantityPallets - deductedPallets),
+                lastUpdated: new Date().toISOString(),
+              };
+            }
+          });
+        }
+      });
+      localStorage.setItem('erp_stocks', JSON.stringify(next));
+      return next;
+    });
+
+    // 3. Persist batch to backend API with atomic stock decrement
     api.importBatchBLs(newBLs)
       .then(() => refreshFromDatabase())
       .catch(err => console.error('Error importing batch BLs:', err));

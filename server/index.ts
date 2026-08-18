@@ -666,16 +666,77 @@ app.post('/api/delivery-notes/import-batch', async (req, res) => {
     const { bls } = req.body;
     if (!Array.isArray(bls)) return res.status(400).json({ error: 'Array of BLs expected' });
     
-    const createdBLs = [];
-    for (const blData of bls) {
-      const existing = await prisma.deliveryNoteBL.findUnique({ where: { blNumber: blData.blNumber } });
-      if (!existing) {
-        const created = await prisma.deliveryNoteBL.create({ data: blData });
-        createdBLs.push(created);
+    const result = await prisma.$transaction(async (tx) => {
+      const createdBLs = [];
+      for (const blData of bls) {
+        if (!blData.blNumber) continue;
+        const existing = await tx.deliveryNoteBL.findUnique({ where: { blNumber: blData.blNumber } });
+        if (!existing) {
+          const created = await tx.deliveryNoteBL.create({ data: blData });
+          createdBLs.push(created);
+
+          // Decrement stock for this imported BL
+          if (blData.frigoId && Array.isArray(blData.items)) {
+            for (const item of blData.items) {
+              if (!item.productId) continue;
+              const kg = Number(item.quantityKg) || 0;
+              const pallets = Number(item.quantityPallets) || 0;
+
+              const existingStock = await tx.frigoStockLevel.findUnique({
+                where: {
+                  frigoId_productId: {
+                    frigoId: blData.frigoId,
+                    productId: item.productId,
+                  }
+                }
+              });
+
+              if (existingStock) {
+                await tx.frigoStockLevel.update({
+                  where: {
+                    frigoId_productId: {
+                      frigoId: blData.frigoId,
+                      productId: item.productId,
+                    }
+                  },
+                  data: {
+                    quantityKg: Math.max(0, existingStock.quantityKg - kg),
+                    quantityPallets: Math.max(0, existingStock.quantityPallets - pallets),
+                  }
+                });
+              } else {
+                await tx.frigoStockLevel.create({
+                  data: {
+                    frigoId: blData.frigoId,
+                    productId: item.productId,
+                    quantityKg: 0,
+                    quantityPallets: 0,
+                  }
+                });
+              }
+
+              await tx.productStockMovement.create({
+                data: {
+                  productId: item.productId,
+                  frigoId: blData.frigoId,
+                  type: 'SORTIE',
+                  quantityKg: kg,
+                  quantityPallets: pallets,
+                  performedBy: 'Import Excel BL',
+                  referenceDoc: blData.blNumber,
+                  notes: `Sortie Import Excel BL ${blData.blNumber} - Client: ${blData.clientName || ''}`,
+                }
+              });
+            }
+          }
+        }
       }
-    }
-    res.json({ importedCount: createdBLs.length, bls: createdBLs });
+      return createdBLs;
+    });
+
+    res.json({ importedCount: result.length, bls: result });
   } catch (error: any) {
+    console.error('Error importing batch BLs with stock decrement:', error);
     res.status(500).json({ error: error.message });
   }
 });
