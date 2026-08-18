@@ -362,18 +362,25 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       ]);
 
       // Check if DB is totally empty and local storage has existing data to migrate
-      const dbHasData = (pgBLs.length > 0 || pgProducts.length > 2 || pgClients.length > 0);
-      const localHasBLs = localStorage.getItem('erp_deliveryNotes') || localStorage.getItem('erp_delivery_notes');
+      const dbHasData = (
+        (pgBLs && pgBLs.length > 0) || 
+        (pgStocks && pgStocks.length > 0) || 
+        (pgClients && pgClients.length > 0)
+      );
+
+      const localHasBLs = localStorage.getItem('erp_delivery_notes') || localStorage.getItem('erp_deliveryNotes');
+      const localHasClients = localStorage.getItem('erp_clients');
+      const localHasStocks = localStorage.getItem('erp_stocks');
       
-      if (!dbHasData && localHasBLs) {
+      if (!dbHasData && (localHasBLs || localHasClients || localHasStocks)) {
         try {
           const localPayload = {
             products: JSON.parse(localStorage.getItem('erp_products') || '[]'),
             frigos: JSON.parse(localStorage.getItem('erp_frigos') || '[]'),
-            stocks: JSON.parse(localStorage.getItem('erp_stocks') || '[]'),
-            clients: JSON.parse(localStorage.getItem('erp_clients') || '[]'),
+            stocks: JSON.parse(localHasStocks || '[]'),
+            clients: JSON.parse(localHasClients || '[]'),
             suppliers: JSON.parse(localStorage.getItem('erp_suppliers') || '[]'),
-            deliveryNotes: JSON.parse(localHasBLs),
+            deliveryNotes: JSON.parse(localHasBLs || '[]'),
             invoices: JSON.parse(localStorage.getItem('erp_invoices') || '[]'),
             chequesEffets: JSON.parse(localStorage.getItem('erp_cheques') || '[]'),
             treasuryAccounts: JSON.parse(localStorage.getItem('erp_treasury') || '[]'),
@@ -385,10 +392,13 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             companies: JSON.parse(localStorage.getItem('erp_companies') || '[]'),
           };
 
-          if (localPayload.deliveryNotes.length > 0 || localPayload.clients.length > 0) {
-            console.log('🔄 First-time PostgreSQL Migration: Uploading existing local data...');
+          if (
+            (localPayload.deliveryNotes && localPayload.deliveryNotes.length > 0) || 
+            (localPayload.clients && localPayload.clients.length > 0) ||
+            (localPayload.stocks && localPayload.stocks.length > 0)
+          ) {
+            console.log('🔄 First-time PostgreSQL Migration: Uploading existing local data to PostgreSQL...');
             await api.bootstrapFromLocal(localPayload);
-            // Re-fetch after bootstrap
             return refreshFromDatabase();
           }
         } catch (migrationErr) {
@@ -396,10 +406,10 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       }
 
-      if (pgUsers.length > 0) setUsers(pgUsers);
-      if (pgCompanies.length > 0) setCompanies(pgCompanies);
+      if (pgUsers && pgUsers.length > 0) setUsers(pgUsers);
+      if (pgCompanies && pgCompanies.length > 0) setCompanies(pgCompanies);
       if (pgCompanyInfo && pgCompanyInfo.name) setCompanyInfo(pgCompanyInfo);
-      if (pgProducts.length > 0) {
+      if (pgProducts && pgProducts.length > 0) {
         const sanitized = pgProducts.map((p: Product) => ({
           ...p,
           description: (p.description && p.description.includes('Produit principal')) ? '' : (p.description || '')
@@ -407,19 +417,43 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setProducts(sanitized);
         localStorage.setItem('erp_products', JSON.stringify(sanitized));
       }
-      if (pgFrigos.length > 0) setFrigos(pgFrigos);
-      if (pgStocks) setStocks(pgStocks);
-      if (pgMovements) setStockMovements(pgMovements);
-      if (pgClients) setClients(pgClients);
-      if (pgSuppliers) setSuppliers(pgSuppliers);
-      if (pgOrders) setOrders(pgOrders);
-      if (pgBLs) setDeliveryNotes(pgBLs);
-      if (pgInvoices) setInvoices(pgInvoices);
-      if (pgCheques) setChequesEffets(pgCheques);
-      if (pgTreasury) setTreasuryAccounts(pgTreasury);
-      if (pgExpenses) setExpenses(pgExpenses);
-      if (pgPurchases) setPurchaseInvoices(pgPurchases);
-      if (pgInventories) setInventoryCounts(pgInventories);
+      if (pgFrigos && pgFrigos.length > 0) {
+        setFrigos(pgFrigos);
+        localStorage.setItem('erp_frigos', JSON.stringify(pgFrigos));
+      }
+      if (pgStocks && pgStocks.length > 0) {
+        setStocks(pgStocks);
+        localStorage.setItem('erp_stocks', JSON.stringify(pgStocks));
+      }
+      if (pgMovements && pgMovements.length > 0) setStockMovements(pgMovements);
+      if (pgClients && pgClients.length > 0) {
+        setClients(pgClients);
+        localStorage.setItem('erp_clients', JSON.stringify(pgClients));
+      }
+      if (pgSuppliers && pgSuppliers.length > 0) {
+        setSuppliers(pgSuppliers);
+        localStorage.setItem('erp_suppliers', JSON.stringify(pgSuppliers));
+      }
+      if (pgOrders && pgOrders.length > 0) {
+        setOrders(pgOrders);
+        localStorage.setItem('erp_orders', JSON.stringify(pgOrders));
+      }
+      if (pgBLs && pgBLs.length > 0) {
+        setDeliveryNotes(pgBLs);
+        localStorage.setItem('erp_delivery_notes', JSON.stringify(pgBLs));
+      }
+      if (pgInvoices && pgInvoices.length > 0) {
+        setInvoices(pgInvoices);
+        localStorage.setItem('erp_invoices', JSON.stringify(pgInvoices));
+      }
+      if (pgCheques && pgCheques.length > 0) {
+        setChequesEffets(pgCheques);
+        localStorage.setItem('erp_cheques', JSON.stringify(pgCheques));
+      }
+      if (pgTreasury && pgTreasury.length > 0) setTreasuryAccounts(pgTreasury);
+      if (pgExpenses && pgExpenses.length > 0) setExpenses(pgExpenses);
+      if (pgPurchases && pgPurchases.length > 0) setPurchaseInvoices(pgPurchases);
+      if (pgInventories && pgInventories.length > 0) setInventoryCounts(pgInventories);
 
       console.log('✅ Synchronized with PostgreSQL database.');
     } catch (err) {
