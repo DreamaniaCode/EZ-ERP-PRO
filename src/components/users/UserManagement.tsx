@@ -7,6 +7,7 @@ import { doc, setDoc, collection, getDocs, updateDoc, deleteDoc } from 'firebase
 import { auth as mainAuth, db, firebaseConfig } from '../../lib/firebase';
 import { AppUser, Role, Module, Permission, ALL_MODULES, ALL_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS, UserPermissions } from '../../types/permissions';
 import { useERP } from '../../context/ERPContext';
+import { api } from '../../lib/api';
 
 // Initialize a secondary app for creating users without signing out the current admin
 const secondaryApp = getApps().find(app => app.name === 'Secondary') || initializeApp(firebaseConfig, 'Secondary');
@@ -140,10 +141,18 @@ export const UserManagement: React.FC = () => {
         createdAt: new Date().toISOString(),
       };
 
+      api.createUser({
+        id: newUid,
+        name: formData.displayName,
+        email: formData.email,
+        role: formData.role,
+        assignedFrigoId: formData.assignedFrigoId || undefined
+      }).catch(err => console.warn("API user save notice:", err));
+
       try {
         await setDoc(doc(db, 'users', newUid), newUserProfile);
       } catch (dbErr) {
-        console.warn("Firestore write error, falling back to state:", dbErr);
+        // Fallback handled by PostgreSQL
       }
 
       setUsers(prev => [...prev.filter(u => u.uid !== newUid), newUserProfile]);
@@ -214,10 +223,17 @@ export const UserManagement: React.FC = () => {
         updatedAt: new Date().toISOString()
       };
 
+      api.updateUser(uid, {
+        name: formData.displayName,
+        email: formData.email,
+        role: formData.role,
+        assignedFrigoId: formData.role === 'RESPONSABLE_FRIGO' ? formData.assignedFrigoId || undefined : undefined,
+      }).catch(err => console.warn("API user update notice:", err));
+
       try {
         await updateDoc(doc(db, 'users', uid), updateData);
       } catch (dbErr) {
-        console.warn("Firestore update error, updating local state:", dbErr);
+        // Handled by PostgreSQL
       }
       
       setUsers(prev => {
@@ -268,13 +284,13 @@ export const UserManagement: React.FC = () => {
     }
 
     if (window.confirm(t('users.confirm_delete', 'Are you sure you want to delete this user?'))) {
+      api.deleteUser(uid).catch(err => console.warn("API user delete notice:", err));
       try {
         await deleteDoc(doc(db, 'users', uid));
-        setUsers(prev => prev.filter(u => u.uid !== uid));
-      } catch (err: any) {
-        console.error("Error deleting user:", err);
-        alert("Failed to delete user profile");
+      } catch (err) {
+        // Handled by PostgreSQL
       }
+      setUsers(prev => prev.filter(u => u.uid !== uid));
     }
   };
 

@@ -1,12 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './prisma';
 
 dotenv.config();
 
 const app = express();
-const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
@@ -1181,10 +1180,46 @@ app.post('/api/sync/bootstrap', async (req, res) => {
 
       // 2. Company Info
       if (companyInfo && typeof companyInfo === 'object') {
+        const compName = companyInfo.name || 'MLHMD Sarl';
         await tx.companyInfo.upsert({
           where: { id: 'default' },
-          create: { id: 'default', ...companyInfo },
-          update: companyInfo,
+          create: {
+            id: 'default',
+            name: compName,
+            ice: companyInfo.ice || '',
+            rc: companyInfo.rc || '',
+            if: companyInfo.if || '',
+            cnss: companyInfo.cnss || '',
+            patente: companyInfo.patente || '',
+            address: companyInfo.address || '',
+            city: companyInfo.city || '',
+            phone: companyInfo.phone || '',
+            email: companyInfo.email || '',
+            website: companyInfo.website || '',
+            logoUrl: companyInfo.logoUrl || '',
+            bankName: companyInfo.bankName || '',
+            rib: companyInfo.rib || '',
+            swift: companyInfo.swift || '',
+            capital: companyInfo.capital || '',
+          },
+          update: {
+            name: compName,
+            ice: companyInfo.ice || undefined,
+            rc: companyInfo.rc || undefined,
+            if: companyInfo.if || undefined,
+            cnss: companyInfo.cnss || undefined,
+            patente: companyInfo.patente || undefined,
+            address: companyInfo.address || undefined,
+            city: companyInfo.city || undefined,
+            phone: companyInfo.phone || undefined,
+            email: companyInfo.email || undefined,
+            website: companyInfo.website || undefined,
+            logoUrl: companyInfo.logoUrl || undefined,
+            bankName: companyInfo.bankName || undefined,
+            rib: companyInfo.rib || undefined,
+            swift: companyInfo.swift || undefined,
+            capital: companyInfo.capital || undefined,
+          },
         });
       }
 
@@ -1688,6 +1723,11 @@ app.post('/api/sync/reset-all', async (req, res) => {
 // ============================================================
 // BOOTSTRAP / SERVER START
 // ============================================================
-app.listen(PORT, () => {
-  console.log(`🚀 EZ-ERP PostgreSQL API Server listening on port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 EZ-ERP PostgreSQL API Server listening on port ${PORT}`);
+  });
+}
+
+export { app, prisma };
+export default app;

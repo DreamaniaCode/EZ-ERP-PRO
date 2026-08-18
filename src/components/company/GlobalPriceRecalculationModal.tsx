@@ -114,7 +114,7 @@ export const GlobalPriceRecalculationModal: React.FC<Props> = ({
             <div>
               <h3 className="text-base font-bold text-gray-900">Synchronisation des Prix en cours...</h3>
               <p className="text-xs text-gray-500 max-w-md mt-1">
-                Analyse de chaque Bon de Livraison, calcul des écarts tarifaires et mise à jour sécurisée dans la base de données Firestore.
+                Analyse de chaque Bon de Livraison, calcul des écarts tarifaires et mise à jour sécurisée dans la base de données PostgreSQL.
               </p>
             </div>
           </div>

@@ -565,7 +565,7 @@ export const CompanySettings: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-bold text-sm text-white">Recalculation Globale des Prix BL</h3>
-                <p className="text-[10px] text-blue-200">Synchronisation automatique Firestore</p>
+                <p className="text-[10px] text-blue-200">Synchronisation automatique PostgreSQL</p>
               </div>
             </div>
 

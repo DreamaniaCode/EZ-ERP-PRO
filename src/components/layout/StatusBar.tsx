@@ -41,7 +41,7 @@ export const StatusBar: React.FC = () => {
         <span className="hidden md:inline text-blue-200">|</span>
         <span className="hidden md:inline text-blue-100 flex items-center gap-1">
           <HardDrive className="w-3 h-3 text-blue-200" />
-          {isOnline ? 'BASE: FIRESTORE / ERP DB' : 'STOCKAGE: LOCAL STORAGE (PWA CACHE)'}
+          {isOnline ? 'BASE DE DONNÉES: POSTGRESQL (ACTIF)' : 'STOCKAGE: LOCAL STORAGE (CACHE HORS-LIGNE)'}
         </span>
         <span className="hidden lg:inline text-blue-200">|</span>
         <span className="hidden lg:inline text-blue-100 flex items-center gap-1">
