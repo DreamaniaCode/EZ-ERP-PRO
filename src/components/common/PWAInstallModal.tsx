@@ -120,7 +120,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
                 <span>Mise à jour & Purge du Cache Mobile</span>
               </div>
               <span className="text-[10px] font-mono bg-[#262626] text-emerald-400 px-1.5 py-0.5 rounded border border-[#393939] font-bold">
-                v2.5 PWA
+                PWA Mobile
               </span>
             </div>
             <p className="text-[11px] text-gray-300">

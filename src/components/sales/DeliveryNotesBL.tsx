@@ -239,9 +239,11 @@ ${selectedBLs.map(b => `• *BL ${b.blNumber}* - Client: ${b.clientName} | ${b.t
 Date d'envoi: ${new Date().toLocaleString('fr-FR')}
 EasyERP Pro • Logistics Management`;
 
-    navigator.clipboard.writeText(summaryText);
-    alert(`Synthèse de ${selectedBLs.length} BL(s) copié dans le presse-papier ! Redirection vers le groupe WhatsApp...`);
-    window.open('https://chat.whatsapp.com/demo', '_blank');
+    const firstFrigo = frigos.find(f => f.id === selectedBLs[0]?.frigoId);
+    const targetUrl = firstFrigo?.whatsappGroupLink && firstFrigo.whatsappGroupLink.startsWith('http')
+      ? firstFrigo.whatsappGroupLink
+      : `https://web.whatsapp.com/send?text=${encodeURIComponent(summaryText)}`;
+    window.open(targetUrl, '_blank');
   };
 
   const handleBulkCreateInvoices = () => {

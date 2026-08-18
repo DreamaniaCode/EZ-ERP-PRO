@@ -127,12 +127,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     handleLoginSubmit(email, password);
   };
 
-  const handleDemoAdminLogin = () => {
-    setEmail('admin@easyerp.com');
-    setPassword('admin123456');
-    handleLoginSubmit('admin@easyerp.com', 'admin123456');
-  };
-
   return (
     <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden bg-slate-950 select-none">
 

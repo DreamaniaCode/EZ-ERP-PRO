@@ -30,7 +30,7 @@ export const RoleSwitcher: React.FC = () => {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2.5 px-3 py-1.5 bg-[#262626] hover:bg-[#393939] border border-[#525252] rounded text-white text-xs transition-colors"
-        title="Changer de rôle pour simuler l'accès d'un autre utilisateur"
+        title="Profil et session utilisateur"
       >
         <img
           src={currentUser.avatar}
@@ -55,7 +55,7 @@ export const RoleSwitcher: React.FC = () => {
         <div className="absolute right-0 mt-2 w-72 bg-[#161616] border border-[#393939] shadow-2xl z-50 rounded divide-y divide-[#262626]">
           <div className="p-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
             <Shield className="w-3.5 h-3.5 text-[#0f62fe]" />
-            Simulateur de Rôle (RBAC ERP)
+            Session Active & Profils
           </div>
           <div className="py-1 max-h-80 overflow-y-auto">
             {users.map(u => {
@@ -93,9 +93,6 @@ export const RoleSwitcher: React.FC = () => {
                 </button>
               );
             })}
-          </div>
-          <div className="p-2 text-[10px] text-gray-400 bg-[#0d0d0d] italic">
-            💡 Basculez de rôle pour tester les vues restreintes des Responsables Frigo (BL quai), Comptable (Chèques/Effets) ou Ventes.
           </div>
         </div>
       )}

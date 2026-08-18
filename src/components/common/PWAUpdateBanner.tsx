@@ -57,7 +57,7 @@ export const PWAUpdateBanner: React.FC = () => {
               Mise à jour disponible !
             </h4>
             <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-mono px-1.5 py-0.5 rounded border border-emerald-500/30 uppercase font-bold shrink-0">
-              v2.5+
+              Prêt
             </span>
           </div>
           <p className="text-[11px] text-blue-200/90 truncate">

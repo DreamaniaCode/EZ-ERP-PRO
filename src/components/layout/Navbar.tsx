@@ -141,9 +141,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="font-bold text-xs sm:text-sm tracking-wide uppercase text-white font-mono">
                 EasyERP <span className="text-[#0f62fe]">PRO</span>
               </span>
-              <span className="hidden sm:inline-block text-[9px] bg-[#262626] text-gray-300 border border-[#393939] px-1 py-0.5 rounded font-mono">
-                v2.5
-              </span>
             </div>
           </div>
 
