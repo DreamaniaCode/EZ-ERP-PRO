@@ -26,8 +26,8 @@ export const ImportInvoiceEntry: React.FC = () => {
   const [dateArrival, setDateArrival] = useState(new Date().toISOString().slice(0, 10));
   const [isImport, setIsImport] = useState(true);
   
-  const [customsCostsHT, setCustomsCostsHT] = useState<number | ''>(15000);
-  const [freightCostsHT, setFreightCostsHT] = useState<number | ''>(8500);
+  const [customsCostsHT, setCustomsCostsHT] = useState<number | ''>(0);
+  const [freightCostsHT, setFreightCostsHT] = useState<number | ''>(0);
 
   // Items State
   const [purchaseItems, setPurchaseItems] = useState<{
@@ -40,31 +40,28 @@ export const ImportInvoiceEntry: React.FC = () => {
     purchaseUnitPriceHT: number | '';
   }[]>([
     {
-      productId: products[1]?.id || products[0]?.id || '',
-      quantityCartons: 900,
-      theoreticalKg: 9000,
-      weighedKg: 9000,
-      quantityKg: 9000,
-      quantityPallets: 10,
-      purchaseUnitPriceHT: 28,
+      productId: products[0]?.id || '',
+      quantityCartons: '',
+      theoreticalKg: 0,
+      weighedKg: '',
+      quantityKg: 0,
+      quantityPallets: 0,
+      purchaseUnitPriceHT: '',
     },
   ]);
 
   const handleAddItem = () => {
     const defaultPrd = products[0];
-    const kgCarton = defaultPrd?.kgPerCarton || 10;
-    const initialCartons = 800;
-    const initialTheoKg = initialCartons * kgCarton;
     setPurchaseItems(prev => [
       ...prev,
       {
         productId: defaultPrd ? defaultPrd.id : '',
-        quantityCartons: initialCartons,
-        theoreticalKg: initialTheoKg,
-        weighedKg: initialTheoKg,
-        quantityKg: initialTheoKg,
-        quantityPallets: defaultPrd && defaultPrd.kgPerPallet ? Math.ceil(initialTheoKg / defaultPrd.kgPerPallet) : 10,
-        purchaseUnitPriceHT: defaultPrd ? (defaultPrd.unitCostHT || 35) : 35,
+        quantityCartons: '',
+        theoreticalKg: 0,
+        weighedKg: '',
+        quantityKg: 0,
+        quantityPallets: 0,
+        purchaseUnitPriceHT: defaultPrd ? (defaultPrd.unitCostHT || 0) : 0,
       },
     ]);
   };

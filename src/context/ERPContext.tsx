@@ -665,8 +665,48 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       ...purchaseData,
       id,
     };
-    setPurchaseInvoices(prev => [newPur, ...prev]);
-    api.createPurchase(newPur).catch(err => console.error('Error saving purchase invoice:', err));
+
+    setPurchaseInvoices(prev => {
+      const next = [newPur, ...prev];
+      localStorage.setItem('erp_purchase_invoices', JSON.stringify(next));
+      return next;
+    });
+
+    // Increment stocks for targetFrigoId
+    if (purchaseData.targetFrigoId && Array.isArray(purchaseData.items)) {
+      setStocks(prevStocks => {
+        let next = [...prevStocks];
+        purchaseData.items.forEach(item => {
+          const addedKg = Number(item.quantityKg) || 0;
+          const addedPallets = Number(item.quantityPallets) || 0;
+          const existingIdx = next.findIndex(s => s.frigoId === purchaseData.targetFrigoId && s.productId === item.productId);
+
+          if (existingIdx >= 0) {
+            next[existingIdx] = {
+              ...next[existingIdx],
+              quantityKg: next[existingIdx].quantityKg + addedKg,
+              quantityPallets: next[existingIdx].quantityPallets + addedPallets,
+              lastUpdated: new Date().toISOString(),
+            };
+          } else {
+            next.push({
+              frigoId: purchaseData.targetFrigoId,
+              productId: item.productId,
+              quantityKg: addedKg,
+              quantityPallets: addedPallets,
+              lastUpdated: new Date().toISOString(),
+            });
+          }
+        });
+        localStorage.setItem('erp_stocks', JSON.stringify(next));
+        return next;
+      });
+    }
+
+    api.createPurchase(newPur)
+      .then(() => refreshFromDatabase())
+      .catch(err => console.error('Error saving purchase invoice:', err));
+
     return newPur;
   };
 
@@ -703,8 +743,37 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const deletePurchaseInvoice = (id: string) => {
-    setPurchaseInvoices(prev => prev.filter(p => p.id !== id));
-    api.deletePurchase(id).catch(err => console.error(err));
+    const target = purchaseInvoices.find(p => p.id === id);
+    if (target && target.targetFrigoId && Array.isArray(target.items)) {
+      setStocks(prevStocks => {
+        let next = [...prevStocks];
+        target.items.forEach(item => {
+          const deductedKg = Number(item.quantityKg) || 0;
+          const deductedPallets = Number(item.quantityPallets) || 0;
+          const existingIdx = next.findIndex(s => s.frigoId === target.targetFrigoId && s.productId === item.productId);
+          if (existingIdx >= 0) {
+            next[existingIdx] = {
+              ...next[existingIdx],
+              quantityKg: Math.max(0, next[existingIdx].quantityKg - deductedKg),
+              quantityPallets: Math.max(0, next[existingIdx].quantityPallets - deductedPallets),
+              lastUpdated: new Date().toISOString(),
+            };
+          }
+        });
+        localStorage.setItem('erp_stocks', JSON.stringify(next));
+        return next;
+      });
+    }
+
+    setPurchaseInvoices(prev => {
+      const next = prev.filter(p => p.id !== id);
+      localStorage.setItem('erp_purchase_invoices', JSON.stringify(next));
+      return next;
+    });
+
+    api.deletePurchase(id)
+      .then(() => refreshFromDatabase())
+      .catch(err => console.error(err));
   };
 
   // ============================================================
@@ -786,8 +855,38 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       ]
     };
 
-    setDeliveryNotes(prev => [bl, ...prev]);
-    api.createDeliveryNote(bl).catch(err => console.error('Error saving BL to PostgreSQL:', err));
+    setDeliveryNotes(prev => {
+      const next = [bl, ...prev];
+      localStorage.setItem('erp_delivery_notes', JSON.stringify(next));
+      return next;
+    });
+
+    // Decrement stocks for bl.frigoId
+    if (bl.frigoId && Array.isArray(bl.items)) {
+      setStocks(prevStocks => {
+        let next = [...prevStocks];
+        bl.items.forEach(item => {
+          const deductedKg = Number(item.quantityKg) || 0;
+          const deductedPallets = Number(item.quantityPallets) || 0;
+          const existingIdx = next.findIndex(s => s.frigoId === bl.frigoId && s.productId === item.productId);
+
+          if (existingIdx >= 0) {
+            next[existingIdx] = {
+              ...next[existingIdx],
+              quantityKg: Math.max(0, next[existingIdx].quantityKg - deductedKg),
+              quantityPallets: Math.max(0, next[existingIdx].quantityPallets - deductedPallets),
+              lastUpdated: new Date().toISOString(),
+            };
+          }
+        });
+        localStorage.setItem('erp_stocks', JSON.stringify(next));
+        return next;
+      });
+    }
+
+    api.createDeliveryNote(bl)
+      .then(() => refreshFromDatabase())
+      .catch(err => console.error('Error saving BL to PostgreSQL:', err));
   };
 
   const updateBL = (id: string, updatedData: Partial<DeliveryNoteBL>) => {
@@ -796,8 +895,46 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const deleteBL = (id: string) => {
-    setDeliveryNotes(prev => prev.filter(b => b.id !== id));
-    api.deleteDeliveryNote(id).catch(err => console.error('Error deleting BL from PostgreSQL:', err));
+    const target = deliveryNotes.find(b => b.id === id);
+    if (target && target.frigoId && Array.isArray(target.items)) {
+      setStocks(prevStocks => {
+        let next = [...prevStocks];
+        target.items.forEach(item => {
+          const restoredKg = Number(item.quantityKg) || 0;
+          const restoredPallets = Number(item.quantityPallets) || 0;
+          const existingIdx = next.findIndex(s => s.frigoId === target.frigoId && s.productId === item.productId);
+
+          if (existingIdx >= 0) {
+            next[existingIdx] = {
+              ...next[existingIdx],
+              quantityKg: next[existingIdx].quantityKg + restoredKg,
+              quantityPallets: next[existingIdx].quantityPallets + restoredPallets,
+              lastUpdated: new Date().toISOString(),
+            };
+          } else {
+            next.push({
+              frigoId: target.frigoId,
+              productId: item.productId,
+              quantityKg: restoredKg,
+              quantityPallets: restoredPallets,
+              lastUpdated: new Date().toISOString(),
+            });
+          }
+        });
+        localStorage.setItem('erp_stocks', JSON.stringify(next));
+        return next;
+      });
+    }
+
+    setDeliveryNotes(prev => {
+      const next = prev.filter(b => b.id !== id);
+      localStorage.setItem('erp_delivery_notes', JSON.stringify(next));
+      return next;
+    });
+
+    api.deleteDeliveryNote(id)
+      .then(() => refreshFromDatabase())
+      .catch(err => console.error('Error deleting BL from PostgreSQL:', err));
   };
 
   const approveFrigoBL = (blId: string, employeeName: string) => {

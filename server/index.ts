@@ -602,9 +602,61 @@ app.get('/api/delivery-notes', async (req, res) => {
 
 app.post('/api/delivery-notes', async (req, res) => {
   try {
-    const bl = await prisma.deliveryNoteBL.create({ data: req.body });
+    const blData = req.body;
+    const bl = await prisma.$transaction(async (tx) => {
+      const created = await tx.deliveryNoteBL.create({ data: blData });
+
+      if (blData.frigoId && Array.isArray(blData.items)) {
+        for (const item of blData.items) {
+          if (!item.productId) continue;
+          const kg = Number(item.quantityKg) || 0;
+          const pallets = Number(item.quantityPallets) || 0;
+
+          const existing = await tx.frigoStockLevel.findUnique({
+            where: {
+              frigoId_productId: {
+                frigoId: blData.frigoId,
+                productId: item.productId,
+              }
+            }
+          });
+
+          if (existing) {
+            await tx.frigoStockLevel.update({
+              where: {
+                frigoId_productId: {
+                  frigoId: blData.frigoId,
+                  productId: item.productId,
+                }
+              },
+              data: {
+                quantityKg: Math.max(0, existing.quantityKg - kg),
+                quantityPallets: Math.max(0, existing.quantityPallets - pallets),
+              }
+            });
+          }
+
+          await tx.productStockMovement.create({
+            data: {
+              productId: item.productId,
+              frigoId: blData.frigoId,
+              type: 'SORTIE',
+              quantityKg: kg,
+              quantityPallets: pallets,
+              performedBy: 'Vente / BL',
+              referenceDoc: blData.blNumber || 'Bon de Livraison',
+              notes: `Sortie BL ${blData.blNumber || ''} - Client: ${blData.clientName || ''}`,
+            }
+          });
+        }
+      }
+
+      return created;
+    });
+
     res.json(bl);
   } catch (error: any) {
+    console.error('Error creating BL with stock decrement:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -642,9 +694,41 @@ app.put('/api/delivery-notes/:id', async (req, res) => {
 
 app.delete('/api/delivery-notes/:id', async (req, res) => {
   try {
-    await prisma.deliveryNoteBL.delete({ where: { id: req.params.id } });
+    const bl = await prisma.deliveryNoteBL.findUnique({ where: { id: req.params.id } });
+    if (bl) {
+      await prisma.$transaction(async (tx) => {
+        if (bl.frigoId && Array.isArray(bl.items as any)) {
+          for (const item of (bl.items as any)) {
+            if (!item.productId) continue;
+            const kg = Number(item.quantityKg) || 0;
+            const pallets = Number(item.quantityPallets) || 0;
+
+            await tx.frigoStockLevel.upsert({
+              where: {
+                frigoId_productId: {
+                  frigoId: bl.frigoId,
+                  productId: item.productId,
+                }
+              },
+              create: {
+                frigoId: bl.frigoId,
+                productId: item.productId,
+                quantityKg: kg,
+                quantityPallets: pallets,
+              },
+              update: {
+                quantityKg: { increment: kg },
+                quantityPallets: { increment: pallets },
+              }
+            });
+          }
+        }
+        await tx.deliveryNoteBL.delete({ where: { id: req.params.id } });
+      });
+    }
     res.json({ success: true });
   } catch (error: any) {
+    console.error('Error deleting BL with stock restore:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1033,9 +1117,56 @@ app.get('/api/purchases', async (req, res) => {
 
 app.post('/api/purchases', async (req, res) => {
   try {
-    const purchase = await prisma.purchaseImportInvoice.create({ data: req.body });
+    const purchaseData = req.body;
+    const purchase = await prisma.$transaction(async (tx) => {
+      const created = await tx.purchaseImportInvoice.create({ data: purchaseData });
+
+      if (purchaseData.targetFrigoId && Array.isArray(purchaseData.items)) {
+        for (const item of purchaseData.items) {
+          if (!item.productId) continue;
+          const kg = Number(item.quantityKg) || 0;
+          const pallets = Number(item.quantityPallets) || 0;
+
+          await tx.frigoStockLevel.upsert({
+            where: {
+              frigoId_productId: {
+                frigoId: purchaseData.targetFrigoId,
+                productId: item.productId,
+              }
+            },
+            create: {
+              frigoId: purchaseData.targetFrigoId,
+              productId: item.productId,
+              quantityKg: kg,
+              quantityPallets: pallets,
+            },
+            update: {
+              quantityKg: { increment: kg },
+              quantityPallets: { increment: pallets },
+            }
+          });
+
+          await tx.productStockMovement.create({
+            data: {
+              productId: item.productId,
+              frigoId: purchaseData.targetFrigoId,
+              type: 'ENTREE',
+              quantityKg: kg,
+              quantityPallets: pallets,
+              performedBy: 'Achat / Réception',
+              referenceDoc: purchaseData.invoiceNumber || 'Facture Achat',
+              notes: `Arrivée Achat/Import - Fournisseur: ${purchaseData.supplierName || ''}`,
+            }
+          });
+        }
+      }
+
+      return created;
+    });
+
     res.json(purchase);
   } catch (error: any) {
+    console.error('Error creating purchase with stock update:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1054,9 +1185,46 @@ app.put('/api/purchases/:id', async (req, res) => {
 
 app.delete('/api/purchases/:id', async (req, res) => {
   try {
-    await prisma.purchaseImportInvoice.delete({ where: { id: req.params.id } });
+    const purchase = await prisma.purchaseImportInvoice.findUnique({ where: { id: req.params.id } });
+    if (purchase) {
+      await prisma.$transaction(async (tx) => {
+        if (purchase.targetFrigoId && Array.isArray(purchase.items as any)) {
+          for (const item of (purchase.items as any)) {
+            if (!item.productId) continue;
+            const kg = Number(item.quantityKg) || 0;
+            const pallets = Number(item.quantityPallets) || 0;
+
+            const existing = await tx.frigoStockLevel.findUnique({
+              where: {
+                frigoId_productId: {
+                  frigoId: purchase.targetFrigoId,
+                  productId: item.productId,
+                }
+              }
+            });
+
+            if (existing) {
+              await tx.frigoStockLevel.update({
+                where: {
+                  frigoId_productId: {
+                    frigoId: purchase.targetFrigoId,
+                    productId: item.productId,
+                  }
+                },
+                data: {
+                  quantityKg: Math.max(0, existing.quantityKg - kg),
+                  quantityPallets: Math.max(0, existing.quantityPallets - pallets),
+                }
+              });
+            }
+          }
+        }
+        await tx.purchaseImportInvoice.delete({ where: { id: req.params.id } });
+      });
+    }
     res.json({ success: true });
   } catch (error: any) {
+    console.error('Error deleting purchase with stock rollback:', error);
     res.status(500).json({ error: error.message });
   }
 });

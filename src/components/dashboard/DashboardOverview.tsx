@@ -96,9 +96,22 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
     return acc + (s.quantityKg * (prd ? prd.unitCostHT : 0));
   }, 0);
 
-  // Sales calculations
-  const totalSalesHT = (orders || []).reduce((acc, o) => acc + (o?.totalHT || 0), 0);
-  const totalCostHT = (orders || []).reduce((acc, o) => acc + (o?.totalCostHT || 0), 0);
+  // Sales calculations (combined Orders & DeliveryNotes BLs)
+  const ordersSalesHT = (orders || []).reduce((acc, o) => acc + (o?.totalHT || 0), 0);
+  const ordersCostHT = (orders || []).reduce((acc, o) => acc + (o?.totalCostHT || 0), 0);
+
+  const blSalesHT = (deliveryNotes || []).reduce((acc, bl) => acc + (bl?.totalHT || 0), 0);
+  const blCostHT = (deliveryNotes || []).reduce((acc, bl) => {
+    let cost = 0;
+    (bl.items || []).forEach(it => {
+      const prd = products.find(p => p.id === it.productId);
+      cost += (it.quantityKg || 0) * (prd?.unitCostHT || 0);
+    });
+    return acc + cost;
+  }, 0);
+
+  const totalSalesHT = orders.length > 0 ? ordersSalesHT : blSalesHT;
+  const totalCostHT = orders.length > 0 ? ordersCostHT : blCostHT;
   const grossMarginHT = totalSalesHT - totalCostHT;
   const globalMarginPct = totalSalesHT > 0 ? (grossMarginHT / totalSalesHT) * 100 : 0;
 
@@ -160,22 +173,27 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
   });
 
   // Real Orders / BLs aggregation by category
-  orders.forEach(ord => {
-    ord.items.forEach(item => {
-      if (!categoryStats[item.category]) {
-        categoryStats[item.category] = { salesHT: 0, costHT: 0, marginHT: 0 };
-      }
-      const itemCost = item.quantityKg * item.unitCostHT;
-      categoryStats[item.category].salesHT += item.totalHT;
-      categoryStats[item.category].costHT += itemCost;
-      categoryStats[item.category].marginHT += (item.totalHT - itemCost);
+  const salesSource = orders.length > 0 ? orders : deliveryNotes;
+  salesSource.forEach(doc => {
+    (doc.items || []).forEach(item => {
+      const prd = products.find(p => p.id === item.productId);
+      const cat = (item as any).category || prd?.category || 'Autres Produits Alimentaires';
+      const itemCost = (item.quantityKg || 0) * (prd?.unitCostHT || (item as any).unitCostHT || 0);
+      const itemSales = item.totalHT || ((item.quantityKg || 0) * (item.unitPriceHT || 0));
 
-      if (!categorySalesStats[item.category]) {
-        categorySalesStats[item.category] = { salesHT: 0, costHT: 0, marginHT: 0, stockKg: 0, valuationHT: 0 };
+      if (!categoryStats[cat]) {
+        categoryStats[cat] = { salesHT: 0, costHT: 0, marginHT: 0 };
       }
-      categorySalesStats[item.category].salesHT += item.totalHT;
-      categorySalesStats[item.category].costHT += itemCost;
-      categorySalesStats[item.category].marginHT += (item.totalHT - itemCost);
+      categoryStats[cat].salesHT += itemSales;
+      categoryStats[cat].costHT += itemCost;
+      categoryStats[cat].marginHT += (itemSales - itemCost);
+
+      if (!categorySalesStats[cat]) {
+        categorySalesStats[cat] = { salesHT: 0, costHT: 0, marginHT: 0, stockKg: 0, valuationHT: 0 };
+      }
+      categorySalesStats[cat].salesHT += itemSales;
+      categorySalesStats[cat].costHT += itemCost;
+      categorySalesStats[cat].marginHT += (itemSales - itemCost);
     });
   });
 

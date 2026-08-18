@@ -75,7 +75,7 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
     vatRate: 0.20,
     kgPerCarton: 5,
     cartonsPerPallet: 160,
-    minStockAlertKg: 1000,
+    minStockAlertKg: 0,
     description: '',
   });
 

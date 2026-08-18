@@ -23,7 +23,7 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
     vatRate: 20,
     kgPerCarton: 10,
     cartonsPerPallet: 100,
-    minStockAlertKg: 1000,
+    minStockAlertKg: 0,
     description: '',
   });
 
