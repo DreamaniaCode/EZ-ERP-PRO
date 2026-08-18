@@ -252,7 +252,7 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
           <div className="carbon-card p-4 space-y-1">
             <div className="text-xs font-bold text-gray-500 uppercase font-mono">Retards de Paiement</div>
             <div className="text-2xl font-bold font-mono text-red-600">
-              {invoices.filter(i => i.status === 'EN_RETARD' || (i.status !== 'PAYEE' && i.dueDate < todayStr)).reduce((acc, i) => acc + (i.totalTTC - i.paidAmount), 0).toLocaleString()} <span className="text-xs text-gray-500 font-normal">DH</span>
+              {invoices.filter(i => i.status === 'EN_RETARD' || (i.status !== 'PAYEE' && i.dueDate < todayStr)).reduce((acc, i) => acc + (i.totalTTC - (i.amountPaid || i.paidAmount || 0)), 0).toLocaleString()} <span className="text-xs text-gray-500 font-normal">DH</span>
             </div>
             <div className="text-[11px] text-red-600 font-semibold">
               {invoices.filter(i => i.status === 'EN_RETARD' || (i.status !== 'PAYEE' && i.dueDate < todayStr)).length} facture(s) en souffrance

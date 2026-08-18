@@ -46,10 +46,14 @@ export const SupplierEditPage: React.FC<{ editId: string | null; onBack: () => v
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanSupplier = {
+      ...formData,
+      type: (formData.type as 'LOCAL' | 'IMPORTATION') || 'LOCAL'
+    };
     if (editId) {
-      updateSupplier({ id: editId, ...formData });
+      updateSupplier(editId, cleanSupplier);
     } else {
-      addSupplier({ id: Date.now().toString(), ...formData });
+      addSupplier(cleanSupplier);
     }
     onBack();
   };

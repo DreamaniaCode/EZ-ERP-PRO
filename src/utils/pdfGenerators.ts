@@ -112,13 +112,14 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyData: any
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(17, 17, 17);
   doc.text(safe(invoice.dueDate), rightX + 28, y + 16);
-  if (invoice.blIds && invoice.blIds.length > 0) {
+  const blRef = invoice.blId || (invoice as any).blIds?.join(', ');
+  if (blRef) {
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(80, 80, 80);
-    doc.text('BLs: ', rightX, y + 21);
+    doc.text('BL: ', rightX, y + 21);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 98, 254);
-    doc.text(invoice.blIds.join(', '), rightX + 9, y + 21);
+    doc.text(String(blRef), rightX + 9, y + 21);
   }
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(80, 80, 80);
@@ -235,10 +236,14 @@ export function generateAndDownloadInvoicePdf(invoice: Invoice, companyData: any
   const stampX = pw - margin - 50;
   const stampY = y - 9;
   doc.setDrawColor(180, 180, 180);
-  doc.setLineDash([1.5, 1.5]);
+  if (typeof (doc as any).setLineDash === 'function') {
+    (doc as any).setLineDash([1.5, 1.5]);
+  }
   doc.setLineWidth(0.4);
   doc.rect(stampX, stampY, 50, 20, 'S');
-  doc.setLineDash([]);
+  if (typeof (doc as any).setLineDash === 'function') {
+    (doc as any).setLineDash([]);
+  }
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(6.5);
   doc.setTextColor(160, 160, 160);

@@ -43,6 +43,7 @@ export const CompanySettings: React.FC = () => {
     website: companyInfo.website || '',
     bankName: selectedCompany?.bankName || companyInfo.bankName || '',
     rib: selectedCompany?.bankRib || companyInfo.rib || '',
+    swift: companyInfo.swift || '',
     logoUrl: selectedCompany?.logoUrl || companyInfo.logoUrl || '',
   });
 
@@ -90,6 +91,7 @@ export const CompanySettings: React.FC = () => {
         website: companyInfo.website || '',
         bankName: comp.bankName || '',
         rib: comp.bankRib || '',
+        swift: companyInfo.swift || '',
         logoUrl: comp.logoUrl || '',
       });
       setBlPrefix(comp.blPrefix || 'BL-STE1');
@@ -114,6 +116,7 @@ export const CompanySettings: React.FC = () => {
       website: formData.website || '',
       bankName: formData.bankName || '',
       rib: formData.rib || '',
+      swift: formData.swift || '',
       logoUrl: formData.logoUrl || '',
     };
 

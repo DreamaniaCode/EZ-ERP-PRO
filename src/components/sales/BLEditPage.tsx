@@ -183,6 +183,9 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
     const payload = {
       clientId,
       clientName: selectedClient ? (selectedClient.name || selectedClient.companyName) : 'Client',
+      clientAddress: selectedClient?.address || '',
+      clientPhone: selectedClient?.phone || '',
+      clientEmail: selectedClient?.email || '',
       frigoId,
       frigoName: selectedFrigo ? selectedFrigo.name : 'Frigo',
       date,

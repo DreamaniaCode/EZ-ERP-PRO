@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
+import { ProductCategory } from '../../types';
 import { ArrowLeft, Save, X, Image as ImageIcon } from 'lucide-react';
 
 export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => void }> = ({ editId, onBack }) => {
@@ -54,12 +55,13 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
     e.preventDefault();
     const cleanData = {
       ...formData,
+      category: (formData.category as ProductCategory) || 'Dattes Locales',
       unitCostHT: Math.round(Number(formData.unitCostHT) || 0),
     };
     if (editId) {
-      updateProduct({ id: editId, ...cleanData });
+      updateProduct(editId, cleanData);
     } else {
-      addProduct({ id: Date.now().toString(), ...cleanData });
+      addProduct(cleanData);
     }
     onBack();
   };

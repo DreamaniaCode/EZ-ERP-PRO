@@ -685,10 +685,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
                     {frigoStocks.length === 0 ? (
                       <span className="text-[10px] text-gray-400 italic">Entrepôt vide (aucun produit en stock)</span>
                     ) : (
-                      frigoStocks.map(stk => {
+                      frigoStocks.map((stk, sIdx) => {
                         const prd = products.find(p => p.id === stk.productId);
                         return (
-                          <span key={stk.id} className="text-[10px] font-mono px-2 py-0.5 bg-white border border-gray-300 rounded text-gray-800 font-bold">
+                          <span key={stk.id || `${stk.frigoId}_${stk.productId}_${sIdx}`} className="text-[10px] font-mono px-2 py-0.5 bg-white border border-gray-300 rounded text-gray-800 font-bold">
                             {prd ? prd.name : 'Produit'}: <b className="text-blue-700">{stk.quantityKg.toLocaleString()} Kg</b>
                           </span>
                         );

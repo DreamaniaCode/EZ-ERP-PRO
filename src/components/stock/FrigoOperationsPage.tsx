@@ -89,14 +89,12 @@ export const FrigoOperationsPage: React.FC<FrigoOperationsPageProps> = ({ initia
     const newKg = prevKg + calculatedKgEntree;
     const newPallets = prevPallets + calculatedPalletsEntree;
 
-    // Call adjustStock with ENTRÉE_INVENTAIRE type
+    // Call adjustStock with new values
     adjustStock(
       selectedFrigoId, 
       selectedProductId, 
       newKg, 
-      newPallets, 
-      `ENTRÉE-${new Date().toLocaleDateString('fr-FR')}`, 
-      'ENTRÉE_INVENTAIRE'
+      newPallets
     );
 
     notifySuccess(

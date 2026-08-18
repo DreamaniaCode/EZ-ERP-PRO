@@ -1,4 +1,12 @@
-export type UserRole = 'ADMIN' | 'COMMERCIAL' | 'RESPONSABLE_FRIGO' | 'COMPTABLE';
+export type UserRole = 
+  | 'SUPER_ADMIN' 
+  | 'CONTROLEUR' 
+  | 'AGENT_STOCK' 
+  | 'RESPONSABLE_FRIGO' 
+  | 'COMPTABLE_FACTURES'
+  | 'ADMIN' 
+  | 'COMMERCIAL' 
+  | 'COMPTABLE';
 
 export interface UserProfile {
   id: string;
@@ -24,6 +32,7 @@ export interface Product {
   origin: string; // e.g. "Maroc (Errachidia)", "Arabie Saoudite", "Tunisie", "Égypte"
   sellingPriceHT: number; // Prix de vente unitaire HT / kg
   unitCostHT: number; // Prix de revient unitaire HT / kg
+  costPriceHT?: number; // Alias for compatibility
   vatRate: number; // e.g. 20% or 0%
   kgPerCarton: number; // e.g. 10 kg
   cartonsPerPallet: number; // e.g. 80 cartons
@@ -46,6 +55,7 @@ export interface ColdStorageFrigo {
 }
 
 export interface FrigoStockLevel {
+  id?: string;
   productId: string;
   frigoId: string;
   quantityKg: number;
@@ -104,6 +114,7 @@ export interface Client {
   city: string;
   creditLimit: number;
   currentBalance: number; // Solde dû par le client
+  balance?: number; // Alias for compatibility
 }
 
 export interface Supplier {
@@ -183,7 +194,7 @@ export interface OrderItem {
   unitCostHT: number; // For margin calculations
 }
 
-export type OrderStatus = 'DEVIS' | 'VALIDÉE' | 'EN_PRÉPARATION' | 'EXPÉDIÉE' | 'LIVRÉE' | 'LIVRÉE_PARTIEL' | 'ANNULÉE';
+export type OrderStatus = 'DEVIS' | 'VALIDÉE' | 'EN_PRÉPARATION' | 'EXPÉDIÉE' | 'LIVRÉE' | 'LIVRÉE_PARTIEL' | 'ANNULÉE' | 'NOUVEAU';
 
 export interface SalesOrder {
   id: string;
@@ -197,12 +208,17 @@ export interface SalesOrder {
   expectedDeliveryDate: string;
   status: OrderStatus;
   items: OrderItem[];
+  totalKg?: number;
+  totalPallets?: number;
   totalHT: number;
   totalVAT: number;
   totalTTC: number;
   totalCostHT: number;
   grossMarginHT: number;
+  marginHT?: number;
   marginPercentage: number;
+  marginPct?: number;
+  blGenerated?: boolean;
   notes?: string;
   createdByName: string;
 }
@@ -271,7 +287,6 @@ export interface DeliveryNoteBL {
   totalHT: number;
   totalTTC: number;
 
-  
   // Multi-frigo approval flow
   stockDecremented?: boolean;
   frigoEmployeeApproved: boolean;
@@ -283,7 +298,6 @@ export interface DeliveryNoteBL {
   bonDeSortiePhotoUrl?: string;
   bonDeSortieUploadedBy?: string;
   bonDeSortieUploadedAt?: string;
-
 
   // WhatsApp group notification log
   whatsappSent: boolean;
@@ -330,6 +344,7 @@ export interface Invoice {
   invoiceNumber: string; // e.g. FAC-STE1-2026-0098
   orderId?: string;
   blId?: string;
+  blIds?: string[];
 
   clientId: string;
   clientName: string;
@@ -342,13 +357,14 @@ export interface Invoice {
   totalVAT: number;
   totalTTC: number;
   amountPaid: number;
+  paidAmount?: number;
   remainingAmount: number;
   status: InvoiceStatus;
   paymentMethod?: PaymentMethod;
 }
 
 export type PaymentMethod = 'CHEQUE' | 'EFFET' | 'ESPECES' | 'VIREMENT' | 'VERSEMENT';
-export type ChequeEffetStatus = 'EN_PORTEFEUILLE' | 'DEPOSE' | 'ENCAISSE' | 'IMPAYE_REJETE';
+export type ChequeEffetStatus = 'EN_PORTEFEUILLE' | 'DEPOSE' | 'ENCAISSE' | 'IMPAYE_REJETE' | 'IMPAYE';
 
 export interface ChequeEffet {
   id: string;
@@ -357,6 +373,10 @@ export interface ChequeEffet {
   direction: 'RECETTE_CLIENT' | 'DEPENSE_FOURNISSEUR';
   partyId: string; // Client ID or Supplier ID
   partyName: string;
+  clientId?: string;
+  clientName?: string;
+  supplierId?: string;
+  supplierName?: string;
   bankName: string; // e.g. Attijariwafa, BMCE, BP, CIH, SG
   amount: number;
   issueDate: string;

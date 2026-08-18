@@ -10,6 +10,8 @@ import { BLPdfDocument } from '../pdf/BLPdfDocument';
 import { InvoicePdfDocument } from '../pdf/InvoicePdfDocument';
 import { ExcelVerificationModal } from './ExcelVerificationModal';
 import { ExportButtons } from '../common/ExportButtons';
+import { useToast } from '../common/CarbonToastContainer';
+import { generateWhatsAppBLLink } from '../../utils/whatsappUtils';
 
 import { 
   Truck, 
@@ -77,6 +79,8 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
     activeCompanyId,
     activeCompany
   } = useERP();
+
+  const { notifySuccess } = useToast();
 
   const isFrigoRole = currentUser?.role === 'RESPONSABLE_FRIGO';
 

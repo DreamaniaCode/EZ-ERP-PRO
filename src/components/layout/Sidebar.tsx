@@ -117,13 +117,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       case 'DIRECTORY':
         return true;
       case 'SALES_ORDERS':
-        return currentUser.role === 'COMMERCIAL' || currentUser.role === 'ADMIN';
+        return ['COMMERCIAL', 'ADMIN', 'SUPER_ADMIN'].includes(currentUser.role as any);
       case 'PURCHASES_IMPORTS':
-        return currentUser.role === 'COMPTABLE' || currentUser.role === 'COMMERCIAL' || currentUser.role === 'ADMIN';
+        return ['COMPTABLE', 'COMPTABLE_FACTURES', 'COMMERCIAL', 'ADMIN', 'SUPER_ADMIN'].includes(currentUser.role as any);
       case 'INVOICING':
       case 'TREASURY_CHEQUES':
       case 'EXPENSES':
-        return currentUser.role === 'COMPTABLE' || currentUser.role === 'ADMIN';
+        return ['COMPTABLE', 'COMPTABLE_FACTURES', 'ADMIN', 'SUPER_ADMIN'].includes(currentUser.role as any);
       default:
         return true;
     }

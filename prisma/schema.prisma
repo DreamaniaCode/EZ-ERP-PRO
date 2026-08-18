@@ -1,0 +1,363 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(uuid())
+  name            String
+  email           String   @unique
+  role            String   @default("ADMIN")
+  assignedFrigoId String?
+  avatar          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Company {
+  id            String   @id
+  code          String   @unique
+  name          String
+  shortName     String
+  ice           String?  @default("")
+  taxId         String?  @default("")
+  rc            String?  @default("")
+  patent        String?  @default("")
+  capital       String?  @default("")
+  address       String?  @default("")
+  city          String?  @default("")
+  phone         String?  @default("")
+  email         String?  @default("")
+  logoUrl       String?  @default("")
+  bankName      String?  @default("")
+  bankRib       String?  @default("")
+  blPrefix      String?  @default("BL")
+  invoicePrefix String?  @default("FAC")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("companies")
+}
+
+model CompanyInfo {
+  id        String   @id @default("default")
+  name      String
+  ice       String?  @default("")
+  rc        String?  @default("")
+  if        String?  @default("")
+  cnss      String?  @default("")
+  patente   String?  @default("")
+  address   String?  @default("")
+  city      String?  @default("")
+  phone     String?  @default("")
+  email     String?  @default("")
+  website   String?  @default("")
+  logoUrl   String?  @default("")
+  bankName  String?  @default("")
+  rib       String?  @default("")
+  swift     String?  @default("")
+  capital   String?  @default("")
+  updatedAt DateTime @updatedAt
+
+  @@map("company_info")
+}
+
+model Product {
+  id               String   @id @default(uuid())
+  code             String   @unique
+  name             String
+  category         String
+  origin           String
+  sellingPriceHT   Float    @default(0)
+  unitCostHT       Float    @default(0)
+  vatRate          Float    @default(0.20)
+  kgPerCarton      Float    @default(1)
+  cartonsPerPallet Float    @default(1)
+  kgPerPallet      Float    @default(1)
+  minStockAlertKg  Float    @default(0)
+  description      String?  @default("")
+  imageUrl         String?  @default("")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("products")
+}
+
+model ColdStorageFrigo {
+  id                String   @id @default(uuid())
+  code              String   @unique
+  name              String
+  location          String
+  managerName       String?  @default("")
+  managerPhone      String?  @default("")
+  whatsappGroup     String?  @default("")
+  whatsappGroupLink String?  @default("")
+  capacityPallets   Float    @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("frigos")
+}
+
+model FrigoStockLevel {
+  id              String   @id @default(uuid())
+  frigoId         String
+  productId       String
+  quantityKg      Float    @default(0)
+  quantityPallets Float    @default(0)
+  lastUpdated     DateTime @default(now()) @updatedAt
+
+  @@unique([frigoId, productId])
+  @@map("stocks")
+}
+
+model ProductStockMovement {
+  id              String   @id @default(uuid())
+  productId       String
+  productName     String
+  productCode     String
+  frigoId         String
+  frigoName       String
+  type            String
+  quantityKg      Float
+  previousStockKg Float
+  newStockKg      Float
+  referenceDoc    String?  @default("")
+  date            DateTime @default(now())
+  performedBy     String?  @default("")
+  notes           String?  @default("")
+  createdAt       DateTime @default(now())
+
+  @@map("stock_movements")
+}
+
+model MultiSiteInventoryCount {
+  id          String   @id @default(uuid())
+  countNumber String   @unique
+  frigoId     String
+  date        String
+  conductedBy String
+  status      String   @default("BROUILLON")
+  items       Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("inventory_counts")
+}
+
+model Client {
+  id             String   @id @default(uuid())
+  code           String   @unique
+  name           String
+  companyName    String?  @default("")
+  ice            String?  @default("")
+  email          String?  @default("")
+  phone          String?  @default("")
+  address        String?  @default("")
+  city           String?  @default("")
+  creditLimit    Float    @default(0)
+  currentBalance Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("clients")
+}
+
+model Supplier {
+  id             String   @id @default(uuid())
+  code           String   @unique
+  name           String
+  companyName    String?  @default("")
+  country        String?  @default("")
+  iceOrTaxId     String?  @default("")
+  email          String?  @default("")
+  phone          String?  @default("")
+  address        String?  @default("")
+  type           String   @default("LOCAL")
+  currentBalance Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("suppliers")
+}
+
+model PurchaseImportInvoice {
+  id                String   @id @default(uuid())
+  invoiceNumber     String   @unique
+  supplierId        String
+  supplierName      String
+  dateArrival       String
+  targetFrigoId     String
+  isImport          Boolean  @default(false)
+  containerNumber   String?  @default("")
+  customsCostsHT    Float    @default(0)
+  freightCostsHT    Float    @default(0)
+  totalProductsHT   Float    @default(0)
+  totalLandedCostHT Float    @default(0)
+  paidAmount        Float?   @default(0)
+  remainingBalance  Float?   @default(0)
+  items             Json
+  notes             String?  @default("")
+  paymentStatus     String   @default("NON_PAYÉ")
+  payments          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("purchase_invoices")
+}
+
+model SalesOrder {
+  id                   String   @id @default(uuid())
+  orderNumber          String   @unique
+  clientId             String
+  clientName           String
+  clientICE            String?  @default("")
+  clientPhone          String?  @default("")
+  clientEmail          String?  @default("")
+  date                 String
+  expectedDeliveryDate String?  @default("")
+  status               String   @default("DEVIS")
+  items                Json
+  totalHT              Float    @default(0)
+  totalVAT             Float    @default(0)
+  totalTTC             Float    @default(0)
+  totalCostHT          Float    @default(0)
+  grossMarginHT        Float    @default(0)
+  marginPercentage     Float    @default(0)
+  notes                String?  @default("")
+  createdByName        String?  @default("")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("sales_orders")
+}
+
+model DeliveryNoteBL {
+  id                    String   @id @default(uuid())
+  companyId             String?  @default("STE_1")
+  blNumber              String   @unique
+  orderId               String?  @default("")
+  orderNumber           String?  @default("")
+  clientId              String
+  clientName            String
+  clientAddress         String?  @default("")
+  clientPhone           String?  @default("")
+  clientEmail           String?  @default("")
+  frigoId               String
+  frigoName             String
+  date                  String
+  items                 Json
+  totalKg               Float    @default(0)
+  totalCartons          Float?   @default(0)
+  totalPallets          Float    @default(0)
+  totalHT               Float    @default(0)
+  totalTTC              Float    @default(0)
+  stockDecremented      Boolean  @default(false)
+  frigoEmployeeApproved Boolean  @default(false)
+  frigoApprovedBy       String?  @default("")
+  frigoApprovedAt       String?  @default("")
+  bonDeSortiePhotoUrl   String?  @default("")
+  bonDeSortieUploadedBy String?  @default("")
+  bonDeSortieUploadedAt String?  @default("")
+  whatsappSent          Boolean  @default(false)
+  whatsappSentAt        String?  @default("")
+  clientSignatureUrl    String?  @default("")
+  signedByName          String?  @default("")
+  signedAt              String?  @default("")
+  emailSent             Boolean  @default(false)
+  emailSentAt           String?  @default("")
+  emailRecipient        String?  @default("")
+  invoiceId             String?  @default("")
+  invoiceNumber         String?  @default("")
+  status                String   @default("EN_ATTENTE_FRIGO")
+  logs                  Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("delivery_notes")
+}
+
+model Invoice {
+  id              String   @id @default(uuid())
+  companyId       String?  @default("STE_1")
+  invoiceNumber   String   @unique
+  orderId         String?  @default("")
+  blId            String?  @default("")
+  clientId        String
+  clientName      String
+  clientICE       String?  @default("")
+  clientAddress   String?  @default("")
+  date            String
+  dueDate         String
+  items           Json
+  totalHT         Float    @default(0)
+  totalVAT        Float    @default(0)
+  totalTTC        Float    @default(0)
+  amountPaid      Float    @default(0)
+  remainingAmount Float    @default(0)
+  status          String   @default("BROUILLON")
+  paymentMethod   String?  @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("invoices")
+}
+
+model ChequeEffet {
+  id              String   @id @default(uuid())
+  referenceNumber String
+  type            String
+  direction       String
+  partyId         String
+  partyName       String
+  bankName        String
+  amount          Float
+  issueDate       String
+  dueDate         String
+  depositDate     String?  @default("")
+  clearedDate     String?  @default("")
+  status          String   @default("EN_PORTEFEUILLE")
+  notes           String?  @default("")
+  invoiceId       String?  @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("cheques_effets")
+}
+
+model TreasuryAccount {
+  id            String   @id @default(uuid())
+  name          String
+  accountNumber String
+  type          String
+  balance       Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("treasury_accounts")
+}
+
+model Expense {
+  id              String   @id @default(uuid())
+  expenseNumber   String   @unique
+  date            String
+  category        String
+  frigoId         String?  @default("")
+  supplierOrPayee String
+  amountHT        Float    @default(0)
+  vatAmount       Float    @default(0)
+  amountTTC       Float    @default(0)
+  paymentMethod   String
+  notes           String?  @default("")
+  receiptUrl      String?  @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("expenses")
+}

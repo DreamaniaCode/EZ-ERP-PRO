@@ -383,8 +383,9 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       const rowWarnings: string[] = [];
 
       Object.entries(mapping).forEach(([field, header]) => {
-        if (header && (row as any)[header] !== undefined) {
-          mappedRow[field] = (row as any)[header];
+        const headerKey = String(header);
+        if (header && (row as any)[headerKey] !== undefined) {
+          mappedRow[field] = (row as any)[headerKey];
         }
       });
 
@@ -396,7 +397,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       let clientVal = mappedRow.clientName;
       if (!isValidClientName(String(clientVal || ''))) {
         // Scan all cells in the row for a valid client name string
-        const validCell = Object.entries(row).find(([key, val]) => {
+        const validCell = Object.entries(row as Record<string, any>).find(([key, val]) => {
           if (!val || key.startsWith('_')) return false;
           return isValidClientName(String(val));
         });

@@ -131,11 +131,16 @@ export const OrderEditPage: React.FC<{ editId: string | null; onBack: () => void
     } else {
       if (createOrder) {
         createOrder({
-          ...payload,
-          id: `ord-${Date.now()}`,
-          orderNumber: `CMD-2026-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
-          status: 'NOUVEAU',
-          date: new Date().toISOString()
+          clientId,
+          clientName: client?.name || '',
+          clientICE: client?.ice || '',
+          clientPhone: client?.phone || '',
+          clientEmail: client?.email || '',
+          expectedDeliveryDate,
+          notes,
+          items,
+          date: new Date().toISOString(),
+          createdByName: 'Commercial'
         });
         notifySuccess('Nouvelle Commande enregistrée & BLs générés !', 'Commande Créée');
       }

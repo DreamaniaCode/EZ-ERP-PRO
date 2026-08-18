@@ -83,6 +83,7 @@ export interface AppUser {
   permissions: UserPermissions;
   isActive: boolean;
   createdAt: string;
+  updatedAt?: string;
   lastLoginAt?: string;
   avatar?: string;
 }

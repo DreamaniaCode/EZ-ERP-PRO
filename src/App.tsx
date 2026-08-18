@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { Component, useState, useEffect, Suspense, lazy, ErrorInfo, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ERPProvider, useERP } from './context/ERPContext';
 import { AuthGuard } from './components/auth/AuthGuard';
@@ -425,8 +425,17 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
   );
 }
 
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
-  constructor(props: { children: React.ReactNode }) {
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }

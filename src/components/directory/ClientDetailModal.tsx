@@ -70,7 +70,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   const overdueInvoices = clientInvoices.filter(inv => 
     inv.status === 'EN_RETARD' || (inv.status !== 'PAYEE' && inv.dueDate < today)
   );
-  const totalOverdueAmount = overdueInvoices.reduce((acc, inv) => acc + (inv.totalTTC - inv.paidAmount), 0);
+  const totalOverdueAmount = overdueInvoices.reduce((acc, inv) => acc + (inv.totalTTC - (inv.amountPaid || inv.paidAmount || 0)), 0);
 
   // Credit Calculations
   const creditLimit = client.creditLimit || 100000;
@@ -186,8 +186,8 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                   'Montant BL TTC (DH)': bl.totalTTC,
                   'N° Facture': inv?.invoiceNumber || 'Non Facturé',
                   'Statut Facture': inv?.status || (bl.status === 'FACTURÉ' ? 'FACTURÉ' : 'EN ATTENTE'),
-                  'Montant Payé (DH)': inv?.paidAmount || 0,
-                  'Reste à Payer (DH)': inv ? (inv.totalTTC - inv.paidAmount) : bl.totalTTC,
+                  'Montant Payé (DH)': (inv?.amountPaid || inv?.paidAmount || 0),
+                  'Reste à Payer (DH)': inv ? (inv.totalTTC - (inv.amountPaid || inv.paidAmount || 0)) : bl.totalTTC,
                   'Statut Quai Frigo': bl.frigoEmployeeApproved ? `Approuvé (${bl.frigoApprovedBy})` : 'En Attente',
                 };
               })}

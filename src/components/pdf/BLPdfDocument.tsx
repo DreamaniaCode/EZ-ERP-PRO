@@ -202,6 +202,7 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
       const isItemWeighed = Boolean(item.isWeighed || (item.weighedKg !== undefined && item.weighedKg !== null && Number(item.weighedKg) > 0));
       if (isItemWeighed) anyWeighed = true;
 
+      const bg = idx % 2 === 0 ? [255, 255, 255] : [248, 250, 252];
       doc.setFillColor(bg[0], bg[1], bg[2]);
       doc.rect(margin, y, usable, rowH, 'F');
       doc.setDrawColor(226, 232, 240);

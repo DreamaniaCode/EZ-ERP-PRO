@@ -128,8 +128,8 @@ export const InvoicePdfDocument: React.FC<InvoicePdfDocumentProps> = ({ invoice,
               <div className="font-bold text-gray-400 uppercase tracking-wider text-[10px] mb-1">DÉTAILS FACTURE & ÉCHÉANCE:</div>
               <div><span className="text-gray-500 font-mono">Date d'Émission:</span> <b className="font-mono text-gray-900">{invoice.date}</b></div>
               <div><span className="text-gray-500 font-mono">Date d'Échéance:</span> <b className="font-mono text-gray-900">{invoice.dueDate}</b></div>
-              {invoice.blIds && invoice.blIds.length > 0 && (
-                <div><span className="text-gray-500 font-mono">Bons de Livraison:</span> <b className="font-mono text-blue-700">{invoice.blIds.join(', ')}</b></div>
+              {(invoice.blId || (invoice.blIds && invoice.blIds.length > 0)) && (
+                <div><span className="text-gray-500 font-mono">Bon de Livraison:</span> <b className="font-mono text-blue-700">{invoice.blId || invoice.blIds?.join(', ')}</b></div>
               )}
               <div><span className="text-gray-500 font-mono">Statut:</span> <b className="font-mono uppercase text-emerald-700">{invoice.status}</b></div>
             </div>

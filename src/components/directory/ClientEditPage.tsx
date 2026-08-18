@@ -86,7 +86,7 @@ export const ClientEditPage: React.FC<{ editId: string | null; onBack: () => voi
     if (editId) {
       updateClient(editId, saveData);
     } else {
-      addClient({ id: Date.now().toString(), balance: 0, ...saveData });
+      addClient(saveData);
     }
     onBack();
   };
@@ -145,7 +145,7 @@ export const ClientEditPage: React.FC<{ editId: string | null; onBack: () => voi
 
       if (editId) {
         const newBalance = Math.max(0, formData.balance - paymentForm.amount);
-        updateClient(editId, { balance: newBalance });
+        updateClient(editId, { currentBalance: newBalance });
         setFormData(prev => ({ ...prev, balance: newBalance }));
       }
     }
