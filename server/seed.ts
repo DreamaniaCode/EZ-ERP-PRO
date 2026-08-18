@@ -134,7 +134,7 @@ async function main() {
           cartonsPerPallet: 100,
           kgPerPallet: 500,
           minStockAlertKg: 5000,
-          description: 'Produit principal 1: Datte Algérienne Sibort 5 KG',
+          description: '',
         },
         {
           id: 'prd-datte-11kg',
@@ -149,7 +149,7 @@ async function main() {
           cartonsPerPallet: 100,
           kgPerPallet: 1100,
           minStockAlertKg: 5000,
-          description: 'Produit principal 2: Datte Algérienne 11 KG',
+          description: '',
         }
       ]
     });

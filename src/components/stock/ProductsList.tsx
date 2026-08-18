@@ -341,7 +341,7 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
                     </td>
                     <td>
                       <div className="font-bold text-gray-900">{prd.name}</div>
-                      {prd.description && <div className="text-[11px] text-gray-500 line-clamp-1">{prd.description}</div>}
+                      {prd.description && !prd.description.toLowerCase().includes('produit principal') && <div className="text-[11px] text-gray-500 line-clamp-1">{prd.description}</div>}
                     </td>
                     <td>
                       <div className="text-xs font-semibold text-gray-800">{prd.category}</div>

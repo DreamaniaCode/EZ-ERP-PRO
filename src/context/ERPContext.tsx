@@ -174,20 +174,140 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [companies, setCompanies] = useState<CompanyEntity[]>(DEFAULT_COMPANIES);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(INITIAL_COMPANY_INFO);
 
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [frigos, setFrigos] = useState<ColdStorageFrigo[]>(INITIAL_FRIGOS);
-  const [stocks, setStocks] = useState<FrigoStockLevel[]>([]);
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const saved = localStorage.getItem('erp_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((p: Product) => ({
+            ...p,
+            description: (p.description && p.description.includes('Produit principal')) ? '' : (p.description || '')
+          }));
+        }
+      }
+    } catch (e) {}
+    return INITIAL_PRODUCTS.map(p => ({
+      ...p,
+      description: (p.description && p.description.includes('Produit principal')) ? '' : (p.description || '')
+    }));
+  });
+
+  const [frigos, setFrigos] = useState<ColdStorageFrigo[]>(() => {
+    try {
+      const saved = localStorage.getItem('erp_frigos');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_FRIGOS;
+  });
+
+  const [stocks, setStocks] = useState<FrigoStockLevel[]>(() => {
+    try {
+      const saved = localStorage.getItem('erp_stocks');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
   const [stockMovements, setStockMovements] = useState<ProductStockMovement[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [orders, setOrders] = useState<SalesOrder[]>([]);
-  const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteBL[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [chequesEffets, setChequesEffets] = useState<ChequeEffet[]>([]);
+  
+  const [clients, setClients] = useState<Client[]>(() => {
+    try {
+      const saved = localStorage.getItem('erp_clients');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+    try {
+      const saved = localStorage.getItem('erp_suppliers');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  const [orders, setOrders] = useState<SalesOrder[]>(() => {
+    try {
+      const saved = localStorage.getItem('erp_orders');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteBL[]>(() => {
+    try {
+      const saved = localStorage.getItem('erp_delivery_notes') || localStorage.getItem('erp_deliveryNotes');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  const [invoices, setInvoices] = useState<Invoice[]>(() => {
+    try {
+      const saved = localStorage.getItem('erp_invoices');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  const [chequesEffets, setChequesEffets] = useState<ChequeEffet[]>(() => {
+    try {
+      const saved = localStorage.getItem('erp_cheques');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
   const [treasuryAccounts, setTreasuryAccounts] = useState<TreasuryAccount[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [inventoryCounts, setInventoryCounts] = useState<MultiSiteInventoryCount[]>([]);
   const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseImportInvoice[]>([]);
+
+  // Persistent localStorage auto-sync hooks
+  useEffect(() => {
+    if (products.length > 0) localStorage.setItem('erp_products', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    if (stocks.length > 0) localStorage.setItem('erp_stocks', JSON.stringify(stocks));
+  }, [stocks]);
+
+  useEffect(() => {
+    if (deliveryNotes.length > 0) localStorage.setItem('erp_delivery_notes', JSON.stringify(deliveryNotes));
+  }, [deliveryNotes]);
+
+  useEffect(() => {
+    if (clients.length > 0) localStorage.setItem('erp_clients', JSON.stringify(clients));
+  }, [clients]);
+
+  useEffect(() => {
+    if (frigos.length > 0) localStorage.setItem('erp_frigos', JSON.stringify(frigos));
+  }, [frigos]);
 
   // Multi-Company resolution
   const activeCompany = useMemo(() => {
@@ -279,7 +399,14 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (pgUsers.length > 0) setUsers(pgUsers);
       if (pgCompanies.length > 0) setCompanies(pgCompanies);
       if (pgCompanyInfo && pgCompanyInfo.name) setCompanyInfo(pgCompanyInfo);
-      if (pgProducts.length > 0) setProducts(pgProducts);
+      if (pgProducts.length > 0) {
+        const sanitized = pgProducts.map((p: Product) => ({
+          ...p,
+          description: (p.description && p.description.includes('Produit principal')) ? '' : (p.description || '')
+        }));
+        setProducts(sanitized);
+        localStorage.setItem('erp_products', JSON.stringify(sanitized));
+      }
       if (pgFrigos.length > 0) setFrigos(pgFrigos);
       if (pgStocks) setStocks(pgStocks);
       if (pgMovements) setStockMovements(pgMovements);
