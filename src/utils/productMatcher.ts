@@ -115,3 +115,35 @@ export const findMatchingProduct = (
 
   return undefined;
 };
+
+
+/**
+ * Checks if two product references (ID, Code, Name) point to the same product catalog entry.
+ */
+export const isSameProduct = (
+  p1: string | { id?: string; code?: string; name?: string },
+  p2: string | { id?: string; code?: string; name?: string },
+  catalog: { id: string; code: string; name: string }[] = []
+): boolean => {
+  if (!p1 || !p2) return false;
+  const id1 = typeof p1 === 'string' ? p1.trim() : (p1.id || p1.code || '').trim();
+  const id2 = typeof p2 === 'string' ? p2.trim() : (p2.id || p2.code || '').trim();
+
+  if (id1 === id2) return true;
+  if (id1.toLowerCase() === id2.toLowerCase()) return true;
+
+  const prd1 = catalog.find(p => 
+    p.id.toLowerCase() === id1.toLowerCase() || 
+    p.code.toLowerCase() === id1.toLowerCase() ||
+    p.name.toLowerCase() === id1.toLowerCase()
+  );
+
+  const prd2 = catalog.find(p => 
+    p.id.toLowerCase() === id2.toLowerCase() || 
+    p.code.toLowerCase() === id2.toLowerCase() ||
+    p.name.toLowerCase() === id2.toLowerCase()
+  );
+
+  if (prd1 && prd2 && prd1.id === prd2.id) return true;
+  return false;
+};

@@ -22,7 +22,8 @@ interface FrigoDetailPageProps {
 }
 
 export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBack }) => {
-  const { frigos, stocks, products, deliveryNotes } = useERP();
+  const { frigos, stocks, products, deliveryNotes, reconcileStocksWithBLs } = useERP();
+  const [syncToast, setSyncToast] = React.useState<string | null>(null);
 
   const frigo = frigos.find(f => f.id === frigoId) || frigos[0];
 
@@ -180,13 +181,34 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
 
       {/* SECTION 1: Product Stock & Detailed Financial Valuation */}
       <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm space-y-3 text-xs">
-        <h3 className="font-bold text-sm text-gray-900 uppercase tracking-wider flex items-center justify-between border-b pb-2">
-          <span className="flex items-center gap-2 text-[#0f62fe]">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+          <h3 className="font-bold text-sm text-gray-900 uppercase tracking-wider flex items-center gap-2 text-[#0f62fe]">
             <Package className="w-4 h-4" />
             1. État du Stock Physique Réel & Valorisation Financière Précise
-          </span>
-          <span className="text-gray-500 font-mono text-xs">{frigoStocks.length} Référence(s)</span>
-        </h3>
+          </h3>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const res = reconcileStocksWithBLs(frigo.id);
+                setSyncToast(`✓ Déduction appliquée: ${res.deductedKg.toLocaleString()} Kg déduits sur ${res.blCount} BLs !`);
+                setTimeout(() => setSyncToast(null), 5000);
+              }}
+              className="px-3 py-1.5 bg-[#0f62fe] hover:bg-blue-700 text-white rounded text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+              title="Déduire automatiquement toutes les sorties de BLs du stock de ce frigo"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>⚡ Appliquer Déduction Sorties BLs (-{frigoBLs.reduce((sum, b) => sum + (b.totalKg || 0), 0).toLocaleString()} Kg)</span>
+            </button>
+            <span className="text-gray-500 font-mono text-xs">({frigoStocks.length} Réf.)</span>
+          </div>
+        </div>
+
+        {syncToast && (
+          <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded font-mono text-xs font-bold animate-in fade-in">
+            {syncToast}
+          </div>
+        )}
 
         {frigoStocks.length === 0 ? (
           <div className="p-8 text-center text-gray-500 border border-dashed border-gray-300 rounded">
@@ -200,7 +222,8 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
                   <th>Code SKU</th>
                   <th>Désignation Produit</th>
                   <th>Catégorie</th>
-                  <th className="text-right">Stock Réel (Kg)</th>
+                  <th className="text-right">Stock Actuel (Kg)</th>
+                  <th className="text-right text-rose-700">Sorties BLs (Kg)</th>
                   <th className="text-right">Palettes</th>
                   <th className="text-right">Prix Revient (HT)</th>
                   <th className="text-right">Prix Vente (HT)</th>
@@ -220,6 +243,16 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
                       <td className="font-semibold text-gray-900">{prd?.name || 'Produit Inconnu'}</td>
                       <td className="text-gray-500">{prd?.category || '-'}</td>
                       <td className="text-right font-mono font-bold text-gray-900">{stk.quantityKg.toLocaleString()} Kg</td>
+                      <td className="text-right font-mono font-bold text-rose-600">
+                        {frigoBLs.reduce((sum, bl) => {
+                          const item = bl.items?.find(it => 
+                            it.productId === stk.productId || 
+                            it.productCode === prd?.code ||
+                            (it.productName && prd?.name && it.productName.toLowerCase().includes(prd.name.toLowerCase()))
+                          );
+                          return sum + (item ? Number(item.quantityKg) || 0 : 0);
+                        }, 0).toLocaleString()} Kg
+                      </td>
                       <td className="text-right font-mono font-bold text-purple-700">{stk.quantityPallets} Pal.</td>
                       <td className="text-right font-mono text-gray-600">{prd?.unitCostHT?.toLocaleString()} DH</td>
                       <td className="text-right font-mono text-blue-700">{prd?.sellingPriceHT?.toLocaleString()} DH</td>

@@ -155,6 +155,7 @@ interface ERPContextType {
   deleteSupplier: (id: string) => void;
   saveInventoryCount: (count: Omit<MultiSiteInventoryCount, 'id' | 'countNumber'>, applyStockAdjust: boolean) => void;
   importExcelBLs: (newBLs: DeliveryNoteBL[]) => void;
+  reconcileStocksWithBLs: (targetFrigoId?: string) => { deductedKg: number; blCount: number };
   deduplicateClients: () => number;
   mergeClients: (targetClientId: string, clientIdsToMerge: string[]) => void;
   mergeProducts: (targetProductId: string, productIdsToMerge: string[]) => void;
@@ -1163,6 +1164,59 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Import Excel Batch BLs
+  const reconcileStocksWithBLs = (targetFrigoId?: string) => {
+    let totalDeductedKg = 0;
+    let countedBLs = 0;
+
+    setStocks(prevStocks => {
+      let next = [...prevStocks];
+      const relevantBLs = targetFrigoId 
+        ? deliveryNotes.filter(bl => bl.frigoId === targetFrigoId || bl.frigoName?.toLowerCase().includes(targetFrigoId.toLowerCase()))
+        : deliveryNotes;
+
+      relevantBLs.forEach(bl => {
+        countedBLs++;
+        if (Array.isArray(bl.items)) {
+          bl.items.forEach(item => {
+            const qtyKg = Number(item.quantityKg) || 0;
+            const qtyPal = Number(item.quantityPallets) || 0;
+            totalDeductedKg += qtyKg;
+
+            // Find matching stock record flexibly
+            const targetFrigoObj = frigos.find(f => f.id === bl.frigoId || f.name === bl.frigoName) || frigos[0];
+            const frigoIdToMatch = targetFrigoObj?.id || bl.frigoId;
+
+            const existingIdx = next.findIndex(s => {
+              const frigoMatches = s.frigoId === frigoIdToMatch || (targetFrigoObj && s.frigoId === targetFrigoObj.id);
+              if (!frigoMatches) return false;
+
+              // Product match
+              const prd1 = products.find(p => p.id === s.productId || p.code === s.productId);
+              const prd2 = products.find(p => p.id === item.productId || p.code === item.productCode || p.code === item.productId);
+              return (s.productId.toLowerCase() === (item.productId || '').toLowerCase()) ||
+                     (prd1 && prd2 && prd1.id === prd2.id) ||
+                     (prd1 && prd1.code.toLowerCase() === (item.productCode || '').toLowerCase());
+            });
+
+            if (existingIdx >= 0) {
+              next[existingIdx] = {
+                ...next[existingIdx],
+                quantityKg: Math.max(0, next[existingIdx].quantityKg - qtyKg),
+                quantityPallets: Math.max(0, next[existingIdx].quantityPallets - qtyPal),
+                lastUpdated: new Date().toISOString(),
+              };
+            }
+          });
+        }
+      });
+
+      localStorage.setItem('erp_stocks', JSON.stringify(next));
+      return next;
+    });
+
+    return { deductedKg: totalDeductedKg, blCount: countedBLs };
+  };
+
   const importExcelBLs = (newBLs: DeliveryNoteBL[]) => {
     // 1. Immediately update deliveryNotes in state and localStorage
     setDeliveryNotes(prev => {
@@ -1173,15 +1227,28 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return next;
     });
 
-    // 2. Immediately decrement stocks in state and localStorage
+    // 2. Immediately decrement stocks with flexible product and frigo matching
     setStocks(prevStocks => {
       let next = [...prevStocks];
       newBLs.forEach(bl => {
-        if (bl.frigoId && Array.isArray(bl.items)) {
+        if (Array.isArray(bl.items)) {
           bl.items.forEach(item => {
             const deductedKg = Number(item.quantityKg) || 0;
             const deductedPallets = Number(item.quantityPallets) || 0;
-            const existingIdx = next.findIndex(s => s.frigoId === bl.frigoId && s.productId === item.productId);
+
+            const targetFrigoObj = frigos.find(f => f.id === bl.frigoId || f.name === bl.frigoName) || frigos[0];
+            const frigoIdToMatch = targetFrigoObj?.id || bl.frigoId;
+
+            const existingIdx = next.findIndex(s => {
+              const frigoMatches = s.frigoId === frigoIdToMatch || (targetFrigoObj && s.frigoId === targetFrigoObj.id);
+              if (!frigoMatches) return false;
+
+              const prd1 = products.find(p => p.id === s.productId || p.code === s.productId);
+              const prd2 = products.find(p => p.id === item.productId || p.code === item.productCode || p.code === item.productId);
+              return (s.productId.toLowerCase() === (item.productId || '').toLowerCase()) ||
+                     (prd1 && prd2 && prd1.id === prd2.id) ||
+                     (prd1 && prd1.code.toLowerCase() === (item.productCode || '').toLowerCase());
+            });
 
             if (existingIdx >= 0) {
               next[existingIdx] = {
@@ -1198,7 +1265,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return next;
     });
 
-    // 3. Persist batch to backend API with atomic stock decrement
+    // 3. Persist batch to backend API
     api.importBatchBLs(newBLs)
       .then(() => refreshFromDatabase())
       .catch(err => console.error('Error importing batch BLs:', err));
@@ -1316,6 +1383,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     deleteSupplier,
     saveInventoryCount,
     importExcelBLs,
+    reconcileStocksWithBLs,
     deduplicateClients,
     mergeClients,
     mergeProducts,
@@ -1415,6 +1483,7 @@ const defaultFallbackContext: ERPContextType = {
   deleteSupplier: () => {},
   saveInventoryCount: () => {},
   importExcelBLs: () => {},
+  reconcileStocksWithBLs: () => ({ deductedKg: 0, blCount: 0 }),
   deduplicateClients: () => 0,
   mergeClients: () => {},
   mergeProducts: () => {},
