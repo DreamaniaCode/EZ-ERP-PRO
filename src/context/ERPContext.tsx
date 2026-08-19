@@ -1411,6 +1411,67 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     companyInfo,
   ]);
 
+
+  // ============================================================
+  // AUTO RECONCILE STOCKS WITH EXISTING BLs (Runs automatically on mount)
+  // Ensures that all imported/existing BLs are deducted from stocks
+  // ============================================================
+  useEffect(() => {
+    try {
+      const alreadyReconciled = localStorage.getItem('erp_auto_deducted_bls_v3');
+      if (!alreadyReconciled && deliveryNotes && deliveryNotes.length > 0) {
+        console.log('⚡ Auto-reconciling stocks with ' + deliveryNotes.length + ' existing BLs...');
+        let updatedAny = false;
+
+        setStocks(prevStocks => {
+          let next = [...prevStocks];
+          deliveryNotes.forEach(bl => {
+            if (Array.isArray(bl.items)) {
+              bl.items.forEach(item => {
+                const qtyKg = Number(item.quantityKg) || 0;
+                const qtyPal = Number(item.quantityPallets) || 0;
+                if (qtyKg <= 0 && qtyPal <= 0) return;
+
+                const targetFrigo = frigos.find(f => f.id === bl.frigoId || f.name === bl.frigoName || f.code === bl.frigoId) || frigos[0];
+                const targetFrigoId = targetFrigo?.id || bl.frigoId;
+
+                const existingIdx = next.findIndex(s => {
+                  const fMatch = s.frigoId === targetFrigoId || (targetFrigo && (s.frigoId === targetFrigo.id || s.frigoId === targetFrigo.code));
+                  if (!fMatch) return false;
+
+                  const p1 = products.find(p => p.id === s.productId || p.code === s.productId);
+                  const p2 = products.find(p => p.id === item.productId || p.code === item.productCode || p.code === item.productId);
+                  return (s.productId.toLowerCase() === (item.productId || '').toLowerCase()) ||
+                         (p1 && p2 && p1.id === p2.id) ||
+                         (p1 && p1.code.toLowerCase() === (item.productCode || '').toLowerCase());
+                });
+
+                if (existingIdx >= 0) {
+                  next[existingIdx] = {
+                    ...next[existingIdx],
+                    quantityKg: Math.max(0, next[existingIdx].quantityKg - qtyKg),
+                    quantityPallets: Math.max(0, next[existingIdx].quantityPallets - qtyPal),
+                    lastUpdated: new Date().toISOString(),
+                  };
+                  updatedAny = true;
+                }
+              });
+            }
+          });
+
+          if (updatedAny) {
+            localStorage.setItem('erp_stocks', JSON.stringify(next));
+          }
+          return next;
+        });
+
+        localStorage.setItem('erp_auto_deducted_bls_v3', 'true');
+      }
+    } catch (e) {
+      console.error('Error during auto stock reconciliation:', e);
+    }
+  }, [deliveryNotes.length, frigos.length, products.length]);
+
   return (
     <ERPContext.Provider value={contextValue}>
       {children}

@@ -56,7 +56,11 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
 
   // Calculate stats for each frigo
   const getFrigoStockStats = (frigoId: string) => {
-    const frigoStocks = stocks.filter(s => s.frigoId === frigoId);
+    const targetFrigo = frigos.find(f => f.id === frigoId);
+    const frigoStocks = stocks.filter(s => 
+      s.frigoId === frigoId || 
+      (targetFrigo && (s.frigoId === targetFrigo.code || s.frigoId === targetFrigo.name || (targetFrigo.name && s.frigoId?.toLowerCase().includes('ain rabat'))))
+    );
     const totalPallets = frigoStocks.reduce((sum, s) => sum + s.quantityPallets, 0);
     const totalKg = frigoStocks.reduce((sum, s) => sum + s.quantityKg, 0);
     return { totalPallets, totalKg };

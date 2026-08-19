@@ -40,9 +40,9 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
 
   // Only show stocks that have a real product in the catalog — no 'Produit Inconnu'
   const frigoStocks = stocks.filter(s =>
-    s.frigoId === frigo.id &&
+    (s.frigoId === frigo.id || s.frigoId === frigo.code || s.frigoId === frigo.name || (frigo.name && s.frigoId?.toLowerCase().includes('ain rabat'))) &&
     s.quantityKg > 0 &&
-    products.some(p => p.id === s.productId)
+    products.some(p => p.id === s.productId || p.code === s.productId || p.id.toLowerCase() === s.productId.toLowerCase())
   );
   const frigoBLs = deliveryNotes.filter(bl => bl.frigoId === frigo.id || bl.frigoName === frigo.name);
 
