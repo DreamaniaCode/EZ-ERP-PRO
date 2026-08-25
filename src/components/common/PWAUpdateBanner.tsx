@@ -46,7 +46,7 @@ export const PWAUpdateBanner: React.FC = () => {
   if (!updateAvailable || dismissed) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 sm:left-auto sm:right-4 sm:translate-x-0 z-50 w-[92%] sm:w-auto max-w-md animate-bounce-short">
+    <div className="fixed top-3 md:top-auto md:bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:right-4 md:translate-x-0 z-50 w-[94%] sm:w-auto max-w-md animate-bounce-short shadow-2xl">
       <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-[#161616] text-white p-3.5 sm:p-4 rounded-xl shadow-2xl border border-blue-500/40 backdrop-blur-md flex items-center gap-3">
         
         <div className="w-10 h-10 rounded-lg bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-blue-400 shrink-0">

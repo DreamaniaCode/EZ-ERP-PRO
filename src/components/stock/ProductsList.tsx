@@ -168,7 +168,7 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {currentUser?.role !== 'RESPONSABLE_FRIGO' && (
             <button
               onClick={() => setShowDiagnosticModal(true)}

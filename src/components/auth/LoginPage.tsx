@@ -4,6 +4,7 @@ import { Mail, Lock, Loader2, AlertCircle, ShieldCheck, Sparkles } from 'lucide-
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { AppUser, DEFAULT_ROLE_PERMISSIONS } from '../../types/permissions';
+import { api } from '../../lib/api';
 import '../../i18n';
 
 interface LoginPageProps {
@@ -27,51 +28,64 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     localStorage.setItem('erp_language', newLang);
   };
 
-  const executeLocalFallbackLogin = (emailInput: string) => {
-    // Try to find the user in the ERP users list (localStorage) to respect their actual role
-    let matchedRole: 'ADMIN' | 'COMMERCIAL' | 'RESPONSABLE_FRIGO' | 'COMPTABLE' = 'ADMIN';
+  const executeLocalFallbackLogin = async (emailInput: string) => {
+    let matchedRole: any = null;
     let matchedName = emailInput.split('@')[0] || 'Utilisateur';
     let matchedFrigoId: string | undefined = undefined;
     let matchedUid = 'local-uid-' + Date.now();
 
     try {
-      // 1. Check erp_app_users (AppUser format from UserManagement)
-      const savedAppUsers = localStorage.getItem('erp_app_users');
-      if (savedAppUsers) {
-        const appUsers = JSON.parse(savedAppUsers);
-        const found = appUsers.find((u: any) => u.email?.toLowerCase() === emailInput.toLowerCase());
-        if (found) {
-          matchedRole = found.role || 'ADMIN';
-          matchedName = found.displayName || found.name || emailInput;
-          matchedFrigoId = found.assignedFrigoId;
-          matchedUid = found.uid || found.id || matchedUid;
+      // 1. Query PostgreSQL DB users directly
+      const dbUsers = await api.getUsers().catch(() => []);
+      if (Array.isArray(dbUsers)) {
+        const match = dbUsers.find((u: any) => u.email?.toLowerCase() === emailInput.toLowerCase());
+        if (match) {
+          matchedRole = match.role;
+          matchedName = match.name || match.displayName || emailInput;
+          matchedFrigoId = match.assignedFrigoId;
+          matchedUid = match.id || matchedUid;
         }
       }
 
-      // 2. Fallback: check erp_current_user (UserProfile format, last known login)
-      if (matchedRole === 'ADMIN') {
-        const savedCurrentUser = localStorage.getItem('erp_current_user');
-        if (savedCurrentUser) {
-          const cu = JSON.parse(savedCurrentUser);
-          if (cu.email?.toLowerCase() === emailInput.toLowerCase()) {
-            matchedRole = cu.role || 'ADMIN';
-            matchedName = cu.name || cu.displayName || emailInput;
-            matchedFrigoId = cu.assignedFrigoId;
-            matchedUid = cu.id || matchedUid;
+      // 2. Check erp_app_users (AppUser format from UserManagement)
+      if (!matchedRole) {
+        const savedAppUsers = localStorage.getItem('erp_app_users');
+        if (savedAppUsers) {
+          const appUsers = JSON.parse(savedAppUsers);
+          const found = appUsers.find((u: any) => u.email?.toLowerCase() === emailInput.toLowerCase());
+          if (found) {
+            matchedRole = found.role;
+            matchedName = found.displayName || found.name || emailInput;
+            matchedFrigoId = found.assignedFrigoId;
+            matchedUid = found.uid || found.id || matchedUid;
           }
         }
       }
+
+      // 3. Infer from email pattern if unknown
+      if (!matchedRole) {
+        const emailLower = emailInput.toLowerCase();
+        matchedRole = 
+          emailLower.includes('admin') || emailLower.includes('gerant') ? 'SUPER_ADMIN' :
+          emailLower.includes('frigo') || emailLower.includes('quai') ? 'RESPONSABLE_FRIGO' :
+          emailLower.includes('commercial') ? 'COMMERCIAL' :
+          emailLower.includes('comptab') ? 'COMPTABLE_FACTURES' : 'CONTROLEUR';
+        if (matchedRole === 'RESPONSABLE_FRIGO') {
+          matchedFrigoId = 'frigo-1';
+        }
+      }
     } catch (e) {
-      console.warn('Could not look up local user list:', e);
+      console.warn('Could not look up user list:', e);
+      matchedRole = 'CONTROLEUR';
     }
 
     const localUser: AppUser = {
       uid: matchedUid,
       email: emailInput,
       displayName: matchedName,
-      role: matchedRole,
+      role: matchedRole || 'CONTROLEUR',
       assignedFrigoId: matchedFrigoId,
-      permissions: DEFAULT_ROLE_PERMISSIONS[matchedRole] || DEFAULT_ROLE_PERMISSIONS['ADMIN'],
+      permissions: DEFAULT_ROLE_PERMISSIONS[matchedRole] || DEFAULT_ROLE_PERMISSIONS['CONTROLEUR'],
       isActive: true,
       createdAt: new Date().toISOString(),
     };

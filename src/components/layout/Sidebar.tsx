@@ -145,8 +145,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'COMPANY_INFO', label: t('nav.companyInfo'), icon: Building },
   ];
 
-  // Extra nav items for admin
-  const isAdmin = appUser?.role === 'ADMIN' || currentUser.role === 'ADMIN';
+  // Extra nav items permissions
+  const isAdmin = appUser?.role === 'SUPER_ADMIN' || appUser?.role === 'ADMIN' || currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'ADMIN';
+  const canImportBL = hasModuleAccess(appUser?.permissions, 'IMPORT_BL') || ['SUPER_ADMIN', 'ADMIN', 'AGENT_STOCK', 'COMMERCIAL', 'COMPTABLE_FACTURES'].includes(currentUser.role as any);
+  const canBackup = hasModuleAccess(appUser?.permissions, 'BACKUP') || isAdmin;
+  const canManageUsers = hasModuleAccess(appUser?.permissions, 'USERS') || isAdmin;
 
   const assignedFrigo = currentUser.assignedFrigoId 
     ? frigos.find(f => f.id === currentUser.assignedFrigoId) 
@@ -234,51 +237,59 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
 
           {/* Separator + Extra Features */}
-          <div className="mx-3 my-3 border-t border-[#393939]" />
-          
-          <div className="px-3 mb-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-            {t('common.actions')}
-          </div>
+          {(canImportBL || canBackup || canManageUsers) && (
+            <>
+              <div className="mx-3 my-3 border-t border-[#393939]" />
+              
+              <div className="px-3 mb-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                {t('common.actions')}
+              </div>
 
-          <nav className="space-y-1 px-2">
-            {/* Import BL */}
-            <button
-              onClick={() => {
-                if (onNavigateExtended) onNavigateExtended('IMPORT_BL');
-                if (onCloseMobile) onCloseMobile();
-              }}
-              className="w-full text-start px-3 py-2.5 rounded transition-all flex items-center gap-3 text-gray-300 hover:bg-[#262626] hover:text-white group"
-            >
-              <FileUp className="w-4 h-4 text-gray-400 group-hover:text-white shrink-0" />
-              <span className="text-xs font-semibold truncate">{t('nav.importBL')}</span>
-            </button>
+              <nav className="space-y-1 px-2">
+                {/* Import BL */}
+                {canImportBL && (
+                  <button
+                    onClick={() => {
+                      if (onNavigateExtended) onNavigateExtended('IMPORT_BL');
+                      if (onCloseMobile) onCloseMobile();
+                    }}
+                    className="w-full text-start px-3 py-2.5 rounded transition-all flex items-center gap-3 text-gray-300 hover:bg-[#262626] hover:text-white group"
+                  >
+                    <FileUp className="w-4 h-4 text-gray-400 group-hover:text-white shrink-0" />
+                    <span className="text-xs font-semibold truncate">{t('nav.importBL')}</span>
+                  </button>
+                )}
 
-            {/* Backup */}
-            <button
-              onClick={() => {
-                if (onNavigateExtended) onNavigateExtended('BACKUP');
-                if (onCloseMobile) onCloseMobile();
-              }}
-              className="w-full text-start px-3 py-2.5 rounded transition-all flex items-center gap-3 text-gray-300 hover:bg-[#262626] hover:text-white group"
-            >
-              <Database className="w-4 h-4 text-gray-400 group-hover:text-white shrink-0" />
-              <span className="text-xs font-semibold truncate">{t('nav.backup')}</span>
-            </button>
+                {/* Backup */}
+                {canBackup && (
+                  <button
+                    onClick={() => {
+                      if (onNavigateExtended) onNavigateExtended('BACKUP');
+                      if (onCloseMobile) onCloseMobile();
+                    }}
+                    className="w-full text-start px-3 py-2.5 rounded transition-all flex items-center gap-3 text-gray-300 hover:bg-[#262626] hover:text-white group"
+                  >
+                    <Database className="w-4 h-4 text-gray-400 group-hover:text-white shrink-0" />
+                    <span className="text-xs font-semibold truncate">{t('nav.backup')}</span>
+                  </button>
+                )}
 
-            {/* Users (Admin only) */}
-            {isAdmin && (
-              <button
-                onClick={() => {
-                  if (onNavigateExtended) onNavigateExtended('USERS');
-                  if (onCloseMobile) onCloseMobile();
-                }}
-                className="w-full text-start px-3 py-2.5 rounded transition-all flex items-center gap-3 text-gray-300 hover:bg-[#262626] hover:text-white group"
-              >
-                <UserCog className="w-4 h-4 text-gray-400 group-hover:text-white shrink-0" />
-                <span className="text-xs font-semibold truncate">{t('nav.users')}</span>
-              </button>
-            )}
-          </nav>
+                {/* Users (Admin only) */}
+                {canManageUsers && (
+                  <button
+                    onClick={() => {
+                      if (onNavigateExtended) onNavigateExtended('USERS');
+                      if (onCloseMobile) onCloseMobile();
+                    }}
+                    className="w-full text-start px-3 py-2.5 rounded transition-all flex items-center gap-3 text-gray-300 hover:bg-[#262626] hover:text-white group"
+                  >
+                    <UserCog className="w-4 h-4 text-gray-400 group-hover:text-white shrink-0" />
+                    <span className="text-xs font-semibold truncate">{t('nav.users')}</span>
+                  </button>
+                )}
+              </nav>
+            </>
+          )}
         </div>
 
         {/* Carbon Footer */}

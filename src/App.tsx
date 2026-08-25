@@ -9,13 +9,19 @@ import { StatusBar } from './components/layout/StatusBar';
 import { GlobalSearchModal } from './components/search/GlobalSearchModal';
 import { BLPdfDocument } from './components/pdf/BLPdfDocument';
 import { DeliveryNoteBL } from './types';
-import { AppUser } from './types/permissions';
+import { AppUser, hasModuleAccess } from './types/permissions';
 import { 
   LayoutDashboard, 
   Package, 
   Truck, 
   Users, 
-  Menu
+  Menu,
+  ShieldAlert,
+  Landmark,
+  Receipt,
+  PenTool,
+  Camera,
+  FileText
 } from 'lucide-react';
 
 // Helper function to safely lazy-load components and auto-reload on stale deployment chunk errors
@@ -104,7 +110,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
   const [previousTab, setPreviousTab] = useState<ExtendedNavTab>('DASHBOARD');
-  const { frigos, deliveryNotes, setCurrentUser } = useERP();
+  const { frigos, deliveryNotes, currentUser, setCurrentUser } = useERP();
 
   // CRITICAL: Sync authenticated appUser into ERPContext.currentUser
   // so role-based filtering (RESPONSABLE_FRIGO sees only their warehouse) works
@@ -199,9 +205,114 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
     updateUrlAndTab(tab as ExtendedNavTab, null, true);
   };
 
+  const isTabAuthorized = (tab: ExtendedNavTab): boolean => {
+    if (!appUser) return true;
+    if (appUser.role === 'SUPER_ADMIN' || appUser.role === 'ADMIN') return true;
+
+    if (appUser.role === 'RESPONSABLE_FRIGO') {
+      return ['DELIVERY_NOTES', 'BL_EDIT', 'BL_SIGN', 'BL_PDF', 'FRIGO_OPS'].includes(tab);
+    }
+
+    const extendedModuleMap: Record<string, string> = {
+      'DASHBOARD': 'DASHBOARD',
+      'PRODUCTS_STOCK': 'PRODUCTS',
+      'PRODUCT_EDIT': 'PRODUCTS',
+      'DELIVERY_NOTES': 'BL',
+      'BL_EDIT': 'BL',
+      'BL_SIGN': 'BL',
+      'BL_PDF': 'BL',
+      'CLIENTS': 'CLIENTS',
+      'CLIENT_EDIT': 'CLIENTS',
+      'SALES_ORDERS': 'SALES_ORDERS',
+      'ORDER_EDIT': 'SALES_ORDERS',
+      'PURCHASES_IMPORTS': 'PURCHASES',
+      'MULTI_SITE_INVENTORY': 'INVENTORY',
+      'INVOICING': 'INVOICING',
+      'TREASURY_CHEQUES': 'TREASURY',
+      'CHEQUE_EDIT': 'TREASURY',
+      'EXPENSES': 'EXPENSES',
+      'EXPENSE_EDIT': 'EXPENSES',
+      'DIRECTORY': 'SUPPLIERS',
+      'SUPPLIER_EDIT': 'SUPPLIERS',
+      'FRIGO_MANAGEMENT': 'FRIGO_MGMT',
+      'FRIGO_EDIT': 'FRIGO_MGMT',
+      'FRIGO_OPS': 'FRIGO_MGMT',
+      'COMPANY_INFO': 'COMPANY_INFO',
+      'USERS': 'USERS',
+      'IMPORT_BL': 'IMPORT_BL',
+      'BACKUP': 'BACKUP',
+    };
+
+    const module = extendedModuleMap[tab];
+    if (module && appUser.permissions) {
+      return hasModuleAccess(appUser.permissions, module as any);
+    }
+
+    // Role-based defaults
+    switch (tab) {
+      case 'DASHBOARD':
+        return true;
+      case 'PRODUCTS_STOCK':
+      case 'PRODUCT_EDIT':
+      case 'DELIVERY_NOTES':
+      case 'BL_EDIT':
+      case 'BL_SIGN':
+      case 'BL_PDF':
+        return true;
+      case 'CLIENTS':
+      case 'CLIENT_EDIT':
+      case 'DIRECTORY':
+      case 'SUPPLIER_EDIT':
+        return ['SUPER_ADMIN', 'ADMIN', 'COMMERCIAL', 'COMPTABLE', 'COMPTABLE_FACTURES', 'AGENT_STOCK', 'CONTROLEUR'].includes(appUser.role as any);
+      case 'SALES_ORDERS':
+      case 'ORDER_EDIT':
+        return ['SUPER_ADMIN', 'ADMIN', 'COMMERCIAL', 'CONTROLEUR'].includes(appUser.role as any);
+      case 'PURCHASES_IMPORTS':
+        return ['SUPER_ADMIN', 'ADMIN', 'COMPTABLE', 'COMPTABLE_FACTURES', 'COMMERCIAL', 'CONTROLEUR'].includes(appUser.role as any);
+      case 'MULTI_SITE_INVENTORY':
+      case 'FRIGO_MANAGEMENT':
+      case 'FRIGO_EDIT':
+      case 'FRIGO_OPS':
+        return ['SUPER_ADMIN', 'ADMIN', 'AGENT_STOCK', 'CONTROLEUR'].includes(appUser.role as any);
+      case 'INVOICING':
+      case 'TREASURY_CHEQUES':
+      case 'CHEQUE_EDIT':
+      case 'EXPENSES':
+      case 'EXPENSE_EDIT':
+        return ['SUPER_ADMIN', 'ADMIN', 'COMPTABLE', 'COMPTABLE_FACTURES', 'CONTROLEUR'].includes(appUser.role as any);
+      case 'USERS':
+      case 'BACKUP':
+      case 'COMPANY_INFO':
+        return ['SUPER_ADMIN', 'ADMIN'].includes(appUser.role as any);
+      case 'IMPORT_BL':
+        return ['SUPER_ADMIN', 'ADMIN', 'AGENT_STOCK', 'COMMERCIAL', 'COMPTABLE_FACTURES'].includes(appUser.role as any);
+      default:
+        return false;
+    }
+  };
 
   const renderTabContent = () => {
-    // If user is RESPONSABLE_FRIGO, strictly lock view to DELIVERY_NOTES, BL_EDIT, BL_SIGN or BL_PDF only!
+    // If not authorized for this specific tab, show clean permission alert
+    if (!isTabAuthorized(activeTab)) {
+      const fallbackTab: NavTab = appUser?.role === 'RESPONSABLE_FRIGO' ? 'DELIVERY_NOTES' : 'DASHBOARD';
+      return (
+        <div className="p-8 bg-white border border-red-200 rounded-xl shadow-sm text-center max-w-lg mx-auto mt-8">
+          <ShieldAlert className="w-12 h-12 text-red-500 mx-auto mb-3" />
+          <h3 className="text-lg font-bold text-gray-900 mb-1">Accès Restreint</h3>
+          <p className="text-xs text-gray-600 mb-4">
+            Votre profil ({appUser?.displayName || 'Utilisateur'} - Rôle: {appUser?.role}) ne dispose pas des droits d'accès à ce module.
+          </p>
+          <button
+            onClick={() => setNavTab(fallbackTab)}
+            className="px-4 py-2 bg-[#0f62fe] hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition shadow"
+          >
+            Retourner à mon espace
+          </button>
+        </div>
+      );
+    }
+
+    // If user is RESPONSABLE_FRIGO, strictly lock view to DELIVERY_NOTES, BL_EDIT, BL_SIGN, BL_PDF or FRIGO_OPS!
     if (appUser?.role === 'RESPONSABLE_FRIGO') {
       if (activeTab === 'BL_EDIT') {
         return <BLEditPage editId={editingEntityId} onBack={navigateBack} />;
@@ -211,6 +322,9 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
       }
       if (activeTab === 'BL_PDF') {
         return <BLPdfPage blId={editingEntityId} onBack={navigateBack} />;
+      }
+      if (activeTab === 'FRIGO_OPS') {
+        return <FrigoOperationsPage initialFrigoId={editingEntityId || currentUser.assignedFrigoId} onBack={navigateBack} />;
       }
       return (
         <DeliveryNotesBL 
@@ -338,7 +452,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
           onNavigateExtended={(tab: ExtendedNavTab) => { setActiveTab(tab); setIsMobileMenuOpen(false); }}
         />
         
-        <main className="flex-1 p-3 sm:p-6 overflow-y-auto w-full pb-20 md:pb-6">
+        <main className="flex-1 p-2.5 sm:p-4 md:p-6 overflow-y-auto w-full pb-24 md:pb-6 touch-manipulation">
           <div className="max-w-7xl mx-auto">
             <div key={activeTab + (editingEntityId || '')} className="tab-fade-in">
               <Suspense fallback={<LoadingSpinner />}>
@@ -350,56 +464,154 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
       </div>
 
       {/* Smartphone Bottom Quick Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#161616] border-t border-[#393939] text-white z-30 flex justify-around items-center px-1 py-1.5 shadow-lg select-none">
-        <button
-          onClick={() => { setNavTab('DASHBOARD'); setIsMobileMenuOpen(false); }}
-          className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
-            activeTab === 'DASHBOARD' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          <LayoutDashboard className="w-5 h-5 mb-0.5" />
-          <span>{t('nav.home')}</span>
-        </button>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#161616]/95 backdrop-blur-md border-t border-[#393939] text-white z-30 flex justify-around items-center px-1 py-1.5 shadow-2xl select-none pb-[max(0.4rem,env(safe-area-inset-bottom))]">
+        {appUser?.role === 'RESPONSABLE_FRIGO' ? (
+          <>
+            <button
+              onClick={() => { setNavTab('DELIVERY_NOTES'); setIsMobileMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center w-1/4 py-1 text-[10px] font-mono relative ${
+                activeTab === 'DELIVERY_NOTES' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Truck className="w-5 h-5 mb-0.5" />
+              <span>Bons Quai</span>
+            </button>
 
-        <button
-          onClick={() => { setNavTab('PRODUCTS_STOCK'); setIsMobileMenuOpen(false); }}
-          className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
-            activeTab === 'PRODUCTS_STOCK' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          <Package className="w-5 h-5 mb-0.5" />
-          <span>{t('nav.stock')}</span>
-        </button>
+            <button
+              onClick={() => { navigateToEdit('BL_SIGN', null); setIsMobileMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center w-1/4 py-1 text-[10px] font-mono ${
+                activeTab === 'BL_SIGN' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <PenTool className="w-5 h-5 mb-0.5" />
+              <span>Signature</span>
+            </button>
 
-        <button
-          onClick={() => { setNavTab('DELIVERY_NOTES'); setIsMobileMenuOpen(false); }}
-          className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono relative ${
-            activeTab === 'DELIVERY_NOTES' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          <Truck className="w-5 h-5 mb-0.5" />
-          <span>{t('nav.bl')}</span>
-        </button>
+            <button
+              onClick={() => { navigateToEdit('FRIGO_OPS', currentUser.assignedFrigoId || null); setIsMobileMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center w-1/4 py-1 text-[10px] font-mono ${
+                activeTab === 'FRIGO_OPS' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Camera className="w-5 h-5 mb-0.5" />
+              <span>Pesées</span>
+            </button>
 
-        <button
-          onClick={() => { setNavTab('CLIENTS'); setIsMobileMenuOpen(false); }}
-          className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
-            activeTab === 'CLIENTS' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          <Users className="w-5 h-5 mb-0.5" />
-          <span>{t('nav.clients')}</span>
-        </button>
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className={`flex flex-col items-center justify-center w-1/4 py-1 text-[10px] font-mono ${
+                isMobileMenuOpen ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Menu className="w-5 h-5 mb-0.5" />
+              <span>{t('nav.menu')}</span>
+            </button>
+          </>
+        ) : appUser?.role === 'COMPTABLE' || appUser?.role === 'COMPTABLE_FACTURES' ? (
+          <>
+            <button
+              onClick={() => { setNavTab('INVOICING'); setIsMobileMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
+                activeTab === 'INVOICING' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <FileText className="w-5 h-5 mb-0.5" />
+              <span>Factures</span>
+            </button>
 
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
-            isMobileMenuOpen ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          <Menu className="w-5 h-5 mb-0.5" />
-          <span>{t('nav.menu')}</span>
-        </button>
+            <button
+              onClick={() => { setNavTab('TREASURY_CHEQUES'); setIsMobileMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
+                activeTab === 'TREASURY_CHEQUES' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Landmark className="w-5 h-5 mb-0.5" />
+              <span>Trésorerie</span>
+            </button>
+
+            <button
+              onClick={() => { setNavTab('EXPENSES'); setIsMobileMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
+                activeTab === 'EXPENSES' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Receipt className="w-5 h-5 mb-0.5" />
+              <span>Dépenses</span>
+            </button>
+
+            <button
+              onClick={() => { setNavTab('CLIENTS'); setIsMobileMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
+                activeTab === 'CLIENTS' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Users className="w-5 h-5 mb-0.5" />
+              <span>Clients</span>
+            </button>
+
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
+                isMobileMenuOpen ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Menu className="w-5 h-5 mb-0.5" />
+              <span>{t('nav.menu')}</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => { setNavTab('DASHBOARD'); setIsMobileMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
+                activeTab === 'DASHBOARD' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <LayoutDashboard className="w-5 h-5 mb-0.5" />
+              <span>{t('nav.home')}</span>
+            </button>
+
+            <button
+              onClick={() => { setNavTab('PRODUCTS_STOCK'); setIsMobileMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
+                activeTab === 'PRODUCTS_STOCK' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Package className="w-5 h-5 mb-0.5" />
+              <span>{t('nav.stock')}</span>
+            </button>
+
+            <button
+              onClick={() => { setNavTab('DELIVERY_NOTES'); setIsMobileMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono relative ${
+                activeTab === 'DELIVERY_NOTES' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Truck className="w-5 h-5 mb-0.5" />
+              <span>{t('nav.bl')}</span>
+            </button>
+
+            <button
+              onClick={() => { setNavTab('CLIENTS'); setIsMobileMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
+                activeTab === 'CLIENTS' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Users className="w-5 h-5 mb-0.5" />
+              <span>{t('nav.clients')}</span>
+            </button>
+
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
+                isMobileMenuOpen ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Menu className="w-5 h-5 mb-0.5" />
+              <span>{t('nav.menu')}</span>
+            </button>
+          </>
+        )}
       </nav>
 
       {/* Global BL PDF Viewer Modal */}
