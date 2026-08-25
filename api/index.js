@@ -541,7 +541,33 @@ app.post("/api/delivery-notes", async (req, res) => {
   try {
     const blData = req.body;
     const bl = await prisma.$transaction(async (tx) => {
-      const created = await tx.deliveryNoteBL.create({ data: blData });
+      let finalClientId = blData.clientId;
+      if (blData.clientName && blData.clientName.trim()) {
+        const normName = blData.clientName.trim();
+        let existingClient = await tx.client.findFirst({
+          where: { name: { equals: normName, mode: "insensitive" } }
+        });
+        if (!existingClient) {
+          const clientCount = await tx.client.count();
+          existingClient = await tx.client.create({
+            data: {
+              code: `CLT-${String(clientCount + 1).padStart(3, "0")}`,
+              name: normName,
+              companyName: normName,
+              city: "Casablanca",
+              creditLimit: 3e5,
+              currentBalance: Number(blData.totalTTC) || 0
+            }
+          });
+        }
+        finalClientId = existingClient.id;
+      }
+      const created = await tx.deliveryNoteBL.create({
+        data: {
+          ...blData,
+          clientId: finalClientId || blData.clientId || ""
+        }
+      });
       if (blData.frigoId && Array.isArray(blData.items)) {
         for (const item of blData.items) {
           if (!item.productId) continue;
