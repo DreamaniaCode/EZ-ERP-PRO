@@ -1844,9 +1844,11 @@ if (!process.env.VERCEL) {
     console.log(`\u{1F680} EZ-ERP PostgreSQL API Server listening on port ${PORT}`);
   });
 }
-var index_default = app;
+function handler(req, res) {
+  return app(req, res);
+}
 export {
   app,
-  index_default as default,
+  handler as default,
   prisma
 };
