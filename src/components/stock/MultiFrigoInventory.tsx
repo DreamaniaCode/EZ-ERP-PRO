@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useERP } from '../../context/ERPContext';
-import { Product, InventoryCountItem } from '../../types';
+import { Product, InventoryCountItem, ColdStorageFrigo } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
 import { StockTransferModal } from './StockTransferModal';
 
@@ -11,24 +11,32 @@ import {
   CheckCircle2, 
   Save, 
   RefreshCw,
-  AlertCircle,
   Edit3,
-  Sliders,
   Search,
-  Filter,
-  X,
+  Plus,
+  ArrowLeftRight,
   ShieldAlert,
   SlidersHorizontal,
   PackageCheck,
   PackageX,
-  Trash2,
-  Plus,
-  ArrowLeftRight
+  LayoutGrid,
+  Table,
+  Sliders
 } from 'lucide-react';
-import { ColdStorageFrigo } from '../../types';
 
 export const MultiFrigoInventory: React.FC = () => {
-  const { frigos, products, stocks, saveInventoryCount, addFrigo, updateFrigo, deleteFrigo, updateProduct, currentUser } = useERP();
+  const { 
+    frigos, 
+    products, 
+    stocks, 
+    saveInventoryCount, 
+    adjustStock,
+    addFrigo, 
+    updateFrigo, 
+    deleteFrigo, 
+    updateProduct, 
+    currentUser 
+  } = useERP();
   
   const [selectedFrigoId, setSelectedFrigoId] = useState<string>(
     currentUser.assignedFrigoId || frigos[0]?.id || ''
@@ -36,8 +44,17 @@ export const MultiFrigoInventory: React.FC = () => {
   const [showAddFrigoModal, setShowAddFrigoModal] = useState(false);
   const [showManageFrigosModal, setShowManageFrigosModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferInitialProduct, setTransferInitialProduct] = useState<string>('');
+  const [transferInitialSource, setTransferInitialSource] = useState<string>('');
   const [editingFrigo, setEditingFrigo] = useState<ColdStorageFrigo | null>(null);
 
+  // View mode switcher: 'SHEET' (Physical count sheet) vs 'MATRIX' (Multi-frigo consolidated comparative grid)
+  const [viewMode, setViewMode] = useState<'SHEET' | 'MATRIX'>('SHEET');
+
+  // Quick Adjustment Modal state
+  const [quickAdjustItem, setQuickAdjustItem] = useState<{ frigoId: string; productId: string; currentKg: number; currentPallets: number } | null>(null);
+  const [quickAdjustKg, setQuickAdjustKg] = useState<number>(0);
+  const [quickAdjustPallets, setQuickAdjustPallets] = useState<number>(0);
 
   const [frigoForm, setFrigoForm] = useState({
     name: '',
@@ -74,7 +91,7 @@ export const MultiFrigoInventory: React.FC = () => {
     return initial;
   });
 
-  const activeFrigo = frigos.find(f => f.id === selectedFrigoId);
+  const activeFrigo = frigos.find(f => f.id === selectedFrigoId) || frigos[0];
 
   // Reload physical counts when selected frigo changes
   const handleFrigoChange = (frigoId: string) => {
@@ -129,7 +146,7 @@ export const MultiFrigoInventory: React.FC = () => {
       items,
     }, applyAdjust);
 
-    alert(`Inventaire physique ${applyAdjust ? 'enregistré & stock ajusté' : 'enregistré sans modification de stock'} avec succès !`);
+    alert(`Inventaire physique ${applyAdjust ? 'enregistré & stock PostgreSQL ajusté' : 'enregistré sans modification de stock'} avec succès !`);
   };
 
   const handleOpenAddFrigo = () => {
@@ -181,11 +198,11 @@ export const MultiFrigoInventory: React.FC = () => {
 
     if (editingFrigo) {
       updateFrigo(editingFrigo.id, frigoForm);
-      alert(`Frigo "${frigoForm.name}" mis à jour avec succès ! (Données synchronisées)`);
+      alert(`Frigo "${frigoForm.name}" mis à jour avec succès dans PostgreSQL !`);
     } else {
       const created = addFrigo(frigoForm);
       setSelectedFrigoId(created.id);
-      alert(`Nouveau Frigo/Entrepôt (${created.name}) créé avec succès ! (Données synchronisées)`);
+      alert(`Nouveau Frigo/Entrepôt (${created.name}) créé avec succès dans PostgreSQL !`);
     }
 
     setShowAddFrigoModal(false);
@@ -207,6 +224,20 @@ export const MultiFrigoInventory: React.FC = () => {
     updateProduct(editingProduct.id, { minStockAlertKg: Number(newThresholdKg) });
     setEditingProduct(null);
     alert(`Seuil d'alerte mis à jour à ${newThresholdKg.toLocaleString()} Kg pour "${editingProduct.name}".`);
+  };
+
+  const handleQuickAdjustSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickAdjustItem) return;
+    adjustStock(quickAdjustItem.frigoId, quickAdjustItem.productId, Number(quickAdjustKg), Number(quickAdjustPallets));
+    setQuickAdjustItem(null);
+    alert(`Stock mis à jour avec succès : ${Number(quickAdjustKg).toLocaleString()} Kg.`);
+  };
+
+  const openTransferForProduct = (sourceFrigoId: string, productId: string) => {
+    setTransferInitialSource(sourceFrigoId);
+    setTransferInitialProduct(productId);
+    setShowTransferModal(true);
   };
 
   // Stock calculation helpers for Low Stock Threshold Alert System
@@ -276,10 +307,10 @@ export const MultiFrigoInventory: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold font-mono uppercase tracking-wide flex items-center gap-2">
             <ClipboardCheck className="w-5 h-5 text-[#0f62fe]" />
-            Inventaires & Système d'Alerte Stock Bas
+            Inventaires Multi-Sites & Gestion Inter-Frigos
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            Détection Automatique des Seuils de Réapprovisionnement, Saisie Physique & Contrôle Multi-Frigos
+            Détection Automatique des Seuils de Réapprovisionnement, Saisie Physique, Matrice Consolidée & Transferts
           </p>
         </div>
 
@@ -301,7 +332,11 @@ export const MultiFrigoInventory: React.FC = () => {
           </div>
 
           <button
-            onClick={() => setShowTransferModal(true)}
+            onClick={() => {
+              setTransferInitialSource(selectedFrigoId);
+              setTransferInitialProduct('');
+              setShowTransferModal(true);
+            }}
             className="px-3 py-1.5 bg-[#0f62fe] hover:bg-blue-700 text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-all shadow-sm"
             title="Transférer du stock d'un frigo de départ vers un frigo de destination"
           >
@@ -315,9 +350,8 @@ export const MultiFrigoInventory: React.FC = () => {
             title="Gérer la liste complète des Frigos & Entrepôts (CRUD)"
           >
             <Building2 className="w-4 h-4" />
-            <span>Gérer Frigos (CRUD)</span>
+            <span>Gérer Frigos ({frigos.length})</span>
           </button>
-
 
           <button
             onClick={handleOpenAddFrigo}
@@ -353,7 +387,7 @@ export const MultiFrigoInventory: React.FC = () => {
           <div className="flex items-center gap-6">
             <div>
               <span className="text-blue-300">Capacité Frigo:</span>
-              <div className="font-bold text-white text-sm">{activeFrigo.capacityPallets} Palettes</div>
+              <div className="font-bold text-white text-sm">{activeFrigo.capacityPallets?.toLocaleString()} Palettes</div>
             </div>
             <div>
               <span className="text-blue-300">Groupe WhatsApp:</span>
@@ -462,19 +496,37 @@ export const MultiFrigoInventory: React.FC = () => {
 
       </div>
 
-      {/* Main Inventory & Alert Control Sheet */}
+      {/* Main Inventory & Control Sheet */}
       <div className="carbon-card p-4 sm:p-5 space-y-4">
         
-        {/* Top Control Bar */}
+        {/* Top Control Bar with View Switcher */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-gray-200">
-          <div>
-            <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
-              <ClipboardCheck className="w-4 h-4 text-[#0f62fe]" />
-              Feuille de Saisie Inventaire & Contrôle des Seuils ({activeFrigo?.name})
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Les articles avec un stock inférieur au seuil sont automatiquement surlignés en couleur d'alerte.
-            </p>
+          <div className="flex items-center gap-3">
+            {/* View Mode Buttons */}
+            <div className="flex items-center bg-gray-100 p-1 rounded-lg border border-gray-300">
+              <button
+                onClick={() => setViewMode('SHEET')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                  viewMode === 'SHEET'
+                    ? 'bg-white text-[#0f62fe] shadow-sm font-black'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Table className="w-3.5 h-3.5" />
+                <span>Feuille de Saisie Physique ({activeFrigo?.code})</span>
+              </button>
+              <button
+                onClick={() => setViewMode('MATRIX')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                  viewMode === 'MATRIX'
+                    ? 'bg-[#0f62fe] text-white shadow-sm font-black'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Matrice Multi-Frigos Consolidée</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -502,20 +554,24 @@ export const MultiFrigoInventory: React.FC = () => {
               })}
             />
 
-            <button
-              onClick={() => handleSaveInventory(false)}
-              className="bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-800 text-xs px-3 py-2 rounded flex items-center gap-1 font-semibold transition-colors"
-            >
-              <Save className="w-4 h-4 text-gray-600" />
-              <span className="hidden sm:inline">Sauvegarder</span> Sans Ajustement
-            </button>
-            <button
-              onClick={() => handleSaveInventory(true)}
-              className="carbon-btn-primary text-xs flex items-center gap-1 rounded"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Valider & Ajuster Stock
-            </button>
+            {viewMode === 'SHEET' && (
+              <>
+                <button
+                  onClick={() => handleSaveInventory(false)}
+                  className="bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-800 text-xs px-3 py-2 rounded flex items-center gap-1 font-semibold transition-colors"
+                >
+                  <Save className="w-4 h-4 text-gray-600" />
+                  <span className="hidden sm:inline">Sauvegarder</span> Sans Ajustement
+                </button>
+                <button
+                  onClick={() => handleSaveInventory(true)}
+                  className="carbon-btn-primary text-xs flex items-center gap-1 rounded font-bold"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Valider & Ajuster Stock
+                </button>
+              </>
+            )}
           </div>
 
         </div>
@@ -582,200 +638,383 @@ export const MultiFrigoInventory: React.FC = () => {
           </div>
         </div>
 
-        {/* Low Stock Warning Banner if items in low stock */}
-        {activeLowStockList.length > 0 && filterLowStockOnly && (
-          <div className="bg-amber-50 border-l-4 border-l-amber-500 border border-amber-200 p-3 rounded text-amber-900 text-xs font-mono flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>
-                Filtre Actif: Affichage exclusif des <strong>{activeLowStockList.length} produit(s)</strong> en-dessous de leur seuil d'alerte de réapprovisionnement ({stockScope === 'CURRENT_FRIGO' ? activeFrigo?.name : 'Toutes Réerves Combined'}).
-              </span>
-            </div>
-            <button onClick={() => setFilterLowStockOnly(false)} className="text-amber-800 hover:text-amber-950 font-bold underline">
-              Réinitialiser
-            </button>
+        {/* VIEW 1: Standard Physical Count Sheet */}
+        {viewMode === 'SHEET' && (
+          <div className="overflow-x-auto">
+            <table className="carbon-table w-full">
+              <thead>
+                <tr className="bg-gray-100 text-gray-700 uppercase font-mono text-[11px]">
+                  <th>Code Auto</th>
+                  <th>Désignation Produit</th>
+                  <th>Seuil Alerte (Reorder)</th>
+                  <th>
+                    {stockScope === 'CURRENT_FRIGO' ? `Stock ${activeFrigo?.code || 'Frigo'} (Théorique)` : 'Stock Consolidé Multi-Frigos'}
+                  </th>
+                  <th>Statut / Alerte</th>
+                  <th>Saisie Physique (Kg)</th>
+                  <th>Palettes Physique</th>
+                  <th>Écart (Kg)</th>
+                  <th>Actions Logistique</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProducts.map(prd => {
+                  const info = getProductStockInfo(prd);
+                  
+                  const currentPhysicalKg = Number(physicalCounts[prd.id]?.physicalKg || 0);
+                  const currentPhysicalPallets = Number(physicalCounts[prd.id]?.physicalPallets || 0);
+                  const diffKg = currentPhysicalKg - info.frigoKg;
+
+                  // Row background highlight logic
+                  let rowBgClass = '';
+                  if (info.isRupture) {
+                    rowBgClass = 'bg-red-50/90 hover:bg-red-100/90 border-l-4 border-l-red-600';
+                  } else if (info.isLowStock) {
+                    rowBgClass = 'bg-amber-50/90 hover:bg-amber-100/90 border-l-4 border-l-amber-500';
+                  }
+
+                  return (
+                    <tr key={prd.id} className={rowBgClass}>
+                      
+                      {/* Code Auto */}
+                      <td className="font-mono font-bold text-[#0f62fe]">
+                        {prd.code}
+                      </td>
+
+                      {/* Designation */}
+                      <td>
+                        <div className="font-bold text-gray-900">{prd.name}</div>
+                        <div className="text-[10px] text-gray-500 font-mono">
+                          Catégorie: {prd.category} • Origine: {prd.origin}
+                        </div>
+                      </td>
+
+                      {/* Threshold Level with Edit Trigger */}
+                      <td>
+                        <div className="flex items-center gap-1.5 font-mono">
+                          <span className="font-bold text-gray-800 text-xs">
+                            {info.minThreshold.toLocaleString()} Kg
+                          </span>
+                          <button
+                            onClick={() => {
+                              setEditingProduct(prd);
+                              setNewThresholdKg(prd.minStockAlertKg || 1000);
+                            }}
+                            className="p-1 text-gray-400 hover:text-[#0f62fe] rounded hover:bg-gray-200/60 transition-colors"
+                            title="Modifier le seuil d'alerte de ce produit"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Stock Quantity */}
+                      <td className="font-mono text-gray-800">
+                        {stockScope === 'CURRENT_FRIGO' ? (
+                          <div>
+                            <span className={`font-bold text-sm ${info.isLowStock ? 'text-amber-900' : 'text-gray-900'}`}>
+                              {info.frigoKg.toLocaleString()} Kg
+                            </span>
+                            <div className="text-[10px] text-gray-500 font-bold">
+                              {info.frigoPallets} Pal.
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className={`font-bold text-sm ${info.isLowStock ? 'text-amber-900' : 'text-gray-900'}`}>
+                              {info.globalKg.toLocaleString()} Kg
+                            </span>
+                            <div className="text-[10px] text-gray-500 font-bold">
+                              {info.globalPallets} Pal. (Cumul)
+                            </div>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Status Badge */}
+                      <td>
+                        {info.isRupture ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold bg-red-600 text-white px-2 py-0.5 rounded shadow">
+                            <PackageX className="w-3 h-3 animate-bounce" />
+                            RUPTURE (0 Kg)
+                          </span>
+                        ) : info.isLowStock ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold bg-amber-500 text-black px-2 py-0.5 rounded shadow">
+                            <AlertTriangle className="w-3 h-3" />
+                            STOCK BAS (-{info.deficitKg.toLocaleString()} Kg)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            CONFORME
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Physical Kg Input */}
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          value={currentPhysicalKg}
+                          onChange={e => handleItemChange(prd.id, 'physicalKg', e.target.value)}
+                          className="w-28 carbon-input font-mono font-bold text-blue-800 bg-white"
+                        />
+                      </td>
+
+                      {/* Physical Pallets Input */}
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          value={currentPhysicalPallets}
+                          onChange={e => handleItemChange(prd.id, 'physicalPallets', e.target.value)}
+                          className="w-24 carbon-input font-mono font-bold text-blue-800 bg-white"
+                        />
+                      </td>
+
+                      {/* Difference Kg */}
+                      <td className="font-mono font-bold">
+                        {diffKg === 0 ? (
+                          <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-xs">
+                            0 Kg
+                          </span>
+                        ) : diffKg > 0 ? (
+                          <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-xs">
+                            +{diffKg} Kg
+                          </span>
+                        ) : (
+                          <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200 text-xs">
+                            {diffKg} Kg
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => openTransferForProduct(selectedFrigoId, prd.id)}
+                            className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[11px] font-mono font-bold flex items-center gap-1 border border-blue-200 transition-colors"
+                            title="Transférer ce produit vers un autre frigo"
+                          >
+                            <ArrowLeftRight className="w-3.5 h-3.5" />
+                            <span>Transférer</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {filteredProducts.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="text-center py-8 text-gray-500 font-mono text-xs">
+                      Aucun produit ne correspond aux critères de recherche / alerte sélectionnés.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         )}
 
-        {/* Inventory & Low Stock Table */}
-        <div className="overflow-x-auto">
-          <table className="carbon-table w-full">
-            <thead>
-              <tr className="bg-gray-100 text-gray-700 uppercase font-mono text-[11px]">
-                <th>Code Auto</th>
-                <th>Désignation Produit</th>
-                <th>Seuil d'Alerte (Reorder)</th>
-                <th>
-                  {stockScope === 'CURRENT_FRIGO' ? `Stock ${activeFrigo?.code || 'Frigo'} (Théorique)` : 'Stock Consolidé Multi-Frigos'}
-                </th>
-                <th>Statut / Alerte</th>
-                <th>Saisie Physique (Kg)</th>
-                <th>Palettes Physique</th>
-                <th>Écart (Kg)</th>
-                <th>Remarques / Motif</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProducts.map(prd => {
-                const info = getProductStockInfo(prd);
-                
-                const currentPhysicalKg = Number(physicalCounts[prd.id]?.physicalKg || 0);
-                const currentPhysicalPallets = Number(physicalCounts[prd.id]?.physicalPallets || 0);
-                const diffKg = currentPhysicalKg - info.frigoKg;
-
-                // Row background highlight logic
-                let rowBgClass = '';
-                if (info.isRupture) {
-                  rowBgClass = 'bg-red-50/90 hover:bg-red-100/90 border-l-4 border-l-red-600';
-                } else if (info.isLowStock) {
-                  rowBgClass = 'bg-amber-50/90 hover:bg-amber-100/90 border-l-4 border-l-amber-500';
-                }
-
-                return (
-                  <tr key={prd.id} className={rowBgClass}>
-                    
-                    {/* Code Auto */}
-                    <td className="font-mono font-bold text-[#0f62fe]">
-                      {prd.code}
-                    </td>
-
-                    {/* Designation */}
-                    <td>
-                      <div className="font-bold text-gray-900">{prd.name}</div>
-                      <div className="text-[10px] text-gray-500 font-mono">
-                        Catégorie: {prd.category} • Origine: {prd.origin}
-                      </div>
-                    </td>
-
-                    {/* Threshold Level with Edit Trigger */}
-                    <td>
-                      <div className="flex items-center gap-1.5 font-mono">
-                        <span className="font-bold text-gray-800 text-xs">
-                          {info.minThreshold.toLocaleString()} Kg
-                        </span>
-                        <button
-                          onClick={() => {
-                            setEditingProduct(prd);
-                            setNewThresholdKg(prd.minStockAlertKg || 1000);
-                          }}
-                          className="p-1 text-gray-400 hover:text-[#0f62fe] rounded hover:bg-gray-200/60 transition-colors"
-                          title="Modifier le seuil d'alerte de ce produit"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <div className="text-[10px] text-gray-500 font-mono">
-                        ~{Math.round((info.minThreshold / (prd.kgPerPallet || 800)) * 10) / 10} Palettes
-                      </div>
-                    </td>
-
-                    {/* Stock Quantity */}
-                    <td className="font-mono text-gray-800">
-                      {stockScope === 'CURRENT_FRIGO' ? (
-                        <div>
-                          <span className={`font-bold text-sm ${info.isLowStock ? 'text-amber-900' : 'text-gray-900'}`}>
-                            {info.frigoKg.toLocaleString()} Kg
-                          </span>
-                          <div className="text-[10px] text-gray-500 font-bold">
-                            {info.frigoPallets} Pal.
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <span className={`font-bold text-sm ${info.isLowStock ? 'text-amber-900' : 'text-gray-900'}`}>
-                            {info.globalKg.toLocaleString()} Kg
-                          </span>
-                          <div className="text-[10px] text-gray-500 font-bold">
-                            {info.globalPallets} Pal. (Cumul)
-                          </div>
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Status Badge */}
-                    <td>
-                      {info.isRupture ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold bg-red-600 text-white px-2 py-0.5 rounded shadow">
-                          <PackageX className="w-3 h-3 animate-bounce" />
-                          RUPTURE (0 Kg)
-                        </span>
-                      ) : info.isLowStock ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold bg-amber-500 text-black px-2 py-0.5 rounded shadow">
-                          <AlertTriangle className="w-3 h-3" />
-                          STOCK BAS (-{info.deficitKg.toLocaleString()} Kg)
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          STOCK CONFORME
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Physical Kg Input */}
-                    <td>
-                      <input
-                        type="number"
-                        min="0"
-                        value={currentPhysicalKg}
-                        onChange={e => handleItemChange(prd.id, 'physicalKg', e.target.value)}
-                        className="w-28 carbon-input font-mono font-bold text-blue-800 bg-white"
-                      />
-                    </td>
-
-                    {/* Physical Pallets Input */}
-                    <td>
-                      <input
-                        type="number"
-                        min="0"
-                        value={currentPhysicalPallets}
-                        onChange={e => handleItemChange(prd.id, 'physicalPallets', e.target.value)}
-                        className="w-24 carbon-input font-mono font-bold text-blue-800 bg-white"
-                      />
-                    </td>
-
-                    {/* Difference Kg */}
-                    <td className="font-mono font-bold">
-                      {diffKg === 0 ? (
-                        <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-xs">
-                          0 Kg
-                        </span>
-                      ) : diffKg > 0 ? (
-                        <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-xs">
-                          +{diffKg} Kg
-                        </span>
-                      ) : (
-                        <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200 text-xs">
-                          {diffKg} Kg
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Notes */}
-                    <td>
-                      <input
-                        type="text"
-                        placeholder="Raison écart ou réappro..."
-                        value={physicalCounts[prd.id]?.notes || ''}
-                        onChange={e => handleItemChange(prd.id, 'notes', e.target.value)}
-                        className="w-full carbon-input text-xs bg-white"
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {filteredProducts.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="text-center py-8 text-gray-500 font-mono text-xs">
-                    Aucun produit ne correspond aux critères de recherche / alerte sélectionnés.
-                  </td>
+        {/* VIEW 2: Multi-Frigos Consolidated Comparative Grid */}
+        {viewMode === 'MATRIX' && (
+          <div className="overflow-x-auto">
+            <table className="carbon-table w-full">
+              <thead>
+                <tr className="bg-[#161616] text-white uppercase font-mono text-[11px]">
+                  <th className="py-3">Code</th>
+                  <th className="py-3">Désignation Produit</th>
+                  {frigos.map(f => (
+                    <th key={f.id} className="py-3 text-center bg-[#262626] border-l border-[#393939]">
+                      <div className="font-bold text-amber-300">{f.name}</div>
+                      <div className="text-[10px] text-gray-400 font-normal">{f.code} • {f.location}</div>
+                    </th>
+                  ))}
+                  <th className="py-3 text-center bg-blue-900 text-white border-l border-blue-800">
+                    <div>TOTAL GLOBAL</div>
+                    <div className="text-[10px] text-blue-200 font-normal">Cumul Entreprise</div>
+                  </th>
+                  <th className="py-3 text-center">Seuil & Statut</th>
+                  <th className="py-3 text-right">Actions Inter-Sites</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredProducts.map(prd => {
+                  const info = getProductStockInfo(prd);
+
+                  return (
+                    <tr key={prd.id} className="hover:bg-gray-50/80">
+                      
+                      {/* Product Code */}
+                      <td className="font-mono font-bold text-[#0f62fe]">
+                        {prd.code}
+                      </td>
+
+                      {/* Product Name */}
+                      <td>
+                        <div className="font-bold text-gray-900">{prd.name}</div>
+                        <div className="text-[10px] text-gray-500 font-mono">{prd.category} • {prd.origin}</div>
+                      </td>
+
+                      {/* Individual Frigo Columns */}
+                      {frigos.map(f => {
+                        const st = stocks.find(s => s.frigoId === f.id && s.productId === prd.id);
+                        const kg = st ? st.quantityKg : 0;
+                        const pallets = st ? st.quantityPallets : 0;
+
+                        return (
+                          <td key={f.id} className="text-center font-mono border-l border-gray-200 bg-gray-50/40">
+                            <div className="font-black text-gray-900 text-xs">
+                              {kg.toLocaleString()} <span className="text-[10px] font-normal text-gray-500">Kg</span>
+                            </div>
+                            <div className="text-[10px] text-gray-600 font-semibold">
+                              {pallets} Pal.
+                            </div>
+                            <div className="mt-1 flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => {
+                                  setQuickAdjustItem({
+                                    frigoId: f.id,
+                                    productId: prd.id,
+                                    currentKg: kg,
+                                    currentPallets: pallets,
+                                  });
+                                  setQuickAdjustKg(kg);
+                                  setQuickAdjustPallets(pallets);
+                                }}
+                                className="px-1.5 py-0.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-[9px] rounded font-sans"
+                                title={`Ajuster le stock dans ${f.name}`}
+                              >
+                                Ajuster
+                              </button>
+                              <button
+                                onClick={() => openTransferForProduct(f.id, prd.id)}
+                                className="px-1.5 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-800 text-[9px] rounded font-sans font-semibold"
+                                title={`Transférer depuis ${f.name}`}
+                              >
+                                Transférer
+                              </button>
+                            </div>
+                          </td>
+                        );
+                      })}
+
+                      {/* Global Cumulative Total */}
+                      <td className="text-center font-mono border-l border-blue-200 bg-blue-50/60 font-black">
+                        <div className="text-blue-900 text-sm">
+                          {info.globalKg.toLocaleString()} <span className="text-xs font-normal">Kg</span>
+                        </div>
+                        <div className="text-[11px] text-blue-700">
+                          {info.globalPallets} Palettes
+                        </div>
+                      </td>
+
+                      {/* Threshold & Global Status */}
+                      <td className="text-center font-mono">
+                        <div className="text-xs font-bold text-gray-700">
+                          Seuil: {info.minThreshold.toLocaleString()} Kg
+                        </div>
+                        <div className="mt-1">
+                          {info.globalKg === 0 ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold bg-red-600 text-white px-2 py-0.5 rounded">
+                              Rupture Globale
+                            </span>
+                          ) : info.globalKg < info.minThreshold ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold bg-amber-500 text-black px-2 py-0.5 rounded">
+                              Alerte Stock Bas
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded">
+                              Optimal
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="text-right">
+                        <button
+                          onClick={() => openTransferForProduct(selectedFrigoId, prd.id)}
+                          className="px-3 py-1.5 bg-[#0f62fe] hover:bg-blue-700 text-white font-mono text-xs font-bold rounded flex items-center gap-1 ml-auto shadow-sm"
+                        >
+                          <ArrowLeftRight className="w-3.5 h-3.5" />
+                          <span>Transférer</span>
+                        </button>
+                      </td>
+
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
       </div>
+
+      {/* Quick Stock Adjustment Modal */}
+      {quickAdjustItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-gray-300 w-full max-w-md rounded-lg shadow-2xl overflow-hidden animate-in fade-in">
+            <div className="bg-[#161616] text-white px-4 py-3 flex justify-between items-center border-b border-[#393939]">
+              <h3 className="font-bold text-sm font-mono uppercase flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-[#0f62fe]" />
+                Ajustement Rapide du Stock
+              </h3>
+              <button onClick={() => setQuickAdjustItem(null)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+
+            <form onSubmit={handleQuickAdjustSubmit} className="p-5 space-y-4 text-xs">
+              <div className="bg-blue-50 border border-blue-200 p-3 rounded text-blue-950 font-mono">
+                <div>Frigo: <b>{frigos.find(f => f.id === quickAdjustItem.frigoId)?.name}</b></div>
+                <div className="mt-1">Produit: <b>{products.find(p => p.id === quickAdjustItem.productId)?.name}</b></div>
+                <div className="mt-1 text-gray-500">Stock Actuel: {quickAdjustItem.currentKg.toLocaleString()} Kg ({quickAdjustItem.currentPallets} Pal.)</div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Nouveau Poids (Kg) *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={quickAdjustKg}
+                    onChange={e => setQuickAdjustKg(Number(e.target.value))}
+                    className="w-full carbon-input font-mono font-bold text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">Nombre Palettes *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={quickAdjustPallets}
+                    onChange={e => setQuickAdjustPallets(Number(e.target.value))}
+                    className="w-full carbon-input font-mono font-bold text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-gray-200 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickAdjustItem(null)}
+                  className="px-4 py-2 border border-gray-300 font-semibold hover:bg-gray-100 rounded"
+                >
+                  Annuler
+                </button>
+                <button type="submit" className="carbon-btn-primary rounded font-bold">
+                  Enregistrer dans PostgreSQL
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Threshold Modal */}
       {editingProduct && (
@@ -900,7 +1139,7 @@ export const MultiFrigoInventory: React.FC = () => {
                             <div>{f.managerName}</div>
                             <div className="text-[10px] text-gray-500">{f.managerPhone}</div>
                           </td>
-                          <td className="p-2.5 font-bold text-gray-900">{f.capacityPallets} Pal.</td>
+                          <td className="p-2.5 font-bold text-gray-900">{f.capacityPallets?.toLocaleString()} Pal.</td>
                           <td className="p-2.5 text-right">
                             <div className="flex justify-end gap-1.5">
                               {!isSelected && (
@@ -1086,15 +1325,18 @@ export const MultiFrigoInventory: React.FC = () => {
       )}
 
       {/* Stock Transfer Inter-Frigos Modal */}
-
       {showTransferModal && (
         <StockTransferModal
-          onClose={() => setShowTransferModal(false)}
-          defaultSourceFrigoId={selectedFrigoId}
+          onClose={() => {
+            setShowTransferModal(false);
+            setTransferInitialProduct('');
+            setTransferInitialSource('');
+          }}
+          defaultSourceFrigoId={transferInitialSource || selectedFrigoId}
+          defaultProductId={transferInitialProduct}
         />
       )}
 
     </div>
   );
 };
-

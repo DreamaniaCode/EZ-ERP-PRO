@@ -49,17 +49,14 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
   const sourceFrigo = frigos.find(f => f.id === sourceFrigoId);
   const targetFrigo = frigos.find(f => f.id === targetFrigoId);
 
-  // Products available in source frigo
-  const availableProductsInSource = products.filter(p => {
-    const st = stocks.find(s => s.frigoId === sourceFrigoId && s.productId === p.id);
-    return st && st.quantityKg > 0;
-  });
+  // Products list: prioritize products in source, fallback to all catalog products
+  const productsList = products;
 
   const handleProductSelect = (pId: string) => {
     setProductId(pId);
     const prd = products.find(p => p.id === pId);
     const st = stocks.find(s => s.frigoId === sourceFrigoId && s.productId === pId);
-    if (st && prd) {
+    if (st && prd && st.quantityKg > 0) {
       setQuantityKg(st.quantityKg);
       setQuantityPallets(st.quantityPallets);
     } else {
@@ -241,12 +238,14 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded font-bold text-gray-900 bg-white focus:ring-2 focus:ring-[#0f62fe]"
               >
-                <option value="">-- Sélectionner un produit stocké dans {sourceFrigo?.name} --</option>
-                {availableProductsInSource.map(p => {
+                <option value="">-- Sélectionner un produit à transférer --</option>
+                {productsList.map(p => {
                   const st = stocks.find(s => s.frigoId === sourceFrigoId && s.productId === p.id);
+                  const availKg = st ? st.quantityKg : 0;
+                  const availPallets = st ? st.quantityPallets : 0;
                   return (
                     <option key={p.id} value={p.id}>
-                      {p.code} - {p.name} (Disponible: {st?.quantityKg.toLocaleString()} Kg / {st?.quantityPallets} Pal.)
+                      {p.code} - {p.name} (Stock actuel: {availKg.toLocaleString()} Kg / {availPallets} Pal.)
                     </option>
                   );
                 })}
