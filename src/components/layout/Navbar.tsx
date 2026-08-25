@@ -76,6 +76,15 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const handleLogout = async () => {
     try {
       localStorage.removeItem('erp_local_session');
@@ -86,12 +95,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       localStorage.removeItem('erp_local_session');
       window.location.href = '/';
     }
-  };
-
-  const toggleLanguage = () => {
-    const newLang = i18n.language === 'ar' ? 'fr' : 'ar';
-    i18n.changeLanguage(newLang);
-    localStorage.setItem('erp_language', newLang);
   };
 
 
@@ -212,14 +215,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="inline sm:hidden font-medium text-[10px]">PWA</span>
           </button>
 
-          {/* Language Toggle (FR / AR) */}
-          <button
-            onClick={toggleLanguage}
-            className="px-2 py-1 bg-[#262626] hover:bg-[#393939] text-gray-300 hover:text-white border border-[#393939] rounded text-[11px] font-bold font-mono transition-colors"
-            title="Changer de langue (FR / AR)"
+          {/* Live Digital Clock */}
+          <div 
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a1a1a] hover:bg-[#222222] border border-[#393939] rounded text-gray-200 font-mono text-xs shadow-inner select-none transition-colors"
+            title={currentTime.toLocaleDateString(i18n.language === 'ar' ? 'ar-MA' : 'fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           >
-            {i18n.language === 'ar' ? 'FR' : 'العربية'}
-          </button>
+            <Clock className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+            <span className="font-bold text-gray-100 tracking-wider">
+              {currentTime.toLocaleTimeString(i18n.language === 'ar' ? 'ar-MA' : 'fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          </div>
 
           {/* PWA Installation Modal */}
           <PWAInstallModal
@@ -328,6 +333,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 i18n.changeLanguage('fr');
                 document.documentElement.setAttribute('dir', 'ltr');
                 document.documentElement.setAttribute('lang', 'fr');
+                localStorage.setItem('erp_language', 'fr');
               }}
               className={`px-2 py-1 text-[11px] font-bold rounded transition-all flex items-center gap-1 ${
                 i18n.language === 'fr' 
@@ -345,6 +351,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 i18n.changeLanguage('ar');
                 document.documentElement.setAttribute('dir', 'rtl');
                 document.documentElement.setAttribute('lang', 'ar');
+                localStorage.setItem('erp_language', 'ar');
               }}
               className={`px-2 py-1 text-[11px] font-bold rounded transition-all flex items-center gap-1 ${
                 i18n.language === 'ar' 
