@@ -49,11 +49,32 @@ export const UserManagement: React.FC = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const usersSnap = await getDocs(collection(db, 'users'));
+      // 1. Fetch from PostgreSQL API (Single source of truth)
+      const pgUsers = await api.getUsers();
+      if (Array.isArray(pgUsers) && pgUsers.length > 0) {
+        const mappedUsers: AppUser[] = pgUsers.map(u => ({
+          uid: u.id,
+          email: u.email,
+          displayName: u.name,
+          role: (u.role === 'ADMIN' ? 'SUPER_ADMIN' : u.role) as Role,
+          permissions: DEFAULT_ROLE_PERMISSIONS[(u.role === 'ADMIN' ? 'SUPER_ADMIN' : u.role) as Role] || DEFAULT_ROLE_PERMISSIONS['COMMERCIAL'],
+          isActive: true,
+          assignedFrigoId: u.assignedFrigoId || undefined,
+          createdAt: (u as any).createdAt || new Date().toISOString()
+        }));
+
+        setUsers(mappedUsers);
+        localStorage.setItem('erp_app_users', JSON.stringify(mappedUsers));
+        setLoading(false);
+        return;
+      }
+
+      // 2. Fallback to Firebase / LocalStorage if API empty
+      const usersSnap = await getDocs(collection(db, 'users')).catch(() => ({ docs: [] }));
       let usersList = usersSnap.docs.map(doc => doc.data() as AppUser);
       
       // Ensure Super Admin is always in the list
-      if (!usersList.some(u => u.role === 'ADMIN' || u.email?.toLowerCase() === 'admin@easyerp.com')) {
+      if (!usersList.some(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN' || u.email?.toLowerCase() === 'admin@easyerp.com')) {
         usersList = [DEFAULT_SUPER_ADMIN, ...usersList];
       }
 
@@ -64,7 +85,7 @@ export const UserManagement: React.FC = () => {
       try {
         const saved = localStorage.getItem('erp_app_users');
         let parsed: AppUser[] = saved ? JSON.parse(saved) : [];
-        if (!parsed.some(u => u.role === 'ADMIN' || u.email?.toLowerCase() === 'admin@easyerp.com')) {
+        if (!parsed.some(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN' || u.email?.toLowerCase() === 'admin@easyerp.com')) {
           parsed = [DEFAULT_SUPER_ADMIN, ...parsed];
         }
         setUsers(parsed);
