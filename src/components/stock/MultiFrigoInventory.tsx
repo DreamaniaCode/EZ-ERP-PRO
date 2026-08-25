@@ -22,7 +22,9 @@ import {
   LayoutGrid,
   Table,
   Sliders,
-  Trash2
+  Trash2,
+  Zap,
+  RotateCcw
 } from 'lucide-react';
 
 export const MultiFrigoInventory: React.FC = () => {
@@ -179,7 +181,7 @@ export const MultiFrigoInventory: React.FC = () => {
   };
 
   const handleClearSingleProductStock = async (frigoId: string, productId: string, productName: string) => {
-    if (window.confirm(`Vider le stock du produit "${productName}" (0 Kg) dans ce frigo ?`)) {
+    if (window.confirm(`Vider le stock du produit "${productName}" (remettre à 0 Kg) dans ce frigo ?`)) {
       await clearStocks(frigoId, productId);
       if (frigoId === selectedFrigoId) {
         setPhysicalCounts(prev => ({
@@ -356,7 +358,7 @@ export const MultiFrigoInventory: React.FC = () => {
           </p>
         </div>
 
-        {/* Frigo Selector & Frigos CRUD buttons */}
+        {/* Frigo Selector & Fast Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 bg-[#262626] px-2.5 py-1.5 border border-[#525252] rounded">
             <Building2 className="w-4 h-4 text-[#0f62fe]" />
@@ -387,21 +389,21 @@ export const MultiFrigoInventory: React.FC = () => {
           </button>
 
           <button
+            onClick={handleClearFrigoStock}
+            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-mono text-xs font-black rounded flex items-center gap-1.5 transition-all shadow-md border border-red-400"
+            title="Vider (remettre à 0 Kg) tous les stocks de l'entrepôt actif"
+          >
+            <Trash2 className="w-4 h-4 text-white" />
+            <span>Vider Stock Frigo</span>
+          </button>
+
+          <button
             onClick={() => setShowManageFrigosModal(true)}
             className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-all shadow-sm"
             title="Gérer la liste complète des Frigos & Entrepôts (CRUD)"
           >
             <Building2 className="w-4 h-4" />
             <span>Gérer Frigos ({frigos.length})</span>
-          </button>
-
-          <button
-            onClick={handleClearFrigoStock}
-            className="px-3 py-1.5 bg-red-800 hover:bg-red-700 text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-all shadow-sm"
-            title="Vider (remettre à 0 Kg) tous les stocks de l'entrepôt actif"
-          >
-            <Trash2 className="w-4 h-4 text-red-300" />
-            <span>Vider Stock Frigo</span>
           </button>
 
           <button
@@ -412,6 +414,71 @@ export const MultiFrigoInventory: React.FC = () => {
             <span>Nouveau Frigo</span>
           </button>
         </div>
+      </div>
+
+      {/* ⚡ Dedicated Quick Actions & Clear Stock Command Strip */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        
+        {/* Quick Action 1: Transfert Inter-Frigos */}
+        <div 
+          onClick={() => {
+            setTransferInitialSource(selectedFrigoId);
+            setTransferInitialProduct('');
+            setShowTransferModal(true);
+          }}
+          className="p-3.5 bg-gradient-to-r from-blue-900 to-indigo-900 border border-blue-700 rounded-lg text-white cursor-pointer hover:shadow-lg transition-all flex items-center gap-3"
+        >
+          <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 shadow">
+            <ArrowLeftRight className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="font-bold text-xs uppercase tracking-wide text-cyan-300">1. Transfert de Stock</div>
+            <div className="text-[11px] text-blue-100 mt-0.5">Déplacer marchandise entre Frigos</div>
+          </div>
+        </div>
+
+        {/* Quick Action 2: Vider le Frigo Actuel */}
+        <div 
+          onClick={handleClearFrigoStock}
+          className="p-3.5 bg-gradient-to-r from-red-950 to-rose-900 border border-red-700 rounded-lg text-white cursor-pointer hover:shadow-lg transition-all flex items-center gap-3"
+        >
+          <div className="w-10 h-10 rounded-lg bg-red-600 flex items-center justify-center shrink-0 shadow">
+            <Trash2 className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="font-bold text-xs uppercase tracking-wide text-rose-200">2. Vider ce Frigo ({activeFrigo?.code})</div>
+            <div className="text-[11px] text-rose-100 mt-0.5">Mettre tout le stock à 0 Kg</div>
+          </div>
+        </div>
+
+        {/* Quick Action 3: Vider Tous les Frigos */}
+        <div 
+          onClick={handleClearAllStocks}
+          className="p-3.5 bg-gradient-to-r from-amber-950 to-orange-950 border border-orange-700 rounded-lg text-white cursor-pointer hover:shadow-lg transition-all flex items-center gap-3"
+        >
+          <div className="w-10 h-10 rounded-lg bg-amber-600 flex items-center justify-center shrink-0 shadow">
+            <RotateCcw className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="font-bold text-xs uppercase tracking-wide text-amber-200">3. Remise à Zéro Globale</div>
+            <div className="text-[11px] text-amber-100 mt-0.5">Vider tous les entrepôts (0 Kg)</div>
+          </div>
+        </div>
+
+        {/* Quick Action 4: Gérer les Frigos */}
+        <div 
+          onClick={() => setShowManageFrigosModal(true)}
+          className="p-3.5 bg-gradient-to-r from-slate-900 to-gray-900 border border-gray-700 rounded-lg text-white cursor-pointer hover:shadow-lg transition-all flex items-center gap-3"
+        >
+          <div className="w-10 h-10 rounded-lg bg-gray-700 flex items-center justify-center shrink-0 shadow">
+            <Building2 className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="font-bold text-xs uppercase tracking-wide text-gray-200">4. Entrepôts & Quai</div>
+            <div className="text-[11px] text-gray-300 mt-0.5">{frigos.length} Frigo(s) configurés</div>
+          </div>
+        </div>
+
       </div>
 
       {/* Active Frigo Summary Banner */}
@@ -429,6 +496,14 @@ export const MultiFrigoInventory: React.FC = () => {
               >
                 <Edit3 className="w-3 h-3" />
                 <span>Éditer</span>
+              </button>
+              <button
+                onClick={handleClearFrigoStock}
+                className="ml-2 px-2.5 py-0.5 bg-red-600 hover:bg-red-700 text-white rounded text-[11px] font-sans font-bold flex items-center gap-1 shadow"
+                title="Vider le stock de ce frigo"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>Vider Stock (0 Kg)</span>
               </button>
             </div>
             <div className="text-blue-300 mt-1">
@@ -608,19 +683,19 @@ export const MultiFrigoInventory: React.FC = () => {
             {/* Clear Stock Buttons */}
             <button
               onClick={handleClearFrigoStock}
-              className="bg-red-50 hover:bg-red-100 border border-red-300 text-red-700 text-xs px-3 py-2 rounded flex items-center gap-1.5 font-bold transition-colors"
+              className="bg-red-600 hover:bg-red-700 text-white text-xs px-3.5 py-2 rounded font-black flex items-center gap-1.5 shadow transition-colors"
               title={`Mettre à 0 le stock de ${activeFrigo?.name}`}
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-4 h-4 text-white" />
               <span>Vider {activeFrigo?.code || 'Frigo'}</span>
             </button>
 
             <button
               onClick={handleClearAllStocks}
-              className="bg-gray-100 hover:bg-red-50 border border-gray-300 hover:border-red-300 text-gray-700 hover:text-red-700 text-xs px-3 py-2 rounded flex items-center gap-1.5 font-semibold transition-colors"
+              className="bg-red-50 hover:bg-red-100 border border-red-300 text-red-800 text-xs px-3 py-2 rounded flex items-center gap-1.5 font-bold transition-colors"
               title="Remise à zéro globale de tous les stocks"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-3.5 h-3.5 text-red-600" />
               <span>Vider Tous Stocks</span>
             </button>
 

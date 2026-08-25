@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easyerp-pwa-v2026-live';
+const CACHE_NAME = 'easyerp-pwa-v2026-v3';
 
 // Message Listener for client commands (Skip Waiting, Purge Caches)
 self.addEventListener('message', (event) => {

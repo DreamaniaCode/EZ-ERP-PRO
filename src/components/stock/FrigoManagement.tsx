@@ -32,7 +32,7 @@ interface FrigoManagementProps {
 }
 
 export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, onNewFrigo, onViewFrigoDetail, initialFrigoId }) => {
-  const { frigos, stocks, products, deliveryNotes, addFrigo, updateFrigo, deleteFrigo } = useERP();
+  const { frigos, stocks, products, deliveryNotes, addFrigo, updateFrigo, deleteFrigo, clearStocks } = useERP();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -138,8 +138,15 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
       return;
     }
 
-    if (confirm(`Êtes-vous sûr de vouloir supprimer l'entrepôt frigorifique "${frigo.name}" ?`)) {
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer définitivement le frigo "${frigo.name}" ?`)) {
       deleteFrigo(frigo.id);
+    }
+  };
+
+  const handleClearFrigoStock = async (frigo: ColdStorageFrigo) => {
+    if (window.confirm(`⚠️ Êtes-vous sûr de vouloir VIDER (remettre à 0 Kg) tous les stocks du frigo "${frigo.name}" ?`)) {
+      await clearStocks(frigo.id);
+      alert(`Le stock du frigo "${frigo.name}" a été vidé avec succès (0 Kg, 0 Palettes).`);
     }
   };
 
@@ -382,7 +389,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
               </div>
 
               {/* Card Footer Actions */}
-              <div className="p-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between gap-2">
+              <div className="p-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between gap-2 flex-wrap">
                 <button
                   onClick={() => {
                     if (onViewFrigoDetail) {
@@ -408,7 +415,16 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
                   className="flex-1 text-center text-xs font-bold text-white bg-[#0f62fe] hover:bg-blue-700 py-1.5 rounded transition flex items-center justify-center gap-1 shadow-xs"
                 >
                   <ArrowLeftRight className="w-3.5 h-3.5" />
-                  <span>Opérations Frigo</span>
+                  <span>Opérations</span>
+                </button>
+
+                <button
+                  onClick={() => handleClearFrigoStock(frigo)}
+                  className="text-center text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 py-1.5 px-2.5 rounded transition flex items-center justify-center gap-1"
+                  title="Vider tous les stocks de cet entrepôt (0 Kg)"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Vider</span>
                 </button>
               </div>
 
