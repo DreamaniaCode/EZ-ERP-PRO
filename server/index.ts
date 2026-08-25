@@ -1377,14 +1377,15 @@ app.post('/api/sync/bootstrap', async (req, res) => {
       users,
     } = req.body;
 
-    let importedSummary: Record<string, number> = {};
+    const importedSummary: Record<string, number> = {};
 
-    await prisma.$transaction(async (tx) => {
-      // 1. Companies
-      if (Array.isArray(companies) && companies.length > 0) {
-        for (const c of companies) {
-          if (!c.id || !c.code) continue;
-          await tx.company.upsert({
+    // 1. Companies
+    if (Array.isArray(companies) && companies.length > 0) {
+      let count = 0;
+      for (const c of companies) {
+        if (!c.id || !c.code) continue;
+        try {
+          await prisma.company.upsert({
             where: { id: c.id },
             create: {
               id: c.id,
@@ -1407,31 +1408,37 @@ app.post('/api/sync/bootstrap', async (req, res) => {
               invoicePrefix: c.invoicePrefix || 'FAC',
             },
             update: {
-              name: c.name,
-              shortName: c.shortName,
-              ice: c.ice,
-              taxId: c.taxId,
-              rc: c.rc,
-              patent: c.patent,
-              capital: c.capital,
-              address: c.address,
-              city: c.city,
-              phone: c.phone,
-              email: c.email,
-              logoUrl: c.logoUrl,
-              bankName: c.bankName,
-              bankRib: c.bankRib,
-              blPrefix: c.blPrefix,
-              invoicePrefix: c.invoicePrefix,
+              name: c.name || c.code,
+              shortName: c.shortName || c.name || c.code,
+              ice: c.ice || '',
+              taxId: c.taxId || '',
+              rc: c.rc || '',
+              patent: c.patent || '',
+              capital: c.capital || '',
+              address: c.address || '',
+              city: c.city || '',
+              phone: c.phone || '',
+              email: c.email || '',
+              logoUrl: c.logoUrl || '',
+              bankName: c.bankName || '',
+              bankRib: c.bankRib || '',
+              blPrefix: c.blPrefix || 'BL',
+              invoicePrefix: c.invoicePrefix || 'FAC',
             }
           });
+          count++;
+        } catch (err) {
+          console.warn('Company sync skip:', c.id, err);
         }
       }
+      importedSummary.companies = count;
+    }
 
-      // 2. Company Info
-      if (companyInfo && typeof companyInfo === 'object') {
+    // 2. Company Info
+    if (companyInfo && typeof companyInfo === 'object') {
+      try {
         const compName = companyInfo.name || 'MLHMD Sarl';
-        await tx.companyInfo.upsert({
+        await prisma.companyInfo.upsert({
           where: { id: 'default' },
           create: {
             id: 'default',
@@ -1471,13 +1478,19 @@ app.post('/api/sync/bootstrap', async (req, res) => {
             capital: companyInfo.capital || undefined,
           },
         });
+        importedSummary.companyInfo = 1;
+      } catch (err) {
+        console.warn('CompanyInfo sync skip:', err);
       }
+    }
 
-      // 3. Frigos
-      if (Array.isArray(frigos) && frigos.length > 0) {
-        for (const f of frigos) {
-          if (!f.id || !f.name) continue;
-          await tx.coldStorageFrigo.upsert({
+    // 3. Frigos
+    if (Array.isArray(frigos) && frigos.length > 0) {
+      let count = 0;
+      for (const f of frigos) {
+        if (!f.id || !f.name) continue;
+        try {
+          await prisma.coldStorageFrigo.upsert({
             where: { id: f.id },
             create: {
               id: f.id,
@@ -1500,56 +1513,96 @@ app.post('/api/sync/bootstrap', async (req, res) => {
               capacityPallets: Number(f.capacityPallets) || 0,
             }
           });
+          count++;
+        } catch (err) {
+          console.warn('Frigo sync skip:', f.id, err);
         }
-        importedSummary.frigos = frigos.length;
       }
+      importedSummary.frigos = count;
+    }
 
-      // 4. Products
-      if (Array.isArray(products) && products.length > 0) {
-        for (const p of products) {
-          if (!p.id || !p.name) continue;
-          await tx.product.upsert({
-            where: { id: p.id },
-            create: {
-              id: p.id,
-              code: p.code || `PRD-${p.id.slice(0, 6)}`,
-              name: p.name,
-              category: p.category || 'Autres Produits Alimentaires',
-              origin: p.origin || 'Maroc',
-              sellingPriceHT: Number(p.sellingPriceHT) || 0,
-              unitCostHT: Number(p.unitCostHT) || 0,
-              vatRate: Number(p.vatRate) || 0.20,
-              kgPerCarton: Number(p.kgPerCarton) || 1,
-              cartonsPerPallet: Number(p.cartonsPerPallet) || 1,
-              kgPerPallet: Number(p.kgPerPallet) || (Number(p.kgPerCarton) * Number(p.cartonsPerPallet)) || 1,
-              minStockAlertKg: Number(p.minStockAlertKg) || 0,
-              description: p.description || '',
-              imageUrl: p.imageUrl || '',
-            },
-            update: {
-              name: p.name,
-              category: p.category,
-              origin: p.origin,
-              sellingPriceHT: Number(p.sellingPriceHT) || 0,
-              unitCostHT: Number(p.unitCostHT) || 0,
-              vatRate: Number(p.vatRate) || 0.20,
-              kgPerCarton: Number(p.kgPerCarton) || 1,
-              cartonsPerPallet: Number(p.cartonsPerPallet) || 1,
-              kgPerPallet: Number(p.kgPerPallet) || (Number(p.kgPerCarton) * Number(p.cartonsPerPallet)) || 1,
-              minStockAlertKg: Number(p.minStockAlertKg) || 0,
-              description: p.description || '',
-              imageUrl: p.imageUrl || '',
-            }
-          });
+    // 4. Products
+    if (Array.isArray(products) && products.length > 0) {
+      let count = 0;
+      for (const p of products) {
+        if (!p.id || !p.name) continue;
+        try {
+          const prdCode = p.code || `PRD-${p.id.slice(0, 6)}`;
+          // Check if product with this id or code already exists
+          const existingById = await prisma.product.findUnique({ where: { id: p.id } });
+          const existingByCode = await prisma.product.findUnique({ where: { code: prdCode } });
+
+          if (existingById) {
+            await prisma.product.update({
+              where: { id: p.id },
+              data: {
+                name: p.name,
+                category: p.category || 'Autres Produits Alimentaires',
+                origin: p.origin || 'Maroc',
+                sellingPriceHT: Number(p.sellingPriceHT) || 0,
+                unitCostHT: Number(p.unitCostHT) || 0,
+                vatRate: Number(p.vatRate) || 0.20,
+                kgPerCarton: Number(p.kgPerCarton) || 1,
+                cartonsPerPallet: Number(p.cartonsPerPallet) || 1,
+                kgPerPallet: Number(p.kgPerPallet) || (Number(p.kgPerCarton) * Number(p.cartonsPerPallet)) || 1,
+                minStockAlertKg: Number(p.minStockAlertKg) || 0,
+                description: p.description || '',
+                imageUrl: p.imageUrl || '',
+              }
+            });
+          } else if (existingByCode) {
+            await prisma.product.update({
+              where: { id: existingByCode.id },
+              data: {
+                name: p.name,
+                category: p.category || 'Autres Produits Alimentaires',
+                origin: p.origin || 'Maroc',
+                sellingPriceHT: Number(p.sellingPriceHT) || 0,
+                unitCostHT: Number(p.unitCostHT) || 0,
+                vatRate: Number(p.vatRate) || 0.20,
+                kgPerCarton: Number(p.kgPerCarton) || 1,
+                cartonsPerPallet: Number(p.cartonsPerPallet) || 1,
+                kgPerPallet: Number(p.kgPerPallet) || (Number(p.kgPerCarton) * Number(p.cartonsPerPallet)) || 1,
+                minStockAlertKg: Number(p.minStockAlertKg) || 0,
+                description: p.description || '',
+                imageUrl: p.imageUrl || '',
+              }
+            });
+          } else {
+            await prisma.product.create({
+              data: {
+                id: p.id,
+                code: prdCode,
+                name: p.name,
+                category: p.category || 'Autres Produits Alimentaires',
+                origin: p.origin || 'Maroc',
+                sellingPriceHT: Number(p.sellingPriceHT) || 0,
+                unitCostHT: Number(p.unitCostHT) || 0,
+                vatRate: Number(p.vatRate) || 0.20,
+                kgPerCarton: Number(p.kgPerCarton) || 1,
+                cartonsPerPallet: Number(p.cartonsPerPallet) || 1,
+                kgPerPallet: Number(p.kgPerPallet) || (Number(p.kgPerCarton) * Number(p.cartonsPerPallet)) || 1,
+                minStockAlertKg: Number(p.minStockAlertKg) || 0,
+                description: p.description || '',
+                imageUrl: p.imageUrl || '',
+              }
+            });
+          }
+          count++;
+        } catch (err) {
+          console.warn('Product sync skip:', p.id, err);
         }
-        importedSummary.products = products.length;
       }
+      importedSummary.products = count;
+    }
 
-      // 5. Stocks
-      if (Array.isArray(stocks) && stocks.length > 0) {
-        for (const s of stocks) {
-          if (!s.frigoId || !s.productId) continue;
-          await tx.frigoStockLevel.upsert({
+    // 5. Stocks
+    if (Array.isArray(stocks) && stocks.length > 0) {
+      let count = 0;
+      for (const s of stocks) {
+        if (!s.frigoId || !s.productId) continue;
+        try {
+          await prisma.frigoStockLevel.upsert({
             where: { frigoId_productId: { frigoId: s.frigoId, productId: s.productId } },
             create: {
               frigoId: s.frigoId,
@@ -1562,227 +1615,282 @@ app.post('/api/sync/bootstrap', async (req, res) => {
               quantityPallets: Number(s.quantityPallets) || 0,
             }
           });
+          count++;
+        } catch (err) {
+          console.warn('Stock sync skip:', s.frigoId, s.productId, err);
         }
-        importedSummary.stocks = stocks.length;
       }
+      importedSummary.stocks = count;
+    }
 
-      // 6. Clients
-      if (Array.isArray(clients) && clients.length > 0) {
-        for (const cl of clients) {
-          if (!cl.id || !cl.name) continue;
-          await tx.client.upsert({
-            where: { id: cl.id },
-            create: {
-              id: cl.id,
-              code: cl.code || `CLT-${cl.id.slice(0, 6)}`,
-              name: cl.name,
-              companyName: cl.companyName || '',
-              ice: cl.ice || '',
-              email: cl.email || '',
-              phone: cl.phone || '',
-              address: cl.address || '',
-              city: cl.city || '',
-              creditLimit: Number(cl.creditLimit) || 0,
-              currentBalance: Number(cl.currentBalance) || 0,
-            },
-            update: {
-              name: cl.name,
-              companyName: cl.companyName || '',
-              ice: cl.ice || '',
-              email: cl.email || '',
-              phone: cl.phone || '',
-              address: cl.address || '',
-              city: cl.city || '',
-              creditLimit: Number(cl.creditLimit) || 0,
-              currentBalance: Number(cl.currentBalance) || 0,
-            }
-          });
+    // 6. Clients
+    if (Array.isArray(clients) && clients.length > 0) {
+      let count = 0;
+      for (const cl of clients) {
+        if (!cl.id || !cl.name) continue;
+        try {
+          const clientCode = cl.code || `CLT-${cl.id.slice(0, 6)}`;
+          const existingById = await prisma.client.findUnique({ where: { id: cl.id } });
+          const existingByCode = await prisma.client.findUnique({ where: { code: clientCode } });
+
+          if (existingById) {
+            await prisma.client.update({
+              where: { id: cl.id },
+              data: {
+                name: cl.name,
+                companyName: cl.companyName || '',
+                ice: cl.ice || '',
+                email: cl.email || '',
+                phone: cl.phone || '',
+                address: cl.address || '',
+                city: cl.city || '',
+                creditLimit: Number(cl.creditLimit) || 0,
+                currentBalance: Number(cl.currentBalance) || 0,
+              }
+            });
+          } else if (existingByCode) {
+            await prisma.client.update({
+              where: { id: existingByCode.id },
+              data: {
+                name: cl.name,
+                companyName: cl.companyName || '',
+                ice: cl.ice || '',
+                email: cl.email || '',
+                phone: cl.phone || '',
+                address: cl.address || '',
+                city: cl.city || '',
+                creditLimit: Number(cl.creditLimit) || 0,
+                currentBalance: Number(cl.currentBalance) || 0,
+              }
+            });
+          } else {
+            await prisma.client.create({
+              data: {
+                id: cl.id,
+                code: clientCode,
+                name: cl.name,
+                companyName: cl.companyName || '',
+                ice: cl.ice || '',
+                email: cl.email || '',
+                phone: cl.phone || '',
+                address: cl.address || '',
+                city: cl.city || '',
+                creditLimit: Number(cl.creditLimit) || 0,
+                currentBalance: Number(cl.currentBalance) || 0,
+              }
+            });
+          }
+          count++;
+        } catch (err) {
+          console.warn('Client sync skip:', cl.id, err);
         }
-        importedSummary.clients = clients.length;
       }
+      importedSummary.clients = count;
+    }
 
-      // 7. Suppliers
-      if (Array.isArray(suppliers) && suppliers.length > 0) {
-        for (const sp of suppliers) {
-          if (!sp.id || !sp.name) continue;
-          await tx.supplier.upsert({
-            where: { id: sp.id },
-            create: {
-              id: sp.id,
-              code: sp.code || `FRN-${sp.id.slice(0, 6)}`,
-              name: sp.name,
-              companyName: sp.companyName || '',
-              country: sp.country || '',
-              iceOrTaxId: sp.iceOrTaxId || '',
-              email: sp.email || '',
-              phone: sp.phone || '',
-              address: sp.address || '',
-              type: sp.type || 'LOCAL',
-              currentBalance: Number(sp.currentBalance) || 0,
-            },
-            update: {
-              name: sp.name,
-              companyName: sp.companyName || '',
-              country: sp.country || '',
-              iceOrTaxId: sp.iceOrTaxId || '',
-              email: sp.email || '',
-              phone: sp.phone || '',
-              address: sp.address || '',
-              type: sp.type || 'LOCAL',
-              currentBalance: Number(sp.currentBalance) || 0,
-            }
-          });
+    // 7. Suppliers
+    if (Array.isArray(suppliers) && suppliers.length > 0) {
+      let count = 0;
+      for (const sp of suppliers) {
+        if (!sp.id || !sp.name) continue;
+        try {
+          const supplierCode = sp.code || `FRN-${sp.id.slice(0, 6)}`;
+          const existingById = await prisma.supplier.findUnique({ where: { id: sp.id } });
+          const existingByCode = await prisma.supplier.findUnique({ where: { code: supplierCode } });
+
+          if (existingById) {
+            await prisma.supplier.update({
+              where: { id: sp.id },
+              data: {
+                name: sp.name,
+                companyName: sp.companyName || '',
+                country: sp.country || '',
+                iceOrTaxId: sp.iceOrTaxId || '',
+                email: sp.email || '',
+                phone: sp.phone || '',
+                address: sp.address || '',
+                type: sp.type || 'LOCAL',
+                currentBalance: Number(sp.currentBalance) || 0,
+              }
+            });
+          } else if (existingByCode) {
+            await prisma.supplier.update({
+              where: { id: existingByCode.id },
+              data: {
+                name: sp.name,
+                companyName: sp.companyName || '',
+                country: sp.country || '',
+                iceOrTaxId: sp.iceOrTaxId || '',
+                email: sp.email || '',
+                phone: sp.phone || '',
+                address: sp.address || '',
+                type: sp.type || 'LOCAL',
+                currentBalance: Number(sp.currentBalance) || 0,
+              }
+            });
+          } else {
+            await prisma.supplier.create({
+              data: {
+                id: sp.id,
+                code: supplierCode,
+                name: sp.name,
+                companyName: sp.companyName || '',
+                country: sp.country || '',
+                iceOrTaxId: sp.iceOrTaxId || '',
+                email: sp.email || '',
+                phone: sp.phone || '',
+                address: sp.address || '',
+                type: sp.type || 'LOCAL',
+                currentBalance: Number(sp.currentBalance) || 0,
+              }
+            });
+          }
+          count++;
+        } catch (err) {
+          console.warn('Supplier sync skip:', sp.id, err);
         }
-        importedSummary.suppliers = suppliers.length;
       }
+      importedSummary.suppliers = count;
+    }
 
-      // 8. Delivery Notes (BLs)
-      if (Array.isArray(deliveryNotes) && deliveryNotes.length > 0) {
-        for (const bl of deliveryNotes) {
-          if (!bl.id || !bl.blNumber) continue;
-          await tx.deliveryNoteBL.upsert({
-            where: { id: bl.id },
-            create: {
-              id: bl.id,
-              companyId: bl.companyId || 'STE_1',
-              blNumber: bl.blNumber,
-              orderId: bl.orderId || '',
-              orderNumber: bl.orderNumber || '',
-              clientId: bl.clientId || '',
-              clientName: bl.clientName || 'Client',
-              clientAddress: bl.clientAddress || '',
-              clientPhone: bl.clientPhone || '',
-              clientEmail: bl.clientEmail || '',
-              frigoId: bl.frigoId || '',
-              frigoName: bl.frigoName || 'Frigo',
-              date: bl.date || new Date().toISOString().split('T')[0],
-              items: bl.items || [],
-              totalKg: Number(bl.totalKg) || 0,
-              totalCartons: Number(bl.totalCartons) || 0,
-              totalPallets: Number(bl.totalPallets) || 0,
-              totalHT: Number(bl.totalHT) || 0,
-              totalTTC: Number(bl.totalTTC) || 0,
-              stockDecremented: Boolean(bl.stockDecremented),
-              frigoEmployeeApproved: Boolean(bl.frigoEmployeeApproved),
-              frigoApprovedBy: bl.frigoApprovedBy || '',
-              frigoApprovedAt: bl.frigoApprovedAt || '',
-              bonDeSortiePhotoUrl: bl.bonDeSortiePhotoUrl || '',
-              bonDeSortieUploadedBy: bl.bonDeSortieUploadedBy || '',
-              bonDeSortieUploadedAt: bl.bonDeSortieUploadedAt || '',
-              whatsappSent: Boolean(bl.whatsappSent),
-              whatsappSentAt: bl.whatsappSentAt || '',
-              clientSignatureUrl: bl.clientSignatureUrl || '',
-              signedByName: bl.signedByName || '',
-              signedAt: bl.signedAt || '',
-              emailSent: Boolean(bl.emailSent),
-              emailSentAt: bl.emailSentAt || '',
-              emailRecipient: bl.emailRecipient || '',
-              invoiceId: bl.invoiceId || '',
-              invoiceNumber: bl.invoiceNumber || '',
-              status: bl.status || 'EN_ATTENTE_FRIGO',
-              logs: bl.logs || [],
-            },
-            update: {
-              companyId: bl.companyId || 'STE_1',
-              blNumber: bl.blNumber,
-              orderId: bl.orderId || '',
-              orderNumber: bl.orderNumber || '',
-              clientId: bl.clientId || '',
-              clientName: bl.clientName || 'Client',
-              clientAddress: bl.clientAddress || '',
-              clientPhone: bl.clientPhone || '',
-              clientEmail: bl.clientEmail || '',
-              frigoId: bl.frigoId || '',
-              frigoName: bl.frigoName || 'Frigo',
-              date: bl.date || new Date().toISOString().split('T')[0],
-              items: bl.items || [],
-              totalKg: Number(bl.totalKg) || 0,
-              totalCartons: Number(bl.totalCartons) || 0,
-              totalPallets: Number(bl.totalPallets) || 0,
-              totalHT: Number(bl.totalHT) || 0,
-              totalTTC: Number(bl.totalTTC) || 0,
-              stockDecremented: Boolean(bl.stockDecremented),
-              frigoEmployeeApproved: Boolean(bl.frigoEmployeeApproved),
-              frigoApprovedBy: bl.frigoApprovedBy || '',
-              frigoApprovedAt: bl.frigoApprovedAt || '',
-              bonDeSortiePhotoUrl: bl.bonDeSortiePhotoUrl || '',
-              bonDeSortieUploadedBy: bl.bonDeSortieUploadedBy || '',
-              bonDeSortieUploadedAt: bl.bonDeSortieUploadedAt || '',
-              whatsappSent: Boolean(bl.whatsappSent),
-              whatsappSentAt: bl.whatsappSentAt || '',
-              clientSignatureUrl: bl.clientSignatureUrl || '',
-              signedByName: bl.signedByName || '',
-              signedAt: bl.signedAt || '',
-              emailSent: Boolean(bl.emailSent),
-              emailSentAt: bl.emailSentAt || '',
-              emailRecipient: bl.emailRecipient || '',
-              invoiceId: bl.invoiceId || '',
-              invoiceNumber: bl.invoiceNumber || '',
-              status: bl.status || 'EN_ATTENTE_FRIGO',
-              logs: bl.logs || [],
-            }
-          });
+    // 8. Delivery Notes (BLs)
+    if (Array.isArray(deliveryNotes) && deliveryNotes.length > 0) {
+      let count = 0;
+      for (const bl of deliveryNotes) {
+        if (!bl.id || !bl.blNumber) continue;
+        try {
+          const existingById = await prisma.deliveryNoteBL.findUnique({ where: { id: bl.id } });
+          const existingByNumber = await prisma.deliveryNoteBL.findUnique({ where: { blNumber: bl.blNumber } });
+
+          const blData = {
+            companyId: bl.companyId || 'STE_1',
+            blNumber: bl.blNumber,
+            orderId: bl.orderId || '',
+            orderNumber: bl.orderNumber || '',
+            clientId: bl.clientId || '',
+            clientName: bl.clientName || 'Client',
+            clientAddress: bl.clientAddress || '',
+            clientPhone: bl.clientPhone || '',
+            clientEmail: bl.clientEmail || '',
+            frigoId: bl.frigoId || '',
+            frigoName: bl.frigoName || 'Frigo',
+            date: bl.date || new Date().toISOString().split('T')[0],
+            items: bl.items || [],
+            totalKg: Number(bl.totalKg) || 0,
+            totalCartons: Number(bl.totalCartons) || 0,
+            totalPallets: Number(bl.totalPallets) || 0,
+            totalHT: Number(bl.totalHT) || 0,
+            totalTTC: Number(bl.totalTTC) || 0,
+            stockDecremented: Boolean(bl.stockDecremented),
+            frigoEmployeeApproved: Boolean(bl.frigoEmployeeApproved),
+            frigoApprovedBy: bl.frigoApprovedBy || '',
+            frigoApprovedAt: bl.frigoApprovedAt || '',
+            bonDeSortiePhotoUrl: bl.bonDeSortiePhotoUrl || '',
+            bonDeSortieUploadedBy: bl.bonDeSortieUploadedBy || '',
+            bonDeSortieUploadedAt: bl.bonDeSortieUploadedAt || '',
+            whatsappSent: Boolean(bl.whatsappSent),
+            whatsappSentAt: bl.whatsappSentAt || '',
+            clientSignatureUrl: bl.clientSignatureUrl || '',
+            signedByName: bl.signedByName || '',
+            signedAt: bl.signedAt || '',
+            emailSent: Boolean(bl.emailSent),
+            emailSentAt: bl.emailSentAt || '',
+            emailRecipient: bl.emailRecipient || '',
+            invoiceId: bl.invoiceId || '',
+            invoiceNumber: bl.invoiceNumber || '',
+            status: bl.status || 'EN_ATTENTE_FRIGO',
+            logs: bl.logs || [],
+          };
+
+          if (existingById) {
+            await prisma.deliveryNoteBL.update({
+              where: { id: bl.id },
+              data: blData,
+            });
+          } else if (existingByNumber) {
+            await prisma.deliveryNoteBL.update({
+              where: { id: existingByNumber.id },
+              data: blData,
+            });
+          } else {
+            await prisma.deliveryNoteBL.create({
+              data: {
+                id: bl.id,
+                ...blData,
+              }
+            });
+          }
+          count++;
+        } catch (err) {
+          console.warn('BL sync skip:', bl.id, bl.blNumber, err);
         }
-        importedSummary.deliveryNotes = deliveryNotes.length;
       }
+      importedSummary.deliveryNotes = count;
+    }
 
-      // 9. Invoices
-      if (Array.isArray(invoices) && invoices.length > 0) {
-        for (const inv of invoices) {
-          if (!inv.id || !inv.invoiceNumber) continue;
-          await tx.invoice.upsert({
-            where: { id: inv.id },
-            create: {
-              id: inv.id,
-              companyId: inv.companyId || 'STE_1',
-              invoiceNumber: inv.invoiceNumber,
-              orderId: inv.orderId || '',
-              blId: inv.blId || '',
-              clientId: inv.clientId || '',
-              clientName: inv.clientName || 'Client',
-              clientICE: inv.clientICE || '',
-              clientAddress: inv.clientAddress || '',
-              date: inv.date || new Date().toISOString().split('T')[0],
-              dueDate: inv.dueDate || '',
-              items: inv.items || [],
-              totalHT: Number(inv.totalHT) || 0,
-              totalVAT: Number(inv.totalVAT) || 0,
-              totalTTC: Number(inv.totalTTC) || 0,
-              amountPaid: Number(inv.amountPaid) || 0,
-              remainingAmount: Number(inv.remainingAmount) || 0,
-              status: inv.status || 'BROUILLON',
-              paymentMethod: inv.paymentMethod || '',
-            },
-            update: {
-              companyId: inv.companyId || 'STE_1',
-              invoiceNumber: inv.invoiceNumber,
-              orderId: inv.orderId || '',
-              blId: inv.blId || '',
-              clientId: inv.clientId || '',
-              clientName: inv.clientName || 'Client',
-              clientICE: inv.clientICE || '',
-              clientAddress: inv.clientAddress || '',
-              date: inv.date || new Date().toISOString().split('T')[0],
-              dueDate: inv.dueDate || '',
-              items: inv.items || [],
-              totalHT: Number(inv.totalHT) || 0,
-              totalVAT: Number(inv.totalVAT) || 0,
-              totalTTC: Number(inv.totalTTC) || 0,
-              amountPaid: Number(inv.amountPaid) || 0,
-              remainingAmount: Number(inv.remainingAmount) || 0,
-              status: inv.status || 'BROUILLON',
-              paymentMethod: inv.paymentMethod || '',
-            }
-          });
+    // 9. Invoices
+    if (Array.isArray(invoices) && invoices.length > 0) {
+      let count = 0;
+      for (const inv of invoices) {
+        if (!inv.id || !inv.invoiceNumber) continue;
+        try {
+          const existingById = await prisma.invoice.findUnique({ where: { id: inv.id } });
+          const existingByNum = await prisma.invoice.findUnique({ where: { invoiceNumber: inv.invoiceNumber } });
+
+          const invData = {
+            companyId: inv.companyId || 'STE_1',
+            invoiceNumber: inv.invoiceNumber,
+            orderId: inv.orderId || '',
+            blId: inv.blId || '',
+            clientId: inv.clientId || '',
+            clientName: inv.clientName || 'Client',
+            clientICE: inv.clientICE || '',
+            clientAddress: inv.clientAddress || '',
+            date: inv.date || new Date().toISOString().split('T')[0],
+            dueDate: inv.dueDate || '',
+            items: inv.items || [],
+            totalHT: Number(inv.totalHT) || 0,
+            totalVAT: Number(inv.totalVAT) || 0,
+            totalTTC: Number(inv.totalTTC) || 0,
+            amountPaid: Number(inv.amountPaid) || 0,
+            remainingAmount: Number(inv.remainingAmount) || 0,
+            status: inv.status || 'BROUILLON',
+            paymentMethod: inv.paymentMethod || '',
+          };
+
+          if (existingById) {
+            await prisma.invoice.update({
+              where: { id: inv.id },
+              data: invData,
+            });
+          } else if (existingByNum) {
+            await prisma.invoice.update({
+              where: { id: existingByNum.id },
+              data: invData,
+            });
+          } else {
+            await prisma.invoice.create({
+              data: {
+                id: inv.id,
+                ...invData,
+              }
+            });
+          }
+          count++;
+        } catch (err) {
+          console.warn('Invoice sync skip:', inv.id, err);
         }
-        importedSummary.invoices = invoices.length;
       }
+      importedSummary.invoices = count;
+    }
 
-      // 10. Cheques & Effets
-      if (Array.isArray(chequesEffets) && chequesEffets.length > 0) {
-        for (const c of chequesEffets) {
-          if (!c.id) continue;
-          await tx.chequeEffet.upsert({
+    // 10. Cheques & Effets
+    if (Array.isArray(chequesEffets) && chequesEffets.length > 0) {
+      let count = 0;
+      for (const c of chequesEffets) {
+        if (!c.id) continue;
+        try {
+          await prisma.chequeEffet.upsert({
             where: { id: c.id },
             create: {
               id: c.id,
@@ -1818,15 +1926,21 @@ app.post('/api/sync/bootstrap', async (req, res) => {
               invoiceId: c.invoiceId || '',
             }
           });
+          count++;
+        } catch (err) {
+          console.warn('Cheque sync skip:', c.id, err);
         }
-        importedSummary.cheques = chequesEffets.length;
       }
+      importedSummary.cheques = count;
+    }
 
-      // 11. Treasury Accounts
-      if (Array.isArray(treasuryAccounts) && treasuryAccounts.length > 0) {
-        for (const t of treasuryAccounts) {
-          if (!t.id) continue;
-          await tx.treasuryAccount.upsert({
+    // 11. Treasury Accounts
+    if (Array.isArray(treasuryAccounts) && treasuryAccounts.length > 0) {
+      let count = 0;
+      for (const t of treasuryAccounts) {
+        if (!t.id) continue;
+        try {
+          await prisma.treasuryAccount.upsert({
             where: { id: t.id },
             create: {
               id: t.id,
@@ -1842,15 +1956,21 @@ app.post('/api/sync/bootstrap', async (req, res) => {
               balance: Number(t.balance) || 0,
             }
           });
+          count++;
+        } catch (err) {
+          console.warn('Treasury sync skip:', t.id, err);
         }
-        importedSummary.treasury = treasuryAccounts.length;
       }
+      importedSummary.treasury = count;
+    }
 
-      // 12. Expenses
-      if (Array.isArray(expenses) && expenses.length > 0) {
-        for (const e of expenses) {
-          if (!e.id) continue;
-          await tx.expense.upsert({
+    // 12. Expenses
+    if (Array.isArray(expenses) && expenses.length > 0) {
+      let count = 0;
+      for (const e of expenses) {
+        if (!e.id) continue;
+        try {
+          await prisma.expense.upsert({
             where: { id: e.id },
             create: {
               id: e.id,
@@ -1880,15 +2000,21 @@ app.post('/api/sync/bootstrap', async (req, res) => {
               receiptUrl: e.receiptUrl || '',
             }
           });
+          count++;
+        } catch (err) {
+          console.warn('Expense sync skip:', e.id, err);
         }
-        importedSummary.expenses = expenses.length;
       }
+      importedSummary.expenses = count;
+    }
 
-      // 13. Purchase Invoices
-      if (Array.isArray(purchaseInvoices) && purchaseInvoices.length > 0) {
-        for (const pi of purchaseInvoices) {
-          if (!pi.id || !pi.invoiceNumber) continue;
-          await tx.purchaseImportInvoice.upsert({
+    // 13. Purchase Invoices
+    if (Array.isArray(purchaseInvoices) && purchaseInvoices.length > 0) {
+      let count = 0;
+      for (const pi of purchaseInvoices) {
+        if (!pi.id || !pi.invoiceNumber) continue;
+        try {
+          await prisma.purchaseImportInvoice.upsert({
             where: { id: pi.id },
             create: {
               id: pi.id,
@@ -1929,10 +2055,13 @@ app.post('/api/sync/bootstrap', async (req, res) => {
               payments: pi.payments || [],
             }
           });
+          count++;
+        } catch (err) {
+          console.warn('Purchase sync skip:', pi.id, err);
         }
-        importedSummary.purchases = purchaseInvoices.length;
       }
-    });
+      importedSummary.purchases = count;
+    }
 
     res.json({
       success: true,

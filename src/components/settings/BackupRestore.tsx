@@ -150,33 +150,46 @@ export const BackupRestore: React.FC = () => {
     setIsCloudSyncing(true);
     setCloudSyncMsg(null);
     try {
+      // Gather richest data from state or local storage
+      const localBLs = deliveryNotes.length > 0 ? deliveryNotes : JSON.parse(localStorage.getItem('erp_delivery_notes') || localStorage.getItem('erp_deliveryNotes') || '[]');
+      const localProducts = products.length > 0 ? products : JSON.parse(localStorage.getItem('erp_products') || '[]');
+      const localClients = clients.length > 0 ? clients : JSON.parse(localStorage.getItem('erp_clients') || '[]');
+      const localStocks = stocks.length > 0 ? stocks : JSON.parse(localStorage.getItem('erp_stocks') || '[]');
+      const localFrigos = frigos.length > 0 ? frigos : JSON.parse(localStorage.getItem('erp_frigos') || '[]');
+      const localInvoices = invoices.length > 0 ? invoices : JSON.parse(localStorage.getItem('erp_invoices') || '[]');
+      const localCheques = chequesEffets.length > 0 ? chequesEffets : JSON.parse(localStorage.getItem('erp_cheques') || '[]');
+      const localSuppliers = suppliers.length > 0 ? suppliers : JSON.parse(localStorage.getItem('erp_suppliers') || '[]');
+      const localExpenses = expenses.length > 0 ? expenses : JSON.parse(localStorage.getItem('erp_expenses') || '[]');
+      const localPurchases = purchaseInvoices.length > 0 ? purchaseInvoices : JSON.parse(localStorage.getItem('erp_purchase_invoices') || '[]');
+      const localOrders = orders.length > 0 ? orders : JSON.parse(localStorage.getItem('erp_orders') || '[]');
+
       const payload = {
-        products,
-        frigos,
-        stocks,
-        clients,
-        suppliers,
-        deliveryNotes,
-        invoices,
-        chequesEffets,
+        products: localProducts,
+        frigos: localFrigos,
+        stocks: localStocks,
+        clients: localClients,
+        suppliers: localSuppliers,
+        deliveryNotes: localBLs,
+        invoices: localInvoices,
+        chequesEffets: localCheques,
         treasuryAccounts: [],
-        expenses,
-        purchaseInvoices,
-        salesOrders: orders,
+        expenses: localExpenses,
+        purchaseInvoices: localPurchases,
+        salesOrders: localOrders,
         inventoryCounts,
-        companyInfo: companyInfo || {},
+        companyInfo: companyInfo || JSON.parse(localStorage.getItem('erp_company_info') || '{}'),
         companies: [],
       };
 
-      await api.bootstrapFromLocal(payload);
+      const result = await api.bootstrapFromLocal(payload);
       setCloudSyncMsg({
         type: 'success',
-        text: 'Toutes vos données locales ont été synchronisées avec succès vers la base PostgreSQL Cloud ! Tous vos domaines et appareils ont maintenant les mêmes données.'
+        text: `Succès : ${localBLs.length} BLs, ${localProducts.length} Produits, ${localClients.length} Clients et ${localStocks.length} Niveaux de stock ont été synchronisés avec succès vers la base PostgreSQL Cloud !`
       });
     } catch (err: any) {
       setCloudSyncMsg({
         type: 'error',
-        text: `Échec de synchronisation Cloud : ${err?.message || 'Erreur réseau'}`
+        text: `Échec de synchronisation Cloud : ${err?.message || 'Erreur serveur'}`
       });
     } finally {
       setIsCloudSyncing(false);
