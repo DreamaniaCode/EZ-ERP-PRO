@@ -453,7 +453,7 @@ EasyERP Pro • Logistics Management`;
             {t('nav.deliveryNotes', 'Bons de Livraison (BL) Multi-Frigos & Logistique')}
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            {t('bl.subtitle', 'Frigo MFADEL, Validation Quai, Groupe WhatsApp & Synchronisation Prix')}
+            {t('bl.subtitle', 'Gestion des Bons de Livraison, Validation Quai, Groupe WhatsApp & Rapprochement des Stocks')}
           </p>
         </div>
 
@@ -503,7 +503,7 @@ EasyERP Pro • Logistics Management`;
             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded flex items-center gap-2 transition-all shadow-md"
           >
             <FileSpreadsheet className="w-4 h-4" />
-            <span>{t('importBL', 'Audit & Rapprochement Excel Frigo MFADEL')}</span>
+            <span>{t('importBL', 'Audit & Rapprochement Excel des BLs')}</span>
           </button>
 
           {currentUser.role === 'RESPONSABLE_FRIGO' && currentUser.assignedFrigoId && (
@@ -735,7 +735,7 @@ EasyERP Pro • Logistics Management`;
                     title="Cliquer pour gérer le Frigo"
                   >
                     <Building2 className="w-3.5 h-3.5 text-[#0f62fe]" />
-                    {frigos.find(f => f.id === bl.frigoId)?.name || (bl.frigoName.includes('Port Casablanca') || bl.frigoName.includes('Frigo A') ? 'Frigo MFADEL' : bl.frigoName)}
+                    {frigos.find(f => f.id === bl.frigoId)?.name || bl.frigoName}
                   </button>
 
                   {bl.status === 'EN_ATTENTE_FRIGO' && (

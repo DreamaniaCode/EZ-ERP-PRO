@@ -440,7 +440,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Frigo MFADEL, Frigo C - Port Casa..."
+                  placeholder="Nom de l'entrepôt / Frigo..."
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded text-xs focus:bg-white focus:outline-none focus:border-[#0f62fe]"
@@ -453,7 +453,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({ onEditFrigo, o
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Casablanca, Erfoud, Agadir"
+                    placeholder="Ville ou Zone géographique..."
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded text-xs focus:bg-white focus:outline-none focus:border-[#0f62fe]"

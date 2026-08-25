@@ -22,6 +22,15 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Version check
+app.get('/api/version', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+  res.json({
+    version: process.env.VERCEL_GIT_COMMIT_SHA || process.env.BUILD_ID || '2026.08.25-live',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // ============================================================
 // USERS
 // ============================================================

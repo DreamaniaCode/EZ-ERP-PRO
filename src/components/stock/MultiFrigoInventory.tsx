@@ -45,7 +45,7 @@ export const MultiFrigoInventory: React.FC = () => {
     managerName: '',
     managerPhone: '',
     whatsappGroup: '',
-    whatsappGroupLink: 'https://chat.whatsapp.com/demo',
+    whatsappGroupLink: '',
     capacityPallets: 400,
   });
 
@@ -140,7 +140,7 @@ export const MultiFrigoInventory: React.FC = () => {
       managerName: '',
       managerPhone: '',
       whatsappGroup: '',
-      whatsappGroupLink: 'https://chat.whatsapp.com/demo',
+      whatsappGroupLink: '',
       capacityPallets: 400,
     });
     setShowAddFrigoModal(true);
@@ -154,7 +154,7 @@ export const MultiFrigoInventory: React.FC = () => {
       managerName: frigo.managerName,
       managerPhone: frigo.managerPhone,
       whatsappGroup: frigo.whatsappGroup || '',
-      whatsappGroupLink: frigo.whatsappGroupLink || 'https://chat.whatsapp.com/demo',
+      whatsappGroupLink: frigo.whatsappGroupLink || '',
       capacityPallets: frigo.capacityPallets,
     });
     setShowAddFrigoModal(true);
@@ -196,7 +196,7 @@ export const MultiFrigoInventory: React.FC = () => {
       managerName: '',
       managerPhone: '',
       whatsappGroup: '',
-      whatsappGroupLink: 'https://chat.whatsapp.com/demo',
+      whatsappGroupLink: '',
       capacityPallets: 400,
     });
   };
@@ -294,7 +294,7 @@ export const MultiFrigoInventory: React.FC = () => {
             >
               {frigos.map(f => (
                 <option key={f.id} value={f.id} className="bg-[#161616] text-white">
-                  {f.name.includes('MFADEL') ? '⭐ ' + f.name : f.name} ({f.location})
+                  {f.name} ({f.location})
                 </option>
               ))}
             </select>
@@ -337,11 +337,6 @@ export const MultiFrigoInventory: React.FC = () => {
               <Building2 className="w-4 h-4 text-[#0f62fe]" />
               <span className="text-amber-300 font-extrabold">{activeFrigo.name}</span>
               <span className="text-xs text-blue-300">({activeFrigo.code})</span>
-              {activeFrigo.name.includes('MFADEL') && (
-                <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded text-[10px] uppercase font-bold">
-                  Frigo Principal
-                </span>
-              )}
               <button
                 onClick={() => handleOpenEditFrigo(activeFrigo)}
                 className="ml-2 px-2 py-0.5 bg-blue-800/60 hover:bg-blue-700 text-white rounded text-[10px] font-sans flex items-center gap-1"
@@ -890,17 +885,15 @@ export const MultiFrigoInventory: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {frigos.map(f => {
-                      const isMfadel = f.name.toLowerCase().includes('mfadel');
                       const isSelected = f.id === selectedFrigoId;
 
                       return (
                         <tr key={f.id} className={isSelected ? 'bg-amber-50/70 font-bold' : 'hover:bg-gray-50'}>
                           <td className="p-2.5">
                             <div className="flex items-center gap-1.5">
-                              {isMfadel && <span className="text-amber-500 font-bold">⭐</span>}
                               <span className="font-bold text-gray-900">{f.name}</span>
                             </div>
-                            <div className="text-[10px] text-gray-500">{f.code} {isMfadel && '(Frigo Principal)'}</div>
+                            <div className="text-[10px] text-gray-500">{f.code}</div>
                           </td>
                           <td className="p-2.5 text-gray-700">{f.location}</td>
                           <td className="p-2.5 text-gray-700">
@@ -918,7 +911,7 @@ export const MultiFrigoInventory: React.FC = () => {
                                   }}
                                   className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded text-[10px] font-sans font-semibold"
                                 >
-                                  Activer
+                                  Sélectionner
                                 </button>
                               )}
                               <button
@@ -926,17 +919,15 @@ export const MultiFrigoInventory: React.FC = () => {
                                   setShowManageFrigosModal(false);
                                   handleOpenEditFrigo(f);
                                 }}
-                                className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-[10px] font-sans font-semibold flex items-center gap-1"
+                                className="px-2 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-[10px] font-sans font-semibold"
                               >
-                                <Edit3 className="w-3 h-3" />
-                                <span>Éditer</span>
+                                Modifier
                               </button>
                               <button
                                 onClick={() => handleDeleteFrigo(f.id, f.name)}
-                                className="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded text-[10px] font-sans font-semibold flex items-center gap-1"
+                                className="px-2 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded text-[10px] font-sans font-semibold"
                               >
-                                <Trash2 className="w-3 h-3" />
-                                <span>Suppr</span>
+                                Supprimer
                               </button>
                             </div>
                           </td>
@@ -948,10 +939,20 @@ export const MultiFrigoInventory: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-gray-50 p-4 border-t border-gray-200 flex justify-end">
+            <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+              <button
+                onClick={() => {
+                  setShowManageFrigosModal(false);
+                  handleOpenAddFrigo();
+                }}
+                className="carbon-btn-primary text-xs flex items-center gap-1.5 rounded"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Ajouter un Nouvel Entrepôt</span>
+              </button>
               <button
                 onClick={() => setShowManageFrigosModal(false)}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold text-xs rounded"
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded text-xs font-semibold hover:bg-gray-300"
               >
                 Fermer
               </button>
@@ -960,21 +961,18 @@ export const MultiFrigoInventory: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Ajout / Édition Frigo */}
+      {/* Modal: Add/Edit Frigo */}
       {showAddFrigoModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-gray-300 w-full max-w-lg rounded shadow-2xl overflow-hidden animate-in fade-in">
-            <div className="bg-[#161616] text-white px-4 py-3 flex justify-between items-center border-b border-[#393939]">
-              <h3 className="font-bold text-sm font-mono uppercase flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full overflow-hidden border border-gray-200">
+            <div className="p-4 bg-[#161616] text-white flex justify-between items-center">
+              <h3 className="font-bold text-sm flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-[#0f62fe]" />
-                {editingFrigo ? `Éditer Frigo: ${editingFrigo.name}` : 'Ajouter un nouveau Frigo / Entrepôt'}
+                <span>{editingFrigo ? `Modifier "${editingFrigo.name}"` : 'Créer un Nouvel Entrepôt Frigo'}</span>
               </h3>
-              <button 
-                onClick={() => {
-                  setShowAddFrigoModal(false);
-                  setEditingFrigo(null);
-                }}
-                className="text-gray-400 hover:text-white font-bold"
+              <button
+                onClick={() => setShowAddFrigoModal(false)}
+                className="text-gray-400 hover:text-white"
               >
                 ✕
               </button>
@@ -988,7 +986,7 @@ export const MultiFrigoInventory: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="ex: Frigo MFADEL - Casablanca"
+                  placeholder="Nom de l'entrepôt / Frigo..."
                   value={frigoForm.name}
                   onChange={e => setFrigoForm({ ...frigoForm, name: e.target.value })}
                   className="w-full carbon-input"
@@ -1003,7 +1001,7 @@ export const MultiFrigoInventory: React.FC = () => {
                   <input
                     type="text"
                     required
-                    placeholder="ex: Casablanca / Zone Franche"
+                    placeholder="Ville ou Zone géographique..."
                     value={frigoForm.location}
                     onChange={e => setFrigoForm({ ...frigoForm, location: e.target.value })}
                     className="w-full carbon-input"
@@ -1031,7 +1029,7 @@ export const MultiFrigoInventory: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    placeholder="ex: Hassan El Amrani"
+                    placeholder="Nom du responsable..."
                     value={frigoForm.managerName}
                     onChange={e => setFrigoForm({ ...frigoForm, managerName: e.target.value })}
                     className="w-full carbon-input"
@@ -1043,7 +1041,7 @@ export const MultiFrigoInventory: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    placeholder="ex: +212 661-123456"
+                    placeholder="+212 6..."
                     value={frigoForm.managerPhone}
                     onChange={e => setFrigoForm({ ...frigoForm, managerPhone: e.target.value })}
                     className="w-full carbon-input"
@@ -1057,7 +1055,7 @@ export const MultiFrigoInventory: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder="ex: Frigo MFADEL - Sorties & BL"
+                  placeholder="Nom du groupe WhatsApp..."
                   value={frigoForm.whatsappGroup}
                   onChange={e => setFrigoForm({ ...frigoForm, whatsappGroup: e.target.value })}
                   className="w-full carbon-input"

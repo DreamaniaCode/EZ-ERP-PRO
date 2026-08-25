@@ -105,7 +105,7 @@ export const ExcelVerificationModal: React.FC<ExcelVerificationModalProps> = ({ 
         emailSent: true,
         status: 'LIVRÉ',
         logs: [
-          { id: `l-${Date.now()}-${index}`, timestamp: new Date().toISOString(), action: `Importé et vérifié depuis l'extrait Excel Frigo MFADEL Page ${rec.pageNumber} (N° Bon: ${rec.bonNumber})`, author: 'Audit Excel Frigo MFADEL' }
+          { id: `l-${Date.now()}-${index}`, timestamp: new Date().toISOString(), action: `Importé et vérifié depuis l'extrait Excel Page ${rec.pageNumber} (N° Bon: ${rec.bonNumber})`, author: 'Audit Excel' }
         ]
       };
     });

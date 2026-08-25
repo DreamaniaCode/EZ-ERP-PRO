@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easyerp-pwa-v25-live-update-2026';
+const CACHE_NAME = 'easyerp-pwa-v2026-live';
 
 // Message Listener for client commands (Skip Waiting, Purge Caches)
 self.addEventListener('message', (event) => {
@@ -40,12 +40,17 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event - Always prefer fresh network responses, fallback to cache when offline
+// Fetch Event - Network First with offline fallback
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
   // Ignore non-GET or browser extension requests
   if (request.method !== 'GET' || !request.url.startsWith('http')) return;
+
+  // Never cache API requests or version.json in Service Worker CacheStorage
+  if (request.url.includes('/api/') || request.url.includes('version.json')) {
+    return;
+  }
 
   // Navigation / HTML requests - ALWAYS Network First with no-cache header!
   if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
@@ -80,4 +85,3 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
-

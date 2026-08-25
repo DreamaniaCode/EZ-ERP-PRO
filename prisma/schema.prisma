@@ -124,14 +124,15 @@ model FrigoStockLevel {
 model ProductStockMovement {
   id              String   @id @default(uuid())
   productId       String
-  productName     String
-  productCode     String
+  productName     String?  @default("")
+  productCode     String?  @default("")
   frigoId         String
-  frigoName       String
+  frigoName       String?  @default("")
   type            String
   quantityKg      Float
-  previousStockKg Float
-  newStockKg      Float
+  quantityPallets Float?   @default(0)
+  previousStockKg Float?   @default(0)
+  newStockKg      Float?   @default(0)
   referenceDoc    String?  @default("")
   date            DateTime @default(now())
   performedBy     String?  @default("")

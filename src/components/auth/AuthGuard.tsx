@@ -65,11 +65,11 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
 
             const userToSave: AppUser = foundLocalUser || {
               uid: firebaseUser.uid,
-              email: firebaseUser.email || 'admin@easyerp.com',
-              displayName: firebaseUser.displayName || (firebaseUser.email?.includes('frigo') ? 'Responsable Frigo MFADEL' : 'Super Admin'),
-              role: firebaseUser.email?.includes('frigo') ? 'RESPONSABLE_FRIGO' : 'ADMIN',
-              assignedFrigoId: firebaseUser.email?.includes('frigo') ? 'frigo-1' : undefined,
-              permissions: DEFAULT_ROLE_PERMISSIONS[firebaseUser.email?.includes('frigo') ? 'RESPONSABLE_FRIGO' : 'ADMIN'],
+              email: firebaseUser.email || '',
+              displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Utilisateur',
+              role: 'ADMIN',
+              assignedFrigoId: undefined,
+              permissions: DEFAULT_ROLE_PERMISSIONS['ADMIN'],
               isActive: true,
               createdAt: new Date().toISOString(),
             };
@@ -95,9 +95,9 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
                   uid: firebaseUser.uid,
                   email: match.email,
                   displayName: match.displayName || match.name || 'Utilisateur',
-                  role: match.role || 'RESPONSABLE_FRIGO',
-                  assignedFrigoId: match.assignedFrigoId || 'frigo-1',
-                  permissions: DEFAULT_ROLE_PERMISSIONS[match.role || 'RESPONSABLE_FRIGO'] || DEFAULT_ROLE_PERMISSIONS['RESPONSABLE_FRIGO'],
+                  role: match.role || 'ADMIN',
+                  assignedFrigoId: match.assignedFrigoId,
+                  permissions: DEFAULT_ROLE_PERMISSIONS[match.role || 'ADMIN'] || DEFAULT_ROLE_PERMISSIONS['ADMIN'],
                   isActive: true,
                   createdAt: new Date().toISOString(),
                 };
@@ -107,11 +107,11 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
 
           const fallbackUser: AppUser = foundLocalUser || {
             uid: firebaseUser.uid,
-            email: firebaseUser.email || 'admin@easyerp.com',
-            displayName: firebaseUser.email?.includes('frigo') ? 'Responsable Frigo MFADEL' : 'Super Admin',
-            role: firebaseUser.email?.includes('frigo') ? 'RESPONSABLE_FRIGO' : 'ADMIN',
-            assignedFrigoId: firebaseUser.email?.includes('frigo') ? 'frigo-1' : undefined,
-            permissions: DEFAULT_ROLE_PERMISSIONS[firebaseUser.email?.includes('frigo') ? 'RESPONSABLE_FRIGO' : 'ADMIN'],
+            email: firebaseUser.email || '',
+            displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Utilisateur',
+            role: 'ADMIN',
+            assignedFrigoId: undefined,
+            permissions: DEFAULT_ROLE_PERMISSIONS['ADMIN'],
             isActive: true,
             createdAt: new Date().toISOString(),
           };

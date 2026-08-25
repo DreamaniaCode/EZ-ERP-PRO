@@ -462,7 +462,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                         <td className="font-mono font-bold text-[#0f62fe]">{bl.blNumber}</td>
                         <td className="font-mono text-gray-600">{bl.date}</td>
                         <td className="font-semibold text-gray-800">
-                          {frigos.find(f => f.id === bl.frigoId)?.name || (bl.frigoName.includes('Port Casablanca') || bl.frigoName.includes('Frigo A') ? 'Frigo MFADEL' : bl.frigoName)}
+                          {frigos.find(f => f.id === bl.frigoId)?.name || bl.frigoName}
                         </td>
                         <td className="font-mono">
                           <b>{bl.totalKg.toLocaleString()} Kg</b> ({bl.totalPallets} Palettes)

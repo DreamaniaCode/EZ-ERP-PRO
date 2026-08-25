@@ -88,7 +88,7 @@ const findSmartHeaderRowIndex = (rows: any[][]): number => {
 export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { t } = useTranslation();
   const { 
-    products, clients, frigos, suppliers, 
+    products, clients, frigos, suppliers, currentUser,
     importExcelBLs, resetAllData, purgeOrphanStocks
   } = useERP();
 
@@ -589,7 +589,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               id: `log-${idx}`,
               timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
               action: `Import BL — Frigo: ${frigoTarget.name} | ${qtyColis} colis × ${kgPerCtn} kg = ${qtyKg} kg`,
-              author: 'Super Admin'
+              author: currentUser?.name || 'Administrateur'
             }
           ]
         };

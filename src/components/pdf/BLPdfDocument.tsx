@@ -632,10 +632,10 @@ export const BLPdfDocument: React.FC<BLPdfDocumentProps> = ({ bl, frigo: frigoPr
               <div className="font-bold uppercase border-b pb-1 mb-2 text-[11px]" style={{ color: '#1d4ed8', borderColor: '#dbeafe' }}>
                 ENTREPÔT FRIGORIFIQUE D'EXPÉDITION
               </div>
-              <div className="font-bold text-sm" style={{ color: '#1e3a8a' }}>{frigo?.name || (bl.frigoName.includes('Port Casablanca') || bl.frigoName.includes('Frigo A') ? 'Frigo MFADEL' : bl.frigoName)}</div>
-              <div className="text-gray-700 mt-1" style={{ color: '#334155' }}>{frigo?.location || 'Zone Portuaire, Casablanca'}</div>
-              <div className="text-gray-600 mt-1" style={{ color: '#475569' }}>Responsable Quai: {frigo?.managerName || 'Responsable Frigo MFADEL'}</div>
-              <div className="text-gray-600" style={{ color: '#475569' }}>Contact Frigo: {frigo?.managerPhone || '+212 661-123456'}</div>
+              <div className="font-bold text-sm" style={{ color: '#1e3a8a' }}>{frigo?.name || bl.frigoName || 'Entrepôt Principal'}</div>
+              <div className="text-gray-700 mt-1" style={{ color: '#334155' }}>{frigo?.location || 'Casablanca'}</div>
+              <div className="text-gray-600 mt-1" style={{ color: '#475569' }}>Responsable Quai: {frigo?.managerName || 'Responsable Quai'}</div>
+              <div className="text-gray-600" style={{ color: '#475569' }}>Contact Frigo: {frigo?.managerPhone || '-'}</div>
               <div className="mt-2 text-[10px] font-bold flex items-center gap-1" style={{ color: '#047857' }}>
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Validation Quai Frigo: {bl.frigoEmployeeApproved ? `Approuvé par ${bl.frigoApprovedBy}` : 'En attente'}

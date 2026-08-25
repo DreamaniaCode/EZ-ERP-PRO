@@ -4,14 +4,16 @@ import { RefreshCw, Sparkles, X } from 'lucide-react';
 export const PWAUpdateBanner: React.FC = () => {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [remoteVersion, setRemoteVersion] = useState<string | undefined>(undefined);
   const [isUpdating, setIsUpdating] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     const handleUpdate = (e: any) => {
-      console.log('[PWA Banner] pwa-update-available event caught!');
-      if (e.detail && e.detail.registration) {
-        setSwRegistration(e.detail.registration);
+      console.log('[PWA Banner] pwa-update-available event caught!', e.detail);
+      if (e.detail) {
+        if (e.detail.registration) setSwRegistration(e.detail.registration);
+        if (e.detail.remoteVersion) setRemoteVersion(e.detail.remoteVersion);
       }
       setUpdateAvailable(true);
     };
@@ -31,7 +33,7 @@ export const PWAUpdateBanner: React.FC = () => {
         swRegistration.waiting.postMessage({ type: 'CLEAR_CACHE' });
       }
       if ((window as any).forcePWAUpdate) {
-        await (window as any).forcePWAUpdate();
+        await (window as any).forcePWAUpdate(remoteVersion);
       } else {
         window.location.reload();
       }

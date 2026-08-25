@@ -30,7 +30,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const executeLocalFallbackLogin = (emailInput: string) => {
     // Try to find the user in the ERP users list (localStorage) to respect their actual role
     let matchedRole: 'ADMIN' | 'COMMERCIAL' | 'RESPONSABLE_FRIGO' | 'COMPTABLE' = 'ADMIN';
-    let matchedName = 'Super Admin';
+    let matchedName = emailInput.split('@')[0] || 'Utilisateur';
     let matchedFrigoId: string | undefined = undefined;
     let matchedUid = 'local-uid-' + Date.now();
 
@@ -49,7 +49,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       }
 
       // 2. Fallback: check erp_current_user (UserProfile format, last known login)
-      if (matchedName === 'Super Admin' && matchedRole === 'ADMIN') {
+      if (matchedRole === 'ADMIN') {
         const savedCurrentUser = localStorage.getItem('erp_current_user');
         if (savedCurrentUser) {
           const cu = JSON.parse(savedCurrentUser);
@@ -60,12 +60,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             matchedUid = cu.id || matchedUid;
           }
         }
-      }
-      // 3. Fallback heuristic by email address name
-      if (matchedName === 'Super Admin' && matchedRole === 'ADMIN' && emailInput.toLowerCase().includes('frigo')) {
-        matchedRole = 'RESPONSABLE_FRIGO';
-        matchedName = 'Responsable Frigo MFADEL';
-        matchedFrigoId = 'frigo-1';
       }
     } catch (e) {
       console.warn('Could not look up local user list:', e);
@@ -236,7 +230,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-10 rtl:pl-3.5 rtl:pr-10 bg-white/10 border border-white/20 rounded-xl py-2.5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0f62fe] focus:border-transparent text-sm transition-all"
-                  placeholder="admin@easyerp.com"
+                  placeholder="nom@entreprise.com"
                   dir="ltr"
                 />
               </div>

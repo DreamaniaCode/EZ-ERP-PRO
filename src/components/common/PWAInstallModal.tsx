@@ -23,8 +23,19 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
   const handleForceUpdate = async () => {
     setIsForceUpdating(true);
     try {
+      let latestVer: string | undefined = undefined;
+      try {
+        const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.version) latestVer = data.version;
+        }
+      } catch (e) {
+        // ignore
+      }
+
       if ((window as any).forcePWAUpdate) {
-        await (window as any).forcePWAUpdate();
+        await (window as any).forcePWAUpdate(latestVer);
       } else {
         window.location.reload();
       }

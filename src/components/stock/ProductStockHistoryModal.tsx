@@ -103,7 +103,7 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
           documentRef: bl.blNumber,
           orderRef: bl.orderNumber,
           frigoId: bl.frigoId,
-          frigoName: bl.frigoName || 'Frigo MFADEL',
+          frigoName: bl.frigoName || 'Entrepôt Principal',
           partyName: bl.clientName,
           changeKg: -Math.abs(matchedItem.quantityKg),
           changePallets: -Math.abs(matchedItem.quantityPallets),
