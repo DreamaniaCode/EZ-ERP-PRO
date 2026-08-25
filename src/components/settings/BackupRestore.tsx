@@ -1,8 +1,25 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
-import { Download, Upload, CheckSquare, Square, AlertTriangle, FileJson, CheckCircle, XCircle, Trash2 } from 'lucide-react';
+import { 
+  Download, 
+  Upload, 
+  CheckSquare, 
+  Square, 
+  AlertTriangle, 
+  FileJson, 
+  CheckCircle, 
+  XCircle, 
+  Trash2,
+  Cloud,
+  Database,
+  RefreshCw,
+  CheckCheck,
+  ArrowUpCircle,
+  ArrowDownCircle
+} from 'lucide-react';
 import { BackupData, exportFullBackup, parseBackupFile, validateBackupIntegrity } from '../../utils/backupUtils';
+import { api } from '../../lib/api';
 
 export const BackupRestore: React.FC = () => {
   const { t } = useTranslation();
@@ -24,6 +41,10 @@ export const BackupRestore: React.FC = () => {
   } = useERP();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Cloud Sync State
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [cloudSyncMsg, setCloudSyncMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   // Export State
   const [lastBackup, setLastBackup] = useState<string | null>(localStorage.getItem('erp_last_backup'));
   const [selectedModules, setSelectedModules] = useState<{ [key: string]: boolean }>({
@@ -60,6 +81,7 @@ export const BackupRestore: React.FC = () => {
     { id: 'frigos', label: t('backup.modules.frigos', 'Frigos') },
     { id: 'stocks', label: t('backup.modules.stocks', 'Stock') },
     { id: 'inventoryCounts', label: t('backup.modules.inventory', 'Inventaires') },
+    { id: 'purchaseInvoices', label: t('backup.modules.purchaseInvoices', 'Achats') },
     { id: 'companyInfo', label: t('backup.modules.companyInfo', 'Infos Entreprise') },
   ];
 
@@ -123,7 +145,45 @@ export const BackupRestore: React.FC = () => {
     }
   };
 
-  const handleConfirmRestore = () => {
+  // Push local data directly into PostgreSQL
+  const handlePushToCloud = async () => {
+    setIsCloudSyncing(true);
+    setCloudSyncMsg(null);
+    try {
+      const payload = {
+        products,
+        frigos,
+        stocks,
+        clients,
+        suppliers,
+        deliveryNotes,
+        invoices,
+        chequesEffets,
+        treasuryAccounts: [],
+        expenses,
+        purchaseInvoices,
+        salesOrders: orders,
+        inventoryCounts,
+        companyInfo: companyInfo || {},
+        companies: [],
+      };
+
+      await api.bootstrapFromLocal(payload);
+      setCloudSyncMsg({
+        type: 'success',
+        text: 'Toutes vos données locales ont été synchronisées avec succès vers la base PostgreSQL Cloud ! Tous vos domaines et appareils ont maintenant les mêmes données.'
+      });
+    } catch (err: any) {
+      setCloudSyncMsg({
+        type: 'error',
+        text: `Échec de synchronisation Cloud : ${err?.message || 'Erreur réseau'}`
+      });
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
+  const handleConfirmRestore = async () => {
     if (!restoreData) return;
 
     if (restoreData.modules.products) localStorage.setItem('erp_products', JSON.stringify(restoreData.modules.products));
@@ -140,12 +200,66 @@ export const BackupRestore: React.FC = () => {
     if (restoreData.modules.purchaseInvoices) localStorage.setItem('erp_purchases', JSON.stringify(restoreData.modules.purchaseInvoices));
     if (restoreData.modules.companyInfo) localStorage.setItem('erp_company', JSON.stringify(restoreData.modules.companyInfo));
 
+    // Also sync restored payload to PostgreSQL
+    try {
+      await api.bootstrapFromLocal(restoreData.modules as any);
+    } catch (e) {
+      console.warn('Could not sync to cloud during restore:', e);
+    }
+
     window.location.reload();
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-[#161616] dark:text-white mb-6">{t('backupRestore') || 'Backup & Restore'}</h1>
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-[#161616] dark:text-white font-mono uppercase flex items-center gap-2">
+            <Database className="w-6 h-6 text-[#0f62fe]" />
+            {t('backupRestore') || 'Sauvegarde, Restauration & Synchronisation Cloud'}
+          </h1>
+          <p className="text-xs text-gray-500 mt-1">
+            Gérez vos sauvegardes de sécurité et synchronisez vos données entre tous vos appareils et domaines.
+          </p>
+        </div>
+      </div>
+
+      {/* Cloud Direct Sync Hub */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-xl p-5 border border-indigo-500/30 shadow-xl">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Cloud className="w-5 h-5 text-sky-400 animate-pulse" />
+              <h3 className="font-bold text-sm sm:text-base text-white">
+                Synchronisation Instantanée PostgreSQL Cloud (Multi-Appareils & Multi-Domaines)
+              </h3>
+            </div>
+            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+              Cliquez ci-dessous pour envoyer l'intégralité de vos BLs ({deliveryNotes.length}), Produits ({products.length}), Clients ({clients.length}) et Stocks vers la base PostgreSQL Cloud. Toutes vos données seront immédiatement disponibles et identiques sur <strong className="text-sky-300">https://mlhmederp.site</strong>, téléphones et tablettes.
+            </p>
+          </div>
+
+          <button
+            onClick={handlePushToCloud}
+            disabled={isCloudSyncing}
+            className="px-4 py-2.5 bg-[#0f62fe] hover:bg-blue-600 active:scale-95 text-white text-xs font-bold rounded-lg flex items-center gap-2 transition shadow-lg shrink-0 disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${isCloudSyncing ? 'animate-spin' : ''}`} />
+            <span>{isCloudSyncing ? 'Synchronisation Cloud en cours...' : 'Envoyer vers PostgreSQL Cloud'}</span>
+          </button>
+        </div>
+
+        {cloudSyncMsg && (
+          <div className={`mt-4 p-3 rounded-lg text-xs font-semibold flex items-center gap-2 border ${
+            cloudSyncMsg.type === 'success' 
+              ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-300' 
+              : 'bg-rose-950/80 border-rose-500/50 text-rose-300'
+          }`}>
+            {cloudSyncMsg.type === 'success' ? <CheckCheck className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+            <span>{cloudSyncMsg.text}</span>
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Export Section */}
