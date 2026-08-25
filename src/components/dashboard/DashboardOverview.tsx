@@ -28,7 +28,10 @@ import {
   CheckCircle2,
   ChevronRight,
   PieChart,
-  Layers
+  Layers,
+  Phone,
+  Eye,
+  FileSpreadsheet
 } from 'lucide-react';
 import { NavTab } from '../layout/Sidebar';
 import { QRScannerModal } from '../common/QRScannerModal';
@@ -38,13 +41,28 @@ import { StandardKpiBarChart } from './StandardKpiBarChart';
 interface DashboardOverviewProps {
   onNavigate: (tab: NavTab) => void;
   onViewFrigoDetail?: (frigoId: string) => void;
+  onEditBL?: (blId: string) => void;
+  onViewBLPdf?: (blId: string) => void;
+  onEditClient?: (clientId: string) => void;
+  onEditProduct?: (productId: string) => void;
+  onEditFrigo?: (frigoId: string) => void;
+  onEditOrder?: (orderId: string) => void;
+  onEditCheque?: (chequeId: string) => void;
 }
 
-
-export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate, onViewFrigoDetail }) => {
+export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ 
+  onNavigate, 
+  onViewFrigoDetail,
+  onEditBL,
+  onViewBLPdf,
+  onEditClient,
+  onEditProduct,
+  onEditFrigo,
+  onEditOrder,
+  onEditCheque
+}) => {
   const { t } = useTranslation();
   const { products, stocks, frigos, orders, deliveryNotes, invoices, chequesEffets, expenses, clients } = useERP();
-
 
   const [quickBlSearch, setQuickBlSearch] = useState('');
   const [blSearchError, setBlSearchError] = useState('');
@@ -55,7 +73,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
     setBlSearchError('');
     const clean = term.trim();
     if (!clean) return;
-
 
     let searchCode = clean;
     if (clean.includes('bl=')) {
@@ -69,8 +86,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
     );
 
     if (found) {
-      window.history.pushState({}, '', `/?bl=${found.blNumber}`);
-      onNavigate('DELIVERY_NOTES');
+      if (onEditBL) {
+        onEditBL(found.id);
+      } else {
+        window.history.pushState({}, '', `/?bl=${found.blNumber}`);
+        onNavigate('DELIVERY_NOTES');
+      }
     } else {
       setBlSearchError(`${t('common.noData', 'Aucun BL trouvé')} (${searchCode})`);
     }
@@ -115,28 +136,24 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
   const grossMarginHT = totalSalesHT - totalCostHT;
   const globalMarginPct = totalSalesHT > 0 ? (grossMarginHT / totalSalesHT) * 100 : 0;
 
-  // Receivables (Créances Clients) - computed from actual invoice and BL data
+  // Receivables (Créances Clients)
   const invoiceReceivables = (invoices || [])
     .filter(inv => inv.status !== 'PAYEE')
     .reduce((acc, inv) => acc + (inv.remainingAmount ?? (inv.totalTTC - (inv.amountPaid || 0))), 0);
 
-  // Only count delivered BLs that haven't been invoiced yet
   const nonInvoicedBLReceivables = (deliveryNotes || [])
     .filter(bl => (bl.status === 'LIVRÉ' || bl.status === 'EN_COURS_LIVRAISON') && !bl.invoiceId)
     .reduce((acc, bl) => acc + (bl.totalTTC || (bl.totalHT * 1.20)), 0);
 
   const clientBalanceReceivables = (clients || []).reduce((acc, c) => acc + (c.currentBalance || 0), 0);
-
-  // Use the highest of: client balances vs computed receivables (invoices + non-invoiced BLs)
   const totalReceivablesTTC = Math.max(clientBalanceReceivables, invoiceReceivables + nonInvoicedBLReceivables);
-
 
   // Cheques due in portfolio
   const chequesInPortfolio = chequesEffets.filter(c => c.status === 'EN_PORTEFEUILLE');
   const totalChequesAmount = chequesInPortfolio.reduce((acc, c) => acc + c.amount, 0);
 
   // Executive Dashboard Data Aggregations
-  const recentBLs = [...deliveryNotes].slice(0, 5);
+  const recentBLs = [...deliveryNotes].slice(0, 6);
   const recentInvoices = [...invoices].slice(0, 5);
 
   const clientChequesToDeposit = chequesEffets.filter(c => c.direction === 'RECETTE_CLIENT' && c.status === 'EN_PORTEFEUILLE');
@@ -150,17 +167,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
   // Pending BLs
   const pendingBLsCount = deliveryNotes.filter(bl => !bl.frigoEmployeeApproved).length;
 
-
-  // Category breakdown for margins (100% derived from real database: orders, BLs, stocks)
+  // Category breakdown for margins
   const categoryStats: { [cat: string]: { salesHT: number; costHT: number; marginHT: number } } = {};
   const categorySalesStats: { [cat: string]: { salesHT: number; costHT: number; marginHT: number; stockKg: number; valuationHT: number } } = {};
 
-  // Initialize catalog categories
   ['Dattes Locales', 'Dattes Importées', 'Fruits Secs', 'Huiles & Condiments', 'Autres Produits Alimentaires'].forEach(cat => {
     categorySalesStats[cat] = { salesHT: 0, costHT: 0, marginHT: 0, stockKg: 0, valuationHT: 0 };
   });
 
-  // Real Stocks aggregation by category
   stocks.forEach(stk => {
     const prd = products.find(p => p.id === stk.productId);
     if (prd && prd.category) {
@@ -172,7 +186,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
     }
   });
 
-  // Real Orders / BLs aggregation by category
   const salesSource = orders.length > 0 ? orders : deliveryNotes;
   salesSource.forEach(doc => {
     (doc.items || []).forEach(item => {
@@ -197,9 +210,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
     });
   });
 
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" id="dashboard-overview-container">
       
       {/* Top Banner & Quick Action Buttons */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#161616] p-4 border border-[#393939] text-white">
@@ -209,7 +221,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
             {t('dashboard.title', 'Tableau de Bord & Marges')}
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            {t('app.description', 'Négoce de Dattes Locales & Importées • Suivi Logistique en Temps Réel')}
+            {t('app.description', 'Négoce de Dattes Locales & Importées • Suivi Logistique & Financier en Temps Réel')}
           </p>
         </div>
 
@@ -241,10 +253,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
             {t('dashboard.pendingBLs', 'BL en Attente')} ({pendingBLsCount})
           </button>
           <button
-            onClick={() => onNavigate('PURCHASES_IMPORTS')}
-            className="bg-[#262626] hover:bg-[#393939] text-gray-200 border border-[#525252] text-xs px-3 py-2 rounded flex items-center gap-1.5 transition-colors font-semibold"
+            onClick={() => onNavigate('MULTI_SITE_INVENTORY')}
+            className="bg-blue-900/80 hover:bg-blue-800 text-cyan-200 border border-blue-600 text-xs px-3 py-2 rounded flex items-center gap-1.5 transition-colors font-semibold"
           >
-            {t('purchases.newPurchase', 'Saisir Arrivée Conteneur')}
+            <Layers className="w-4 h-4 text-cyan-300" />
+            <span>Inventaire Multi-Sites</span>
           </button>
         </div>
       </div>
@@ -303,14 +316,20 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         onScanSuccess={handleQrScanSuccess}
       />
 
-      {/* KPI Cards Row */}
+      {/* 🚀 CLICKABLE KPI Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* KPI 1: Sales & Margin */}
-        <div className="carbon-card p-4">
+        {/* KPI 1: Sales & Margin -> Opens Delivery Notes */}
+        <div 
+          onClick={() => onNavigate('DELIVERY_NOTES')}
+          className="carbon-card p-4 cursor-pointer hover:border-[#0f62fe] hover:shadow-md transition-all group relative overflow-hidden"
+          title="Cliquer pour afficher la liste des Bons de Livraison & Ventes"
+        >
           <div className="flex justify-between items-start">
-            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">{t('dashboard.totalRevenue', 'Chiffre d\'Affaires HT')}</span>
-            <div className="p-1.5 bg-blue-50 text-blue-600 rounded">
+            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider group-hover:text-[#0f62fe] transition-colors">
+              {t('dashboard.totalRevenue', 'Chiffre d\'Affaires HT')}
+            </span>
+            <div className="p-1.5 bg-blue-50 text-blue-600 rounded group-hover:bg-blue-600 group-hover:text-white transition-colors">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
@@ -318,19 +337,29 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
             {totalSalesHT.toLocaleString()} <span className="text-xs font-normal text-gray-500">DH</span>
           </div>
           <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100 text-xs">
-            <span className="text-gray-500">{t('dashboard.grossMargin', 'Marge Brute')}:</span>
+            <span className="text-gray-500">{t('dashboard.grossMargin', 'Marge')}:</span>
             <span className="font-mono font-bold text-emerald-600 flex items-center gap-1">
               <ArrowUpRight className="w-3.5 h-3.5" />
               {grossMarginHT.toLocaleString()} DH ({(globalMarginPct || 0).toFixed(1)}%)
             </span>
           </div>
+          <div className="text-[10px] text-blue-600 font-bold flex items-center gap-0.5 mt-1.5 opacity-80 group-hover:opacity-100 group-hover:underline">
+            <span>Voir les ventes & BLs</span>
+            <ChevronRight className="w-3 h-3" />
+          </div>
         </div>
 
-        {/* KPI 2: Stock Valuation */}
-        <div className="carbon-card p-4">
+        {/* KPI 2: Stock Valuation -> Opens Multi-Site Inventory */}
+        <div 
+          onClick={() => onNavigate('MULTI_SITE_INVENTORY')}
+          className="carbon-card p-4 cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all group relative overflow-hidden"
+          title="Cliquer pour ouvrir l'Inventaire Multi-Sites & Gestion des Frigos"
+        >
           <div className="flex justify-between items-start">
-            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">{t('dashboard.stockValuation', 'Valeur Stock Global')}</span>
-            <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded">
+            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider group-hover:text-emerald-700 transition-colors">
+              {t('dashboard.stockValuation', 'Valeur Stock Global')}
+            </span>
+            <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded group-hover:bg-emerald-600 group-hover:text-white transition-colors">
               <Boxes className="w-4 h-4" />
             </div>
           </div>
@@ -343,13 +372,23 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
               {totalStockKg.toLocaleString()} Kg
             </span>
           </div>
+          <div className="text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 mt-1.5 opacity-80 group-hover:opacity-100 group-hover:underline">
+            <span>Gérer les stocks & frigos</span>
+            <ChevronRight className="w-3 h-3" />
+          </div>
         </div>
 
-        {/* KPI 3: Receivables */}
-        <div className="carbon-card p-4">
+        {/* KPI 3: Receivables -> Opens Clients */}
+        <div 
+          onClick={() => onNavigate('CLIENTS')}
+          className="carbon-card p-4 cursor-pointer hover:border-purple-500 hover:shadow-md transition-all group relative overflow-hidden"
+          title="Cliquer pour afficher les comptes clients, créances et relevés"
+        >
           <div className="flex justify-between items-start">
-            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">{t('clients.receivables', 'Créances Clients (TTC)')}</span>
-            <div className="p-1.5 bg-purple-50 text-purple-600 rounded">
+            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider group-hover:text-purple-700 transition-colors">
+              {t('clients.receivables', 'Créances Clients (TTC)')}
+            </span>
+            <div className="p-1.5 bg-purple-50 text-purple-600 rounded group-hover:bg-purple-600 group-hover:text-white transition-colors">
               <Landmark className="w-4 h-4" />
             </div>
           </div>
@@ -359,16 +398,26 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100 text-xs">
             <span className="text-gray-500">{t('clients.title', 'Clients')}:</span>
             <span className="font-mono font-semibold text-gray-700">
-              {clients.length} {t('nav.clients', 'Clients')}
+              {clients.length} {t('nav.clients', 'Comptes Clients')}
             </span>
+          </div>
+          <div className="text-[10px] text-purple-700 font-bold flex items-center gap-0.5 mt-1.5 opacity-80 group-hover:opacity-100 group-hover:underline">
+            <span>Suivre les créances & soldes</span>
+            <ChevronRight className="w-3 h-3" />
           </div>
         </div>
 
-        {/* KPI 4: Cheques in Portfolio */}
-        <div className="carbon-card p-4">
+        {/* KPI 4: Cheques in Portfolio -> Opens Treasury */}
+        <div 
+          onClick={() => onNavigate('TREASURY_CHEQUES')}
+          className="carbon-card p-4 cursor-pointer hover:border-amber-500 hover:shadow-md transition-all group relative overflow-hidden"
+          title="Cliquer pour afficher la gestion de trésorerie, chèques et effets"
+        >
           <div className="flex justify-between items-start">
-            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">{t('dashboard.pendingCheques', 'Chèques Portefeuille')}</span>
-            <div className="p-1.5 bg-amber-50 text-amber-600 rounded">
+            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider group-hover:text-amber-800 transition-colors">
+              {t('dashboard.pendingCheques', 'Chèques Portefeuille')}
+            </span>
+            <div className="p-1.5 bg-amber-50 text-amber-600 rounded group-hover:bg-amber-600 group-hover:text-white transition-colors">
               <Clock className="w-4 h-4" />
             </div>
           </div>
@@ -378,10 +427,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100 text-xs">
             <span className="text-gray-500">{t('treasury.title', 'Titres')}:</span>
             <span className="font-mono font-semibold text-amber-800">
-              {chequesInPortfolio.length}
+              {chequesInPortfolio.length} Chèques / Effets
             </span>
           </div>
+          <div className="text-[10px] text-amber-800 font-bold flex items-center gap-0.5 mt-1.5 opacity-80 group-hover:opacity-100 group-hover:underline">
+            <span>Gérer les encaissements</span>
+            <ChevronRight className="w-3 h-3" />
+          </div>
         </div>
+
       </div>
 
       {/* Clean Flat KPI Bar Charts */}
@@ -390,8 +444,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         {/* Chart 1: Real Sales & Valuation HT by Category */}
         <StandardKpiBarChart
           title="Valorisation & Chiffre d'Affaires HT par Catégorie"
-          subtitle="Chiffres d'affaires et valorisation réelle des stocks par famille de produit"
+          subtitle="Cliquer sur une famille pour voir les produits associés"
           unit="DH"
+          onItemClick={() => onNavigate('PRODUCTS_STOCK')}
           data={
             Object.entries(categorySalesStats)
               .filter(([_, st]) => st.salesHT > 0 || st.valuationHT > 0)
@@ -439,7 +494,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
       {/* EXECUTIVE BUSINESS DASHBOARD WIDGETS GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* Widget 1: Derniers Bons de Livraison (BL) */}
+        {/* 📦 Widget 1: Derniers Bons de Livraison (BL) -> 100% CLICKABLE */}
         <div className="carbon-card p-5 space-y-3">
           <div className="flex justify-between items-center pb-2 border-b border-gray-200">
             <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
@@ -450,7 +505,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
               onClick={() => onNavigate('DELIVERY_NOTES')}
               className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
             >
-              <span>Tous les BL</span>
+              <span>Tous les BL ({deliveryNotes.length})</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -460,24 +515,86 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
               <p className="text-xs text-gray-400 italic py-4">Aucun Bon de Livraison enregistré.</p>
             ) : (
               recentBLs.map(bl => (
-                <div key={bl.id} className="p-2.5 bg-gray-50 border border-gray-200 rounded flex items-center justify-between text-xs font-mono">
-                  <div>
-                    <div className="font-bold text-gray-900 flex items-center gap-1.5">
-                      <span className="text-[#0f62fe]">{bl.blNumber}</span>
-                      <span className="text-gray-400">•</span>
-                      <span className="font-sans text-gray-700">{bl.clientName}</span>
+                <div 
+                  key={bl.id} 
+                  onClick={() => {
+                    if (onEditBL) {
+                      onEditBL(bl.id);
+                    } else {
+                      window.history.pushState({}, '', `/?bl=${bl.blNumber}`);
+                      onNavigate('DELIVERY_NOTES');
+                    }
+                  }}
+                  className="p-3 bg-gray-50 border border-gray-200 hover:border-[#0f62fe] hover:bg-blue-50/60 rounded-lg flex items-center justify-between text-xs font-mono cursor-pointer transition-all group shadow-xs hover:shadow-sm"
+                  title="Cliquer pour ouvrir et éditer ce Bon de Livraison"
+                >
+                  <div className="space-y-1">
+                    <div className="font-bold text-gray-900 flex items-center gap-2 flex-wrap">
+                      <span className="text-[#0f62fe] font-bold group-hover:underline flex items-center gap-1">
+                        <FileText className="w-3.5 h-3.5" />
+                        {bl.blNumber}
+                      </span>
+                      <span className="text-gray-300">•</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (bl.clientId && onEditClient) {
+                            onEditClient(bl.clientId);
+                          } else {
+                            onNavigate('CLIENTS');
+                          }
+                        }}
+                        className="font-sans font-bold text-gray-800 hover:text-[#0f62fe] hover:underline text-left"
+                        title="Ouvrir la fiche client"
+                      >
+                        {bl.clientName || 'Client Inconnu'}
+                      </button>
                     </div>
-                    <div className="text-[10px] text-gray-500 font-sans mt-0.5">
-                      {bl.date} • {bl.frigoName || 'Frigo'}
+
+                    <div className="text-[11px] text-gray-500 font-sans flex items-center gap-2">
+                      <span>{bl.date || '-'}</span>
+                      <span>•</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (bl.frigoId && onViewFrigoDetail) {
+                            onViewFrigoDetail(bl.frigoId);
+                          } else {
+                            onNavigate('FRIGO_MANAGEMENT');
+                          }
+                        }}
+                        className="text-gray-600 hover:text-blue-700 hover:underline"
+                        title="Voir le frigo source"
+                      >
+                        {bl.frigoName || 'Entrepôt Skhirat'}
+                      </button>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold text-emerald-700">{bl.totalKg.toLocaleString()} Kg</div>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded inline-block mt-0.5 ${
-                      bl.frigoEmployeeApproved ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                    }`}>
-                      {bl.frigoEmployeeApproved ? 'Quai Validé' : 'En Attente'}
-                    </span>
+
+                  <div className="text-right flex items-center gap-3">
+                    <div>
+                      <div className="font-bold text-emerald-700 text-sm">{bl.totalKg?.toLocaleString()} Kg</div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded inline-block mt-0.5 ${
+                        bl.frigoEmployeeApproved 
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                          : 'bg-amber-100 text-amber-900 border border-amber-300 animate-pulse'
+                      }`}>
+                        {bl.frigoEmployeeApproved ? 'Quai Validé' : 'En Attente'}
+                      </span>
+                    </div>
+
+                    {onViewBLPdf && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewBLPdf(bl.id);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-blue-700 hover:bg-white rounded border border-transparent hover:border-blue-200 transition"
+                        title="Voir / Imprimer PDF du BL"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))
@@ -485,33 +602,112 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           </div>
         </div>
 
-        {/* Widget 2: Dernières Factures Émises */}
+        {/* 👥 Widget 5: Clients à Suivre (Crédits & Créances) -> 100% CLICKABLE */}
+        <div className="carbon-card p-5 space-y-3">
+          <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+            <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
+              <Users className="w-4 h-4 text-rose-600" />
+              Clients à Suivre (Crédits & Créances les plus élevés)
+            </h2>
+            <button
+              onClick={() => onNavigate('CLIENTS')}
+              className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
+            >
+              <span>Voir Clients ({clients.length})</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="space-y-2.5">
+            {topDebtorClients.length === 0 ? (
+              <p className="text-xs text-gray-400 italic py-4">Aucun solde client impayé.</p>
+            ) : (
+              topDebtorClients.map(c => {
+                const creditRatio = c.creditLimit > 0 ? Math.min(100, Math.round((c.currentBalance / c.creditLimit) * 100)) : 0;
+                return (
+                  <div 
+                    key={c.id} 
+                    onClick={() => {
+                      if (onEditClient) {
+                        onEditClient(c.id);
+                      } else {
+                        onNavigate('CLIENTS');
+                      }
+                    }}
+                    className="p-3 bg-gray-50 border border-gray-200 hover:border-rose-500 hover:bg-rose-50/40 rounded-lg font-mono cursor-pointer transition-all group shadow-xs hover:shadow-sm"
+                    title={`Cliquer pour ouvrir la fiche et le relevé de compte de "${c.name}"`}
+                  >
+                    <div className="flex justify-between items-center text-xs mb-1.5">
+                      <span className="font-bold text-gray-900 font-sans group-hover:text-rose-700 flex items-center gap-1.5 transition-colors">
+                        <Users className="w-3.5 h-3.5 text-gray-400 group-hover:text-rose-600" />
+                        {c.name} {c.companyName ? `(${c.companyName})` : ''}
+                      </span>
+                      <span className="font-bold text-rose-600 text-sm">{c.currentBalance.toLocaleString()} DH</span>
+                    </div>
+
+                    <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full ${creditRatio > 80 ? 'bg-rose-600' : 'bg-amber-500'}`} 
+                        style={{ width: `${creditRatio}%` }}
+                      />
+                    </div>
+
+                    <div className="flex justify-between items-center text-[10px] text-gray-500 mt-1.5 font-sans">
+                      <span className="flex items-center gap-1">
+                        <Phone className="w-3 h-3 text-gray-400" />
+                        {c.phone || '-'}
+                      </span>
+                      <span className="text-gray-600">
+                        Plafond: <b>{c.creditLimit?.toLocaleString()} DH</b> ({creditRatio}% utilisé)
+                      </span>
+                      <span className="text-rose-700 font-bold group-hover:underline">
+                        Ouvrir Dossier →
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Grid 2: Factures, Trésorerie & Frigos Breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Widget 2: Dernières Factures Émises -> Clickable */}
         <div className="carbon-card p-5 space-y-3">
           <div className="flex justify-between items-center pb-2 border-b border-gray-200">
             <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
               <FileText className="w-4 h-4 text-emerald-600" />
-              Dernières Factures Émises
+              Factures Émises
             </h2>
             <button
               onClick={() => onNavigate('INVOICING')}
               className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
             >
-              <span>Voir Factures</span>
+              <span>Toutes ({invoices.length})</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
           <div className="space-y-2">
             {recentInvoices.length === 0 ? (
-              <p className="text-xs text-gray-400 italic py-4">Aucune facture récente enregistrée.</p>
+              <p className="text-xs text-gray-400 italic py-4">Aucune facture récente.</p>
             ) : (
               recentInvoices.map(inv => (
-                <div key={inv.id} className="p-2.5 bg-gray-50 border border-gray-200 rounded flex items-center justify-between text-xs font-mono">
+                <div 
+                  key={inv.id} 
+                  onClick={() => onNavigate('INVOICING')}
+                  className="p-2.5 bg-gray-50 border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/40 rounded flex items-center justify-between text-xs font-mono cursor-pointer transition-all group"
+                  title="Cliquer pour consulter les factures"
+                >
                   <div>
                     <div className="font-bold text-gray-900 flex items-center gap-1.5">
-                      <span className="text-emerald-700">{inv.invoiceNumber}</span>
+                      <span className="text-emerald-700 group-hover:underline">{inv.invoiceNumber}</span>
                       <span className="text-gray-400">•</span>
-                      <span className="font-sans text-gray-700">{inv.clientName}</span>
+                      <span className="font-sans text-gray-700 truncate max-w-[120px]">{inv.clientName}</span>
                     </div>
                     <div className="text-[10px] text-gray-500 font-sans mt-0.5">
                       Échéance: {inv.dueDate || inv.date}
@@ -529,12 +725,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           </div>
         </div>
 
-        {/* Widget 3: Chèques Client en Portefeuille (À Déposer) */}
+        {/* Widget 3: Chèques Client en Portefeuille -> Clickable */}
         <div className="carbon-card p-5 space-y-3">
           <div className="flex justify-between items-center pb-2 border-b border-gray-200">
             <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-purple-600" />
-              Chèques Client en Portefeuille (À Déposer)
+              Chèques Clients (À Déposer)
             </h2>
             <button
               onClick={() => onNavigate('TREASURY_CHEQUES')}
@@ -547,16 +743,27 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
 
           <div className="space-y-2">
             {clientChequesToDeposit.length === 0 ? (
-              <p className="text-xs text-gray-400 italic py-4">Aucun chèque client en attente de dépôt.</p>
+              <p className="text-xs text-gray-400 italic py-4">Aucun chèque en portefeuille.</p>
             ) : (
-              clientChequesToDeposit.slice(0, 5).map(cq => (
-                <div key={cq.id} className="p-2.5 bg-purple-50/40 border border-purple-200 rounded flex items-center justify-between text-xs font-mono">
+              clientChequesToDeposit.slice(0, 4).map(cq => (
+                <div 
+                  key={cq.id} 
+                  onClick={() => {
+                    if (onEditCheque) {
+                      onEditCheque(cq.id);
+                    } else {
+                      onNavigate('TREASURY_CHEQUES');
+                    }
+                  }}
+                  className="p-2.5 bg-purple-50/40 border border-purple-200 hover:border-purple-500 hover:bg-purple-50 rounded flex items-center justify-between text-xs font-mono cursor-pointer transition-all group"
+                  title="Cliquer pour gérer ce chèque"
+                >
                   <div>
-                    <div className="font-bold text-purple-900">
+                    <div className="font-bold text-purple-900 group-hover:underline truncate max-w-[140px]">
                       N° {cq.referenceNumber} — {cq.clientName || 'Client'}
                     </div>
                     <div className="text-[10px] text-gray-600 font-sans mt-0.5">
-                      Banque: {cq.bankName || 'Maroc'} • Échéance: {cq.dueDate}
+                      Banque: {cq.bankName || 'Maroc'} • Éch: {cq.dueDate}
                     </div>
                   </div>
                   <div className="font-bold text-purple-700 text-sm">
@@ -568,34 +775,45 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           </div>
         </div>
 
-        {/* Widget 4: Échéances Chèques / Effets Fournisseurs (À Payer) */}
+        {/* Widget 4: Échéances Chèques / Effets Fournisseurs -> Clickable */}
         <div className="carbon-card p-5 space-y-3">
           <div className="flex justify-between items-center pb-2 border-b border-gray-200">
             <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
               <Clock className="w-4 h-4 text-amber-600" />
-              Échéances Chèques / Effets à Payer
+              Chèques Fournisseurs à Payer
             </h2>
             <button
               onClick={() => onNavigate('TREASURY_CHEQUES')}
               className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
             >
-              <span>Voir Échéances</span>
+              <span>Échéances</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
           <div className="space-y-2">
             {supplierChequesToPay.length === 0 ? (
-              <p className="text-xs text-gray-400 italic py-4">Aucun chèque fournisseur à payer en cours.</p>
+              <p className="text-xs text-gray-400 italic py-4">Aucun chèque fournisseur en cours.</p>
             ) : (
-              supplierChequesToPay.slice(0, 5).map(cq => (
-                <div key={cq.id} className="p-2.5 bg-amber-50/40 border border-amber-200 rounded flex items-center justify-between text-xs font-mono">
+              supplierChequesToPay.slice(0, 4).map(cq => (
+                <div 
+                  key={cq.id} 
+                  onClick={() => {
+                    if (onEditCheque) {
+                      onEditCheque(cq.id);
+                    } else {
+                      onNavigate('TREASURY_CHEQUES');
+                    }
+                  }}
+                  className="p-2.5 bg-amber-50/40 border border-amber-200 hover:border-amber-500 hover:bg-amber-50 rounded flex items-center justify-between text-xs font-mono cursor-pointer transition-all group"
+                  title="Cliquer pour gérer ce paiement fournisseur"
+                >
                   <div>
-                    <div className="font-bold text-amber-900">
+                    <div className="font-bold text-amber-900 group-hover:underline truncate max-w-[140px]">
                       N° {cq.referenceNumber} — {cq.supplierName || 'Fournisseur'}
                     </div>
                     <div className="text-[10px] text-gray-600 font-sans mt-0.5">
-                      Banque: {cq.bankName || 'Maroc'} • Échéance: {cq.dueDate}
+                      Banque: {cq.bankName || 'Maroc'} • Éch: {cq.dueDate}
                     </div>
                   </div>
                   <div className="font-bold text-amber-700 text-sm">
@@ -609,82 +827,36 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
 
       </div>
 
-      {/* Grid: Top Debtor Clients & Detailed Frigos Breakdown with Products */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        {/* Widget 5: Clients à Suivre (Créances & Solde Dû le + Élevé) */}
-        <div className="carbon-card p-5 space-y-3">
-          <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-            <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
-              <Users className="w-4 h-4 text-rose-600" />
-              Clients à Suivre (Crédits & Créances les plus élevés)
-            </h2>
-            <button
-              onClick={() => onNavigate('CLIENTS')}
-              className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
-            >
-              <span>Voir Clients</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <div className="space-y-2.5">
-            {topDebtorClients.length === 0 ? (
-              <p className="text-xs text-gray-400 italic py-4">Aucun solde client impayé.</p>
-            ) : (
-              topDebtorClients.map(c => {
-                const creditRatio = c.creditLimit > 0 ? Math.min(100, Math.round((c.currentBalance / c.creditLimit) * 100)) : 0;
-                return (
-                  <div key={c.id} className="p-3 bg-gray-50 border border-gray-200 rounded font-mono">
-                    <div className="flex justify-between items-center text-xs mb-1">
-                      <span className="font-bold text-gray-900 font-sans">{c.name} {c.companyName ? `(${c.companyName})` : ''}</span>
-                      <span className="font-bold text-rose-600 text-sm">{c.currentBalance.toLocaleString()} DH</span>
-                    </div>
-                    <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full ${creditRatio > 80 ? 'bg-rose-600' : 'bg-amber-500'}`} 
-                        style={{ width: `${creditRatio}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] text-gray-500 mt-1 font-sans">
-                      <span>Téléphone: {c.phone || '-'}</span>
-                      <span>Plafond: {c.creditLimit.toLocaleString()} DH ({creditRatio}% utilisé)</span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+      {/* Widget 6: État des Frigos & Entrepôts -> 100% CLICKABLE */}
+      <div className="carbon-card p-5 space-y-3">
+        <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+          <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-[#0f62fe]" />
+            État des Frigos (Stock en Kg & Produits Présents)
+          </h2>
+          <button
+            onClick={() => onNavigate('MULTI_SITE_INVENTORY')}
+            className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
+          >
+            <span>Inventaires Multi-Sites</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        {/* Widget 6: État des Frigos (Stock Kg & Détail Produits Stoppés) */}
-        <div className="carbon-card p-5 space-y-3">
-          <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-            <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-[#0f62fe]" />
-              État des Frigos (Stock en Kg & Produits Présents)
-            </h2>
-            <button
-              onClick={() => onNavigate('FRIGO_MANAGEMENT')}
-              className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
-            >
-              <span>Gestion Frigos</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {frigos.map(frigo => {
+            const frigoStocks = stocks.filter(s => s.frigoId === frigo.id && s.quantityKg > 0);
+            const totalKgInFrigo = frigoStocks.reduce((acc, s) => acc + s.quantityKg, 0);
 
-          <div className="space-y-3">
-            {frigos.map(frigo => {
-              const frigoStocks = stocks.filter(s => s.frigoId === frigo.id && s.quantityKg > 0);
-              const totalKgInFrigo = frigoStocks.reduce((acc, s) => acc + s.quantityKg, 0);
-
-              return (
-                <div 
-                  key={frigo.id} 
-                  onClick={() => onViewFrigoDetail ? onViewFrigoDetail(frigo.id) : onNavigate('FRIGO_MANAGEMENT')}
-                  className="p-3 bg-gray-50 border border-gray-200 rounded cursor-pointer hover:border-[#0f62fe] hover:bg-blue-50/40 transition-all group"
-                >
-                  <div className="flex justify-between items-center mb-1.5">
+            return (
+              <div 
+                key={frigo.id} 
+                onClick={() => onViewFrigoDetail ? onViewFrigoDetail(frigo.id) : onNavigate('FRIGO_MANAGEMENT')}
+                className="p-3.5 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer hover:border-[#0f62fe] hover:bg-blue-50/40 transition-all group flex flex-col justify-between"
+                title={`Cliquer pour ouvrir les détails de l'entrepôt ${frigo.name}`}
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-1.5">
                     <div>
                       <span className="font-bold text-xs text-gray-900 group-hover:text-[#0f62fe] flex items-center gap-1">
                         {frigo.name}
@@ -694,19 +866,27 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-xs text-[#0f62fe] font-mono">{totalKgInFrigo.toLocaleString()} Kg</div>
-                      <div className="text-[10px] text-gray-500 font-mono">{frigoStocks.length} Produits stockés</div>
+                      <div className="text-[10px] text-gray-500 font-mono">{frigoStocks.length} Produit(s)</div>
                     </div>
                   </div>
 
                   {/* Products breakdown inside this frigo */}
                   <div className="mt-2 pt-2 border-t border-gray-200 flex flex-wrap gap-1.5">
                     {frigoStocks.length === 0 ? (
-                      <span className="text-[10px] text-gray-400 italic">Entrepôt vide (aucun produit en stock)</span>
+                      <span className="text-[10px] text-gray-400 italic">Entrepôt vide (0 Kg)</span>
                     ) : (
                       frigoStocks.map((stk, sIdx) => {
                         const prd = products.find(p => p.id === stk.productId);
                         return (
-                          <span key={stk.id || `${stk.frigoId}_${stk.productId}_${sIdx}`} className="text-[10px] font-mono px-2 py-0.5 bg-white border border-gray-300 rounded text-gray-800 font-bold">
+                          <span 
+                            key={stk.id || `${stk.frigoId}_${stk.productId}_${sIdx}`} 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (prd) setSelectedProductForHistory(prd);
+                            }}
+                            className="text-[10px] font-mono px-2 py-0.5 bg-white border border-gray-300 hover:border-blue-500 hover:text-blue-700 rounded text-gray-800 font-bold transition-colors"
+                            title="Voir l'historique de ce produit"
+                          >
                             {prd ? prd.name : 'Produit'}: <b className="text-blue-700">{stk.quantityKg.toLocaleString()} Kg</b>
                           </span>
                         );
@@ -714,26 +894,38 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
                     )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
 
+                <div className="mt-3 pt-2 border-t border-gray-200 text-right">
+                  <span className="text-[10px] font-bold text-blue-600 group-hover:underline">
+                    Gérer Entrepôt & Mouvements →
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-
-      {/* Top Products Table */}
+      {/* Top Products Table -> CLICKABLE ROWS */}
       <div className="carbon-card p-5 space-y-4">
         <div className="flex justify-between items-center pb-2 border-b border-gray-200">
           <div>
-            <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide">
-              {t('products.title', 'Catalogue Produits & Stock (Kg)')}
+            <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wide flex items-center gap-2">
+              <Package className="w-4 h-4 text-[#0f62fe]" />
+              {t('products.title', 'Catalogue Produits & Situation des Stocks (Kg)')}
             </h2>
           </div>
+          <button
+            onClick={() => onNavigate('PRODUCTS_STOCK')}
+            className="text-xs text-[#0f62fe] font-bold hover:underline flex items-center gap-1"
+          >
+            <span>Gérer Catalogue ({products.length})</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="carbon-table">
+          <table className="carbon-table w-full">
             <thead>
               <tr>
                 <th>{t('products.productCode', 'Code')}</th>
@@ -743,13 +935,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
                 <th>{t('products.costPrice', 'Prix Revient HT')}</th>
                 <th>{t('products.margin', 'Marge Unitaire')}</th>
                 <th>{t('products.totalStock', 'Stock Global (Kg)')}</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-6 text-gray-400 text-xs font-medium">
-                    {t('common.noData', 'Aucun produit enregistré. Utilisez le bouton "Nouveau Produit" pour ajouter.')}
+                  <td colSpan={8} className="text-center py-6 text-gray-400 text-xs font-medium">
+                    {t('common.noData', 'Aucun produit enregistré.')}
                   </td>
                 </tr>
               ) : (
@@ -775,9 +968,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
                       <td className="font-semibold text-gray-900">
                         <button
                           type="button"
-                          onClick={() => setSelectedProductForHistory(prd)}
+                          onClick={() => {
+                            if (onEditProduct) {
+                              onEditProduct(prd.id);
+                            } else {
+                              setSelectedProductForHistory(prd);
+                            }
+                          }}
                           className="hover:text-[#0f62fe] hover:underline text-left cursor-pointer font-bold text-gray-900"
-                          title="Cliquer pour voir l'historique du produit"
+                          title="Cliquer pour modifier ou voir l'historique du produit"
                         >
                           {prd.name}
                         </button>
@@ -803,6 +1002,24 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
                         >
                           {totalKgPrd.toLocaleString()} Kg
                         </button>
+                      </td>
+                      <td className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setSelectedProductForHistory(prd)}
+                            className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-[10px] font-sans font-semibold"
+                            title="Historique des mouvements"
+                          >
+                            Historique
+                          </button>
+                          <button
+                            onClick={() => onEditProduct ? onEditProduct(prd.id) : onNavigate('PRODUCTS_STOCK')}
+                            className="px-2 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-[10px] font-sans font-semibold"
+                            title="Modifier ce produit"
+                          >
+                            Modifier
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -830,4 +1047,3 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
     </div>
   );
 };
-

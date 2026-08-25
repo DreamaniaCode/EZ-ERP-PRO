@@ -344,6 +344,13 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
         return (
           <DashboardOverview 
             onNavigate={(tab: NavTab) => setNavTab(tab)} 
+            onEditBL={(id) => navigateToEdit('BL_EDIT', id)}
+            onViewBLPdf={(id) => navigateToEdit('BL_PDF', id)}
+            onEditClient={(id) => navigateToEdit('CLIENT_EDIT', id)}
+            onEditProduct={(id) => navigateToEdit('PRODUCT_EDIT', id)}
+            onEditFrigo={(id) => navigateToEdit('FRIGO_EDIT', id)}
+            onEditOrder={(id) => navigateToEdit('ORDER_EDIT', id)}
+            onEditCheque={(id) => navigateToEdit('CHEQUE_EDIT', id)}
             onViewFrigoDetail={(frigoId) => {
               setEditingEntityId(frigoId);
               setPreviousTab('DASHBOARD');
