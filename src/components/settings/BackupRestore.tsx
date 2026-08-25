@@ -145,10 +145,13 @@ export const BackupRestore: React.FC = () => {
     }
   };
 
-  // Push local data directly into PostgreSQL
+  // Push local data directly into PostgreSQL with auto-chunking for hundreds of BLs
+  const [syncProgressText, setSyncProgressText] = useState<string>('');
+
   const handlePushToCloud = async () => {
     setIsCloudSyncing(true);
     setCloudSyncMsg(null);
+    setSyncProgressText('Préparation des données...');
     try {
       // Gather richest data from state or local storage
       const localBLs = deliveryNotes.length > 0 ? deliveryNotes : JSON.parse(localStorage.getItem('erp_delivery_notes') || localStorage.getItem('erp_deliveryNotes') || '[]');
@@ -163,13 +166,17 @@ export const BackupRestore: React.FC = () => {
       const localPurchases = purchaseInvoices.length > 0 ? purchaseInvoices : JSON.parse(localStorage.getItem('erp_purchase_invoices') || '[]');
       const localOrders = orders.length > 0 ? orders : JSON.parse(localStorage.getItem('erp_orders') || '[]');
 
-      const payload = {
+      // Step 1: Push base catalogs & initial BL chunk
+      setSyncProgressText('Synchronisation des Produits, Clients & Stocks...');
+      const firstBLChunk = localBLs.slice(0, 50);
+
+      await api.bootstrapFromLocal({
         products: localProducts,
         frigos: localFrigos,
         stocks: localStocks,
         clients: localClients,
         suppliers: localSuppliers,
-        deliveryNotes: localBLs,
+        deliveryNotes: firstBLChunk,
         invoices: localInvoices,
         chequesEffets: localCheques,
         treasuryAccounts: [],
@@ -179,9 +186,19 @@ export const BackupRestore: React.FC = () => {
         inventoryCounts,
         companyInfo: companyInfo || JSON.parse(localStorage.getItem('erp_company_info') || '{}'),
         companies: [],
-      };
+      });
 
-      const result = await api.bootstrapFromLocal(payload);
+      // Step 2: Push remaining BLs in smooth chunks of 50 if more exist
+      if (localBLs.length > 50) {
+        for (let i = 50; i < localBLs.length; i += 50) {
+          const chunk = localBLs.slice(i, i + 50);
+          setSyncProgressText(`Envoi des BLs : ${Math.min(i + 50, localBLs.length)} / ${localBLs.length} BLs (${Math.round((Math.min(i + 50, localBLs.length) / localBLs.length) * 100)}%)...`);
+          await api.bootstrapFromLocal({
+            deliveryNotes: chunk,
+          });
+        }
+      }
+
       setCloudSyncMsg({
         type: 'success',
         text: `Succès : ${localBLs.length} BLs, ${localProducts.length} Produits, ${localClients.length} Clients et ${localStocks.length} Niveaux de stock ont été synchronisés avec succès vers la base PostgreSQL Cloud !`
@@ -193,6 +210,7 @@ export const BackupRestore: React.FC = () => {
       });
     } finally {
       setIsCloudSyncing(false);
+      setSyncProgressText('');
     }
   };
 
@@ -258,7 +276,7 @@ export const BackupRestore: React.FC = () => {
             className="px-4 py-2.5 bg-[#0f62fe] hover:bg-blue-600 active:scale-95 text-white text-xs font-bold rounded-lg flex items-center gap-2 transition shadow-lg shrink-0 disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${isCloudSyncing ? 'animate-spin' : ''}`} />
-            <span>{isCloudSyncing ? 'Synchronisation Cloud en cours...' : 'Envoyer vers PostgreSQL Cloud'}</span>
+            <span>{isCloudSyncing ? (syncProgressText || 'Synchronisation en cours...') : 'Envoyer vers PostgreSQL Cloud'}</span>
           </button>
         </div>
 

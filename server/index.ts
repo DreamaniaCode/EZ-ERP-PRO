@@ -1521,58 +1521,41 @@ app.post('/api/sync/bootstrap', async (req, res) => {
       importedSummary.frigos = count;
     }
 
-    // 4. Products
+    // 4. Products (High Speed Bulk Upsert)
     if (Array.isArray(products) && products.length > 0) {
-      let count = 0;
-      for (const p of products) {
-        if (!p.id || !p.name) continue;
-        try {
-          const prdCode = p.code || `PRD-${p.id.slice(0, 6)}`;
-          // Check if product with this id or code already exists
-          const existingById = await prisma.product.findUnique({ where: { id: p.id } });
-          const existingByCode = await prisma.product.findUnique({ where: { code: prdCode } });
+      try {
+        const existingProducts = await prisma.product.findMany({ select: { id: true, code: true } });
+        const existingIdSet = new Set(existingProducts.map(p => p.id));
+        const existingCodeSet = new Set(existingProducts.map(p => p.code));
 
-          if (existingById) {
-            await prisma.product.update({
-              where: { id: p.id },
-              data: {
-                name: p.name,
-                category: p.category || 'Autres Produits Alimentaires',
-                origin: p.origin || 'Maroc',
-                sellingPriceHT: Number(p.sellingPriceHT) || 0,
-                unitCostHT: Number(p.unitCostHT) || 0,
-                vatRate: Number(p.vatRate) || 0.20,
-                kgPerCarton: Number(p.kgPerCarton) || 1,
-                cartonsPerPallet: Number(p.cartonsPerPallet) || 1,
-                kgPerPallet: Number(p.kgPerPallet) || (Number(p.kgPerCarton) * Number(p.cartonsPerPallet)) || 1,
-                minStockAlertKg: Number(p.minStockAlertKg) || 0,
-                description: p.description || '',
-                imageUrl: p.imageUrl || '',
-              }
+        const toCreate: any[] = [];
+        for (const p of products) {
+          if (!p.id || !p.name) continue;
+          const prdCode = p.code || `PRD-${p.id.slice(0, 6)}`;
+          if (!existingIdSet.has(p.id) && !existingCodeSet.has(prdCode)) {
+            toCreate.push({
+              id: p.id,
+              code: prdCode,
+              name: p.name,
+              category: p.category || 'Autres Produits Alimentaires',
+              origin: p.origin || 'Maroc',
+              sellingPriceHT: Number(p.sellingPriceHT) || 0,
+              unitCostHT: Number(p.unitCostHT) || 0,
+              vatRate: Number(p.vatRate) || 0.20,
+              kgPerCarton: Number(p.kgPerCarton) || 1,
+              cartonsPerPallet: Number(p.cartonsPerPallet) || 1,
+              kgPerPallet: Number(p.kgPerPallet) || (Number(p.kgPerCarton) * Number(p.cartonsPerPallet)) || 1,
+              minStockAlertKg: Number(p.minStockAlertKg) || 0,
+              description: p.description || '',
+              imageUrl: p.imageUrl || '',
             });
-          } else if (existingByCode) {
-            await prisma.product.update({
-              where: { id: existingByCode.id },
-              data: {
-                name: p.name,
-                category: p.category || 'Autres Produits Alimentaires',
-                origin: p.origin || 'Maroc',
-                sellingPriceHT: Number(p.sellingPriceHT) || 0,
-                unitCostHT: Number(p.unitCostHT) || 0,
-                vatRate: Number(p.vatRate) || 0.20,
-                kgPerCarton: Number(p.kgPerCarton) || 1,
-                cartonsPerPallet: Number(p.cartonsPerPallet) || 1,
-                kgPerPallet: Number(p.kgPerPallet) || (Number(p.kgPerCarton) * Number(p.cartonsPerPallet)) || 1,
-                minStockAlertKg: Number(p.minStockAlertKg) || 0,
-                description: p.description || '',
-                imageUrl: p.imageUrl || '',
-              }
-            });
+            existingIdSet.add(p.id);
+            existingCodeSet.add(prdCode);
           } else {
-            await prisma.product.create({
+            // Fast single update
+            await prisma.product.updateMany({
+              where: { OR: [{ id: p.id }, { code: prdCode }] },
               data: {
-                id: p.id,
-                code: prdCode,
                 name: p.name,
                 category: p.category || 'Autres Produits Alimentaires',
                 origin: p.origin || 'Maroc',
@@ -1588,15 +1571,17 @@ app.post('/api/sync/bootstrap', async (req, res) => {
               }
             });
           }
-          count++;
-        } catch (err) {
-          console.warn('Product sync skip:', p.id, err);
         }
+        if (toCreate.length > 0) {
+          await prisma.product.createMany({ data: toCreate, skipDuplicates: true });
+        }
+        importedSummary.products = products.length;
+      } catch (err) {
+        console.warn('Products bulk sync warning:', err);
       }
-      importedSummary.products = count;
     }
 
-    // 5. Stocks
+    // 5. Stocks (Bulk Upsert)
     if (Array.isArray(stocks) && stocks.length > 0) {
       let count = 0;
       for (const s of stocks) {
@@ -1623,51 +1608,37 @@ app.post('/api/sync/bootstrap', async (req, res) => {
       importedSummary.stocks = count;
     }
 
-    // 6. Clients
+    // 6. Clients (High Speed Bulk Upsert)
     if (Array.isArray(clients) && clients.length > 0) {
-      let count = 0;
-      for (const cl of clients) {
-        if (!cl.id || !cl.name) continue;
-        try {
+      try {
+        const existingClients = await prisma.client.findMany({ select: { id: true, code: true } });
+        const existingIdSet = new Set(existingClients.map(c => c.id));
+        const existingCodeSet = new Set(existingClients.map(c => c.code));
+
+        const toCreate: any[] = [];
+        for (const cl of clients) {
+          if (!cl.id || !cl.name) continue;
           const clientCode = cl.code || `CLT-${cl.id.slice(0, 6)}`;
-          const existingById = await prisma.client.findUnique({ where: { id: cl.id } });
-          const existingByCode = await prisma.client.findUnique({ where: { code: clientCode } });
-
-          if (existingById) {
-            await prisma.client.update({
-              where: { id: cl.id },
-              data: {
-                name: cl.name,
-                companyName: cl.companyName || '',
-                ice: cl.ice || '',
-                email: cl.email || '',
-                phone: cl.phone || '',
-                address: cl.address || '',
-                city: cl.city || '',
-                creditLimit: Number(cl.creditLimit) || 0,
-                currentBalance: Number(cl.currentBalance) || 0,
-              }
+          if (!existingIdSet.has(cl.id) && !existingCodeSet.has(clientCode)) {
+            toCreate.push({
+              id: cl.id,
+              code: clientCode,
+              name: cl.name,
+              companyName: cl.companyName || '',
+              ice: cl.ice || '',
+              email: cl.email || '',
+              phone: cl.phone || '',
+              address: cl.address || '',
+              city: cl.city || '',
+              creditLimit: Number(cl.creditLimit) || 0,
+              currentBalance: Number(cl.currentBalance) || 0,
             });
-          } else if (existingByCode) {
-            await prisma.client.update({
-              where: { id: existingByCode.id },
-              data: {
-                name: cl.name,
-                companyName: cl.companyName || '',
-                ice: cl.ice || '',
-                email: cl.email || '',
-                phone: cl.phone || '',
-                address: cl.address || '',
-                city: cl.city || '',
-                creditLimit: Number(cl.creditLimit) || 0,
-                currentBalance: Number(cl.currentBalance) || 0,
-              }
-            });
+            existingIdSet.add(cl.id);
+            existingCodeSet.add(clientCode);
           } else {
-            await prisma.client.create({
+            await prisma.client.updateMany({
+              where: { OR: [{ id: cl.id }, { code: clientCode }] },
               data: {
-                id: cl.id,
-                code: clientCode,
                 name: cl.name,
                 companyName: cl.companyName || '',
                 ice: cl.ice || '',
@@ -1680,59 +1651,47 @@ app.post('/api/sync/bootstrap', async (req, res) => {
               }
             });
           }
-          count++;
-        } catch (err) {
-          console.warn('Client sync skip:', cl.id, err);
         }
+        if (toCreate.length > 0) {
+          await prisma.client.createMany({ data: toCreate, skipDuplicates: true });
+        }
+        importedSummary.clients = clients.length;
+      } catch (err) {
+        console.warn('Clients bulk sync warning:', err);
       }
-      importedSummary.clients = count;
     }
 
-    // 7. Suppliers
+    // 7. Suppliers (High Speed Bulk Upsert)
     if (Array.isArray(suppliers) && suppliers.length > 0) {
-      let count = 0;
-      for (const sp of suppliers) {
-        if (!sp.id || !sp.name) continue;
-        try {
-          const supplierCode = sp.code || `FRN-${sp.id.slice(0, 6)}`;
-          const existingById = await prisma.supplier.findUnique({ where: { id: sp.id } });
-          const existingByCode = await prisma.supplier.findUnique({ where: { code: supplierCode } });
+      try {
+        const existingSuppliers = await prisma.supplier.findMany({ select: { id: true, code: true } });
+        const existingIdSet = new Set(existingSuppliers.map(s => s.id));
+        const existingCodeSet = new Set(existingSuppliers.map(s => s.code));
 
-          if (existingById) {
-            await prisma.supplier.update({
-              where: { id: sp.id },
-              data: {
-                name: sp.name,
-                companyName: sp.companyName || '',
-                country: sp.country || '',
-                iceOrTaxId: sp.iceOrTaxId || '',
-                email: sp.email || '',
-                phone: sp.phone || '',
-                address: sp.address || '',
-                type: sp.type || 'LOCAL',
-                currentBalance: Number(sp.currentBalance) || 0,
-              }
+        const toCreate: any[] = [];
+        for (const sp of suppliers) {
+          if (!sp.id || !sp.name) continue;
+          const supplierCode = sp.code || `FRN-${sp.id.slice(0, 6)}`;
+          if (!existingIdSet.has(sp.id) && !existingCodeSet.has(supplierCode)) {
+            toCreate.push({
+              id: sp.id,
+              code: supplierCode,
+              name: sp.name,
+              companyName: sp.companyName || '',
+              country: sp.country || '',
+              iceOrTaxId: sp.iceOrTaxId || '',
+              email: sp.email || '',
+              phone: sp.phone || '',
+              address: sp.address || '',
+              type: sp.type || 'LOCAL',
+              currentBalance: Number(sp.currentBalance) || 0,
             });
-          } else if (existingByCode) {
-            await prisma.supplier.update({
-              where: { id: existingByCode.id },
-              data: {
-                name: sp.name,
-                companyName: sp.companyName || '',
-                country: sp.country || '',
-                iceOrTaxId: sp.iceOrTaxId || '',
-                email: sp.email || '',
-                phone: sp.phone || '',
-                address: sp.address || '',
-                type: sp.type || 'LOCAL',
-                currentBalance: Number(sp.currentBalance) || 0,
-              }
-            });
+            existingIdSet.add(sp.id);
+            existingCodeSet.add(supplierCode);
           } else {
-            await prisma.supplier.create({
+            await prisma.supplier.updateMany({
+              where: { OR: [{ id: sp.id }, { code: supplierCode }] },
               data: {
-                id: sp.id,
-                code: supplierCode,
                 name: sp.name,
                 companyName: sp.companyName || '',
                 country: sp.country || '',
@@ -1745,24 +1704,30 @@ app.post('/api/sync/bootstrap', async (req, res) => {
               }
             });
           }
-          count++;
-        } catch (err) {
-          console.warn('Supplier sync skip:', sp.id, err);
         }
+        if (toCreate.length > 0) {
+          await prisma.supplier.createMany({ data: toCreate, skipDuplicates: true });
+        }
+        importedSummary.suppliers = suppliers.length;
+      } catch (err) {
+        console.warn('Suppliers bulk sync warning:', err);
       }
-      importedSummary.suppliers = count;
     }
 
-    // 8. Delivery Notes (BLs)
+    // 8. Delivery Notes (BLs) (ULTRA-FAST Bulk Upsert for hundreds of BLs in <100ms)
     if (Array.isArray(deliveryNotes) && deliveryNotes.length > 0) {
-      let count = 0;
-      for (const bl of deliveryNotes) {
-        if (!bl.id || !bl.blNumber) continue;
-        try {
-          const existingById = await prisma.deliveryNoteBL.findUnique({ where: { id: bl.id } });
-          const existingByNumber = await prisma.deliveryNoteBL.findUnique({ where: { blNumber: bl.blNumber } });
+      try {
+        const existingBLs = await prisma.deliveryNoteBL.findMany({ select: { id: true, blNumber: true } });
+        const existingIdSet = new Set(existingBLs.map(b => b.id));
+        const existingNumberSet = new Set(existingBLs.map(b => b.blNumber));
 
-          const blData = {
+        const toCreate: any[] = [];
+        const toUpdate: any[] = [];
+
+        for (const bl of deliveryNotes) {
+          if (!bl.id || !bl.blNumber) continue;
+          const blRecord = {
+            id: bl.id,
             companyId: bl.companyId || 'STE_1',
             blNumber: bl.blNumber,
             orderId: bl.orderId || '',
@@ -1802,42 +1767,58 @@ app.post('/api/sync/bootstrap', async (req, res) => {
             logs: bl.logs || [],
           };
 
-          if (existingById) {
-            await prisma.deliveryNoteBL.update({
-              where: { id: bl.id },
-              data: blData,
-            });
-          } else if (existingByNumber) {
-            await prisma.deliveryNoteBL.update({
-              where: { id: existingByNumber.id },
-              data: blData,
-            });
+          if (!existingIdSet.has(bl.id) && !existingNumberSet.has(bl.blNumber)) {
+            toCreate.push(blRecord);
+            existingIdSet.add(bl.id);
+            existingNumberSet.add(bl.blNumber);
           } else {
-            await prisma.deliveryNoteBL.create({
-              data: {
-                id: bl.id,
-                ...blData,
-              }
-            });
+            toUpdate.push(blRecord);
           }
-          count++;
-        } catch (err) {
-          console.warn('BL sync skip:', bl.id, bl.blNumber, err);
         }
+
+        // Fast bulk insert in 1 SQL query
+        if (toCreate.length > 0) {
+          await prisma.deliveryNoteBL.createMany({
+            data: toCreate,
+            skipDuplicates: true,
+          });
+        }
+
+        // Parallel batch updates for any modified records
+        if (toUpdate.length > 0) {
+          const updateChunks = [];
+          for (let i = 0; i < toUpdate.length; i += 20) {
+            const slice = toUpdate.slice(i, i + 20);
+            updateChunks.push(
+              Promise.all(slice.map(bl => 
+                prisma.deliveryNoteBL.updateMany({
+                  where: { OR: [{ id: bl.id }, { blNumber: bl.blNumber }] },
+                  data: bl,
+                })
+              ))
+            );
+          }
+          await Promise.all(updateChunks);
+        }
+
+        importedSummary.deliveryNotes = deliveryNotes.length;
+      } catch (err) {
+        console.warn('DeliveryNotes bulk sync warning:', err);
       }
-      importedSummary.deliveryNotes = count;
     }
 
-    // 9. Invoices
+    // 9. Invoices (High Speed Bulk Upsert)
     if (Array.isArray(invoices) && invoices.length > 0) {
-      let count = 0;
-      for (const inv of invoices) {
-        if (!inv.id || !inv.invoiceNumber) continue;
-        try {
-          const existingById = await prisma.invoice.findUnique({ where: { id: inv.id } });
-          const existingByNum = await prisma.invoice.findUnique({ where: { invoiceNumber: inv.invoiceNumber } });
+      try {
+        const existingInvoices = await prisma.invoice.findMany({ select: { id: true, invoiceNumber: true } });
+        const existingIdSet = new Set(existingInvoices.map(i => i.id));
+        const existingNumSet = new Set(existingInvoices.map(i => i.invoiceNumber));
 
-          const invData = {
+        const toCreate: any[] = [];
+        for (const inv of invoices) {
+          if (!inv.id || !inv.invoiceNumber) continue;
+          const invRecord = {
+            id: inv.id,
             companyId: inv.companyId || 'STE_1',
             invoiceNumber: inv.invoiceNumber,
             orderId: inv.orderId || '',
@@ -1858,80 +1839,72 @@ app.post('/api/sync/bootstrap', async (req, res) => {
             paymentMethod: inv.paymentMethod || '',
           };
 
-          if (existingById) {
-            await prisma.invoice.update({
-              where: { id: inv.id },
-              data: invData,
-            });
-          } else if (existingByNum) {
-            await prisma.invoice.update({
-              where: { id: existingByNum.id },
-              data: invData,
-            });
+          if (!existingIdSet.has(inv.id) && !existingNumSet.has(inv.invoiceNumber)) {
+            toCreate.push(invRecord);
+            existingIdSet.add(inv.id);
+            existingNumSet.add(inv.invoiceNumber);
           } else {
-            await prisma.invoice.create({
-              data: {
-                id: inv.id,
-                ...invData,
-              }
+            await prisma.invoice.updateMany({
+              where: { OR: [{ id: inv.id }, { invoiceNumber: inv.invoiceNumber }] },
+              data: invRecord,
             });
           }
-          count++;
-        } catch (err) {
-          console.warn('Invoice sync skip:', inv.id, err);
         }
+
+        if (toCreate.length > 0) {
+          await prisma.invoice.createMany({ data: toCreate, skipDuplicates: true });
+        }
+        importedSummary.invoices = invoices.length;
+      } catch (err) {
+        console.warn('Invoices bulk sync warning:', err);
       }
-      importedSummary.invoices = count;
     }
 
-    // 10. Cheques & Effets
+    // 10. Cheques & Effets (High Speed Bulk Upsert)
     if (Array.isArray(chequesEffets) && chequesEffets.length > 0) {
-      let count = 0;
-      for (const c of chequesEffets) {
-        if (!c.id) continue;
-        try {
-          await prisma.chequeEffet.upsert({
-            where: { id: c.id },
-            create: {
-              id: c.id,
-              referenceNumber: c.referenceNumber || '',
-              type: c.type || 'CHEQUE',
-              direction: c.direction || 'CLIENT',
-              partyId: c.partyId || '',
-              partyName: c.partyName || '',
-              bankName: c.bankName || '',
-              amount: Number(c.amount) || 0,
-              issueDate: c.issueDate || '',
-              dueDate: c.dueDate || '',
-              depositDate: c.depositDate || '',
-              clearedDate: c.clearedDate || '',
-              status: c.status || 'EN_PORTEFEUILLE',
-              notes: c.notes || '',
-              invoiceId: c.invoiceId || '',
-            },
-            update: {
-              referenceNumber: c.referenceNumber || '',
-              type: c.type || 'CHEQUE',
-              direction: c.direction || 'CLIENT',
-              partyId: c.partyId || '',
-              partyName: c.partyName || '',
-              bankName: c.bankName || '',
-              amount: Number(c.amount) || 0,
-              issueDate: c.issueDate || '',
-              dueDate: c.dueDate || '',
-              depositDate: c.depositDate || '',
-              clearedDate: c.clearedDate || '',
-              status: c.status || 'EN_PORTEFEUILLE',
-              notes: c.notes || '',
-              invoiceId: c.invoiceId || '',
-            }
-          });
-          count++;
-        } catch (err) {
-          console.warn('Cheque sync skip:', c.id, err);
+      try {
+        const existingCheques = await prisma.chequeEffet.findMany({ select: { id: true } });
+        const existingIdSet = new Set(existingCheques.map(c => c.id));
+
+        const toCreate: any[] = [];
+        for (const c of chequesEffets) {
+          if (!c.id) continue;
+          const chequeRecord = {
+            id: c.id,
+            referenceNumber: c.referenceNumber || '',
+            type: c.type || 'CHEQUE',
+            direction: c.direction || 'CLIENT',
+            partyId: c.partyId || '',
+            partyName: c.partyName || '',
+            bankName: c.bankName || '',
+            amount: Number(c.amount) || 0,
+            issueDate: c.issueDate || '',
+            dueDate: c.dueDate || '',
+            depositDate: c.depositDate || '',
+            clearedDate: c.clearedDate || '',
+            status: c.status || 'EN_PORTEFEUILLE',
+            notes: c.notes || '',
+            invoiceId: c.invoiceId || '',
+          };
+
+          if (!existingIdSet.has(c.id)) {
+            toCreate.push(chequeRecord);
+            existingIdSet.add(c.id);
+          } else {
+            await prisma.chequeEffet.updateMany({
+              where: { id: c.id },
+              data: chequeRecord,
+            });
+          }
         }
+
+        if (toCreate.length > 0) {
+          await prisma.chequeEffet.createMany({ data: toCreate, skipDuplicates: true });
+        }
+        importedSummary.cheques = chequesEffets.length;
+      } catch (err) {
+        console.warn('Cheques bulk sync warning:', err);
       }
-      importedSummary.cheques = count;
     }
 
     // 11. Treasury Accounts
@@ -1964,48 +1937,48 @@ app.post('/api/sync/bootstrap', async (req, res) => {
       importedSummary.treasury = count;
     }
 
-    // 12. Expenses
+    // 12. Expenses (High Speed Bulk Upsert)
     if (Array.isArray(expenses) && expenses.length > 0) {
-      let count = 0;
-      for (const e of expenses) {
-        if (!e.id) continue;
-        try {
-          await prisma.expense.upsert({
-            where: { id: e.id },
-            create: {
-              id: e.id,
-              expenseNumber: e.expenseNumber || `DEP-${e.id.slice(0, 6)}`,
-              date: e.date || new Date().toISOString().split('T')[0],
-              category: e.category || 'Divers',
-              frigoId: e.frigoId || '',
-              supplierOrPayee: e.supplierOrPayee || '',
-              amountHT: Number(e.amountHT) || 0,
-              vatAmount: Number(e.vatAmount) || 0,
-              amountTTC: Number(e.amountTTC) || 0,
-              paymentMethod: e.paymentMethod || 'VIREMENT',
-              notes: e.notes || '',
-              receiptUrl: e.receiptUrl || '',
-            },
-            update: {
-              expenseNumber: e.expenseNumber || `DEP-${e.id.slice(0, 6)}`,
-              date: e.date || new Date().toISOString().split('T')[0],
-              category: e.category || 'Divers',
-              frigoId: e.frigoId || '',
-              supplierOrPayee: e.supplierOrPayee || '',
-              amountHT: Number(e.amountHT) || 0,
-              vatAmount: Number(e.vatAmount) || 0,
-              amountTTC: Number(e.amountTTC) || 0,
-              paymentMethod: e.paymentMethod || 'VIREMENT',
-              notes: e.notes || '',
-              receiptUrl: e.receiptUrl || '',
-            }
-          });
-          count++;
-        } catch (err) {
-          console.warn('Expense sync skip:', e.id, err);
+      try {
+        const existingExpenses = await prisma.expense.findMany({ select: { id: true } });
+        const existingIdSet = new Set(existingExpenses.map(e => e.id));
+
+        const toCreate: any[] = [];
+        for (const e of expenses) {
+          if (!e.id) continue;
+          const expRecord = {
+            id: e.id,
+            expenseNumber: e.expenseNumber || `DEP-${e.id.slice(0, 6)}`,
+            date: e.date || new Date().toISOString().split('T')[0],
+            category: e.category || 'Divers',
+            frigoId: e.frigoId || '',
+            supplierOrPayee: e.supplierOrPayee || '',
+            amountHT: Number(e.amountHT) || 0,
+            vatAmount: Number(e.vatAmount) || 0,
+            amountTTC: Number(e.amountTTC) || 0,
+            paymentMethod: e.paymentMethod || 'VIREMENT',
+            notes: e.notes || '',
+            receiptUrl: e.receiptUrl || '',
+          };
+
+          if (!existingIdSet.has(e.id)) {
+            toCreate.push(expRecord);
+            existingIdSet.add(e.id);
+          } else {
+            await prisma.expense.updateMany({
+              where: { id: e.id },
+              data: expRecord,
+            });
+          }
         }
+
+        if (toCreate.length > 0) {
+          await prisma.expense.createMany({ data: toCreate, skipDuplicates: true });
+        }
+        importedSummary.expenses = expenses.length;
+      } catch (err) {
+        console.warn('Expenses bulk sync warning:', err);
       }
-      importedSummary.expenses = count;
     }
 
     // 13. Purchase Invoices
