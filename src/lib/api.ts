@@ -87,6 +87,8 @@ export const api = {
     request<FrigoStockLevel>('/stocks/adjust', { method: 'POST', body: JSON.stringify(payload) }),
   transferStock: (payload: { sourceFrigoId: string; targetFrigoId: string; productId: string; kg: number; pallets: number; performedBy?: string }) =>
     request<{ success: boolean }>('/stocks/transfer', { method: 'POST', body: JSON.stringify(payload) }),
+  clearStock: (payload?: { frigoId?: string; productId?: string; performedBy?: string; notes?: string }) =>
+    request<{ success: boolean; clearedCount: number }>('/stocks/clear', { method: 'POST', body: JSON.stringify(payload || {}) }),
   purgeOrphanStocks: () => request<{ purgedCount: number }>('/stocks/purge-orphans', { method: 'POST' }),
 
   // Stock Movements

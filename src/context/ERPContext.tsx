@@ -119,6 +119,7 @@ interface ERPContextType {
   // Stock Actions
   adjustStock: (frigoId: string, productId: string, newKg: number, newPallets: number) => void;
   transferStock: (sourceFrigoId: string, targetFrigoId: string, productId: string, kg: number, pallets: number) => void;
+  clearStocks: (frigoId?: string, productId?: string) => Promise<void>;
 
   // Purchase Actions
   createPurchaseInvoice: (purchaseData: Omit<PurchaseImportInvoice, 'id'>) => PurchaseImportInvoice;
@@ -644,6 +645,31 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       pallets,
       performedBy: currentUser?.name || 'Admin'
     }).then(() => refreshFromDatabase()).catch(err => console.error('Error transferring stock:', err));
+  };
+
+  const clearStocks = async (frigoId?: string, productId?: string) => {
+    setStocks(prev => {
+      return prev.map(s => {
+        const matchFrigo = !frigoId || s.frigoId === frigoId;
+        const matchProduct = !productId || s.productId === productId;
+        if (matchFrigo && matchProduct) {
+          return { ...s, quantityKg: 0, quantityPallets: 0, lastUpdated: new Date().toISOString() };
+        }
+        return s;
+      });
+    });
+
+    try {
+      await api.clearStock({
+        frigoId,
+        productId,
+        performedBy: currentUser?.name || 'Admin',
+        notes: frigoId ? `Vidage du stock frigo (${frigoId})` : 'Vidage global du stock',
+      });
+      await refreshFromDatabase();
+    } catch (err) {
+      console.error('Error clearing stocks:', err);
+    }
   };
 
   const purgeOrphanStocks = (): number => {
@@ -1353,6 +1379,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     deleteFrigo,
     adjustStock,
     transferStock,
+    clearStocks,
     createPurchaseInvoice,
     addPurchasePayment,
     deletePurchaseInvoice,
@@ -1514,6 +1541,7 @@ const defaultFallbackContext: ERPContextType = {
   deleteFrigo: () => {},
   adjustStock: () => {},
   transferStock: () => {},
+  clearStocks: async () => {},
   createPurchaseInvoice: () => ({ id: '', invoiceNumber: '', supplierId: '', supplierName: '', targetFrigoId: '', dateArrival: '', isImport: false, customsCostsHT: 0, freightCostsHT: 0, totalProductsHT: 0, totalLandedCostHT: 0, items: [], paymentStatus: 'NON_PAYÉ' }),
   addPurchasePayment: () => {},
   deletePurchaseInvoice: () => {},

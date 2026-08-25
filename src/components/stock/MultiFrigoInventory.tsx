@@ -21,7 +21,8 @@ import {
   PackageX,
   LayoutGrid,
   Table,
-  Sliders
+  Sliders,
+  Trash2
 } from 'lucide-react';
 
 export const MultiFrigoInventory: React.FC = () => {
@@ -31,6 +32,7 @@ export const MultiFrigoInventory: React.FC = () => {
     stocks, 
     saveInventoryCount, 
     adjustStock,
+    clearStocks,
     addFrigo, 
     updateFrigo, 
     deleteFrigo, 
@@ -147,6 +149,46 @@ export const MultiFrigoInventory: React.FC = () => {
     }, applyAdjust);
 
     alert(`Inventaire physique ${applyAdjust ? 'enregistré & stock PostgreSQL ajusté' : 'enregistré sans modification de stock'} avec succès !`);
+  };
+
+  const handleClearFrigoStock = async () => {
+    if (!activeFrigo) return;
+    if (window.confirm(`⚠️ Êtes-vous sûr de vouloir VIDER (remettre à 0 Kg) tous les stocks de l'entrepôt "${activeFrigo.name}" ?`)) {
+      await clearStocks(activeFrigo.id);
+      const updated: any = {};
+      products.forEach(p => {
+        updated[p.id] = { physicalKg: 0, physicalPallets: 0, notes: 'Stock vidé' };
+      });
+      setPhysicalCounts(updated);
+      alert(`Le stock de l'entrepôt "${activeFrigo.name}" a été vidé avec succès (0 Kg, 0 Palettes).`);
+    }
+  };
+
+  const handleClearAllStocks = async () => {
+    if (window.confirm("⚠️ ATTENTION : Êtes-vous certain de vouloir REMETTRE À ZÉRO tous les stocks de TOUS les entrepôts ?")) {
+      if (window.confirm("Confirmation finale : Cette action mettra le stock à 0 pour toute l'entreprise. Continuer ?")) {
+        await clearStocks();
+        const updated: any = {};
+        products.forEach(p => {
+          updated[p.id] = { physicalKg: 0, physicalPallets: 0, notes: 'Stock vidé' };
+        });
+        setPhysicalCounts(updated);
+        alert("Tous les stocks ont été remis à zéro avec succès.");
+      }
+    }
+  };
+
+  const handleClearSingleProductStock = async (frigoId: string, productId: string, productName: string) => {
+    if (window.confirm(`Vider le stock du produit "${productName}" (0 Kg) dans ce frigo ?`)) {
+      await clearStocks(frigoId, productId);
+      if (frigoId === selectedFrigoId) {
+        setPhysicalCounts(prev => ({
+          ...prev,
+          [productId]: { physicalKg: 0, physicalPallets: 0, notes: 'Stock vidé' }
+        }));
+      }
+      alert(`Stock de "${productName}" remis à 0.`);
+    }
   };
 
   const handleOpenAddFrigo = () => {
@@ -354,6 +396,15 @@ export const MultiFrigoInventory: React.FC = () => {
           </button>
 
           <button
+            onClick={handleClearFrigoStock}
+            className="px-3 py-1.5 bg-red-800 hover:bg-red-700 text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-all shadow-sm"
+            title="Vider (remettre à 0 Kg) tous les stocks de l'entrepôt actif"
+          >
+            <Trash2 className="w-4 h-4 text-red-300" />
+            <span>Vider Stock Frigo</span>
+          </button>
+
+          <button
             onClick={handleOpenAddFrigo}
             className="carbon-btn-primary text-xs flex items-center gap-1.5 rounded"
           >
@@ -499,7 +550,7 @@ export const MultiFrigoInventory: React.FC = () => {
       {/* Main Inventory & Control Sheet */}
       <div className="carbon-card p-4 sm:p-5 space-y-4">
         
-        {/* Top Control Bar with View Switcher */}
+        {/* Top Control Bar with View Switcher & Clear Stock Buttons */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-gray-200">
           <div className="flex items-center gap-3">
             {/* View Mode Buttons */}
@@ -553,6 +604,25 @@ export const MultiFrigoInventory: React.FC = () => {
                 };
               })}
             />
+
+            {/* Clear Stock Buttons */}
+            <button
+              onClick={handleClearFrigoStock}
+              className="bg-red-50 hover:bg-red-100 border border-red-300 text-red-700 text-xs px-3 py-2 rounded flex items-center gap-1.5 font-bold transition-colors"
+              title={`Mettre à 0 le stock de ${activeFrigo?.name}`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Vider {activeFrigo?.code || 'Frigo'}</span>
+            </button>
+
+            <button
+              onClick={handleClearAllStocks}
+              className="bg-gray-100 hover:bg-red-50 border border-gray-300 hover:border-red-300 text-gray-700 hover:text-red-700 text-xs px-3 py-2 rounded flex items-center gap-1.5 font-semibold transition-colors"
+              title="Remise à zéro globale de tous les stocks"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Vider Tous Stocks</span>
+            </button>
 
             {viewMode === 'SHEET' && (
               <>
@@ -801,6 +871,16 @@ export const MultiFrigoInventory: React.FC = () => {
                             <ArrowLeftRight className="w-3.5 h-3.5" />
                             <span>Transférer</span>
                           </button>
+                          {info.frigoKg > 0 && (
+                            <button
+                              onClick={() => handleClearSingleProductStock(selectedFrigoId, prd.id, prd.name)}
+                              className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded text-[11px] font-mono font-bold flex items-center gap-1 border border-red-200 transition-colors"
+                              title="Vider le stock de ce produit (remettre à 0 Kg)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Vider</span>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -897,6 +977,15 @@ export const MultiFrigoInventory: React.FC = () => {
                               >
                                 Transférer
                               </button>
+                              {kg > 0 && (
+                                <button
+                                  onClick={() => handleClearSingleProductStock(f.id, prd.id, prd.name)}
+                                  className="px-1.5 py-0.5 bg-red-100 hover:bg-red-200 text-red-700 text-[9px] rounded font-sans"
+                                  title={`Vider le stock dans ${f.name}`}
+                                >
+                                  Vider
+                                </button>
+                              )}
                             </div>
                           </td>
                         );

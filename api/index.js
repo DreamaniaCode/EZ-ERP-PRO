@@ -396,6 +396,48 @@ app.post("/api/stocks/purge-orphans", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+app.post("/api/stocks/clear", async (req, res) => {
+  try {
+    const { frigoId, productId, performedBy, notes } = req.body;
+    const whereClause = {};
+    if (frigoId) whereClause.frigoId = frigoId;
+    if (productId) whereClause.productId = productId;
+    const stocksToClear = await prisma.frigoStockLevel.findMany({
+      where: whereClause,
+      include: { product: true, frigo: true }
+    });
+    await prisma.frigoStockLevel.updateMany({
+      where: whereClause,
+      data: {
+        quantityKg: 0,
+        quantityPallets: 0
+      }
+    });
+    for (const st of stocksToClear) {
+      if (st.quantityKg > 0 || st.quantityPallets > 0) {
+        await prisma.productStockMovement.create({
+          data: {
+            productId: st.productId,
+            productName: st.product?.name || "Inconnu",
+            productCode: st.product?.code || "",
+            frigoId: st.frigoId,
+            frigoName: st.frigo?.name || "Inconnu",
+            type: "AJUSTEMENT_MANUEL",
+            quantityKg: st.quantityKg,
+            previousStockKg: st.quantityKg,
+            newStockKg: 0,
+            referenceDoc: "VIDAGE-STOCK",
+            performedBy: performedBy || "Admin",
+            notes: notes || `Remise \xE0 z\xE9ro du stock (${st.frigo?.name || "Frigo"})`
+          }
+        });
+      }
+    }
+    res.json({ success: true, clearedCount: stocksToClear.length });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 app.get("/api/stock-movements", async (req, res) => {
   try {
     const movements = await prisma.productStockMovement.findMany({
