@@ -456,7 +456,8 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         if (client) {
           mappedRow._clientId = client.id;
         } else {
-          mappedRow._clientId = `clt-${Date.now()}-${index}`;
+          const norm = String(mappedRow.clientName).trim().toLowerCase().replace(/[^a-z0-9]/g, '-');
+          mappedRow._clientId = `clt-import-${norm || 'divers'}`;
         }
       }
 
@@ -537,6 +538,13 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const clientName = cleanDisplayName(rawClient) || `CLIENT ${idx + 1}`;
         uniqueClientsSet.add(clientName);
 
+        const matchedClient = (clients || []).find(c => 
+          c.name.toLowerCase().trim() === clientName.toLowerCase().trim() ||
+          (c.companyName && c.companyName.toLowerCase().trim() === clientName.toLowerCase().trim()) ||
+          c.name.toLowerCase().includes(clientName.toLowerCase())
+        );
+        const resolvedClientId = matchedClient ? matchedClient.id : (row._clientId || `clt-import-${clientName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`);
+
         const palletRatio = catalogPrd ? (catalogPrd.kgPerPallet || (is11kg ? 1100 : 500)) : (is11kg ? 1100 : 500);
         const pallets = qtyKg > 0 ? Math.ceil(qtyKg / palletRatio) : 0;
         const blDate = row.date || new Date().toISOString().split('T')[0];
@@ -548,7 +556,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             : `BL-2026-${row.blNumber}`,
           orderId: '',
           orderNumber: '',
-          clientId: row._clientId || `clt-import-${idx}`,
+          clientId: resolvedClientId,
           clientName: clientName,
           clientAddress: 'Casablanca, Maroc',
           clientPhone: '',

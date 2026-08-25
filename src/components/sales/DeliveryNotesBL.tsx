@@ -591,7 +591,7 @@ EasyERP Pro • Logistics Management`;
                 title="Créer toutes les factures des BLs sélectionnés en masse sans afficher de modales"
               >
                 <Receipt className="w-4 h-4 text-emerald-200" />
-                ⚡ Créer Factures en Masse ({selectedBLIds.length})
+                <span>Facturer la sélection ({selectedBLIds.length})</span>
               </button>
             )}
 
@@ -602,15 +602,15 @@ EasyERP Pro • Logistics Management`;
               title="Supprimer définitivement les BLs sélectionnés"
             >
               <Trash2 className="w-4 h-4 text-red-200" />
-              🗑️ Supprimer BLs Sélectionnés ({selectedBLIds.length})
+              <span>Supprimer ({selectedBLIds.length})</span>
             </button>
 
             <button
               onClick={handleBatchWhatsApp}
-              className="px-3 py-1.5 bg-[#25D366] hover:bg-[#128c7e] text-white font-bold rounded flex items-center gap-1.5 transition-colors"
+              className="px-3 py-1.5 bg-[#25D366] hover:bg-[#128c7e] text-white font-bold rounded flex items-center gap-1.5 transition-colors shadow-sm"
             >
               <MessageSquare className="w-4 h-4" />
-              WhatsApp ({selectedBLIds.length})
+              <span>WhatsApp ({selectedBLIds.length})</span>
             </button>
           </div>
         )}
@@ -713,10 +713,11 @@ EasyERP Pro • Logistics Management`;
                               notifySuccess(`Nom du client mis à jour : ${cleanName}`);
                             }
                           }}
-                          className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded text-[10px] font-bold cursor-pointer transition-colors"
+                          className="px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
                           title="Cliquer pour corriger le nom du client"
                         >
-                          ✏️ Renommer Client
+                          <Edit className="w-3 h-3" />
+                          <span>Renommer</span>
                         </button>
                       )}
                       {bl.clientPhone ? ` (${bl.clientPhone})` : ''}
@@ -911,7 +912,7 @@ EasyERP Pro • Logistics Management`;
                     title="Saisir et ajuster le poids pesé réel sur balance à la sortie du frigo avant facturation"
                   >
                     <Scale className="w-4 h-4 text-amber-200" />
-                    <span>{bl.items.some(i => i.isWeighed) ? '⚖️ Pesée Validée (Modifier)' : '⚖️ Saisir Pesée Frigo (Kg)'}</span>
+                    <span>{bl.items.some(i => i.isWeighed) ? 'Pesée Validée (Modifier)' : 'Saisir Pesée Frigo (Kg)'}</span>
                   </button>
 
                   {/* Step 1: Quai Approval Button for Frigo Manager */}

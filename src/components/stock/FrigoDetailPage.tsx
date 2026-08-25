@@ -22,8 +22,7 @@ interface FrigoDetailPageProps {
 }
 
 export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBack }) => {
-  const { frigos, stocks, products, deliveryNotes, reconcileStocksWithBLs } = useERP();
-  const [syncToast, setSyncToast] = React.useState<string | null>(null);
+  const { frigos, stocks, products, deliveryNotes, clients } = useERP();
 
   const frigo = frigos.find(f => f.id === frigoId) || frigos[0];
 
@@ -46,18 +45,33 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
   );
   const frigoBLs = deliveryNotes.filter(bl => bl.frigoId === frigo.id || bl.frigoName === frigo.name);
 
-  // Client breakdown
-  const clientVolumeMap: { [key: string]: { name: string; kg: number; totalHT: number; count: number } } = {};
+  // Group BLs by genuine distinct client (matching with clients directory or normalized name)
+  const clientVolumeMap: { [key: string]: { name: string; kg: number; totalHT: number; count: number; clientId?: string } } = {};
   frigoBLs.forEach(bl => {
-    const key = bl.clientId || bl.clientName || 'client-inconnu';
-    if (!clientVolumeMap[key]) {
-      clientVolumeMap[key] = { name: bl.clientName || 'Client Inconnu', kg: 0, totalHT: 0, count: 0 };
+    const rawName = (bl.clientName || '').trim();
+    const matchedClient = (clients || []).find(c =>
+      (bl.clientId && c.id === bl.clientId) ||
+      (c.name && rawName && (c.name.trim().toLowerCase() === rawName.toLowerCase() || rawName.toLowerCase().includes(c.name.trim().toLowerCase())))
+    );
+
+    const clientKey = matchedClient ? matchedClient.id : (rawName ? rawName.toUpperCase() : (bl.clientId || 'CLIENT_DIVERS'));
+    const displayName = matchedClient ? (matchedClient.companyName || matchedClient.name) : (rawName || 'Client Divers');
+
+    if (!clientVolumeMap[clientKey]) {
+      clientVolumeMap[clientKey] = { 
+        name: displayName, 
+        kg: 0, 
+        totalHT: 0, 
+        count: 0,
+        clientId: matchedClient?.id || bl.clientId
+      };
     }
-    clientVolumeMap[key].kg += (bl.totalKg || 0);
-    clientVolumeMap[key].totalHT += (bl.totalHT || 0);
-    clientVolumeMap[key].count += 1;
+    clientVolumeMap[clientKey].kg += (bl.totalKg || 0);
+    clientVolumeMap[clientKey].totalHT += (bl.totalHT || 0);
+    clientVolumeMap[clientKey].count += 1;
   });
 
+  const distinctClientsCount = Object.keys(clientVolumeMap).length;
 
   // Totals
   const totalFrigoKg = frigoStocks.reduce((sum, s) => sum + s.quantityKg, 0);
@@ -174,8 +188,8 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
 
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="text-gray-500 text-[10px] font-bold uppercase">Clientèle Desservie</div>
-          <div className="text-xl font-bold text-blue-700 mt-1">{Object.keys(clientVolumeMap).length} Clients</div>
-          <div className="text-blue-600 text-[11px] mt-1">{frigoBLs.length} Bons de sortie émis</div>
+          <div className="text-xl font-bold text-blue-700 mt-1">{distinctClientsCount} Client{distinctClientsCount > 1 ? 's' : ''}</div>
+          <div className="text-blue-600 text-[11px] mt-1">{frigoBLs.length} Bon{frigoBLs.length > 1 ? 's' : ''} de sortie émis</div>
         </div>
       </div>
 
@@ -188,27 +202,11 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
           </h3>
           
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                const res = reconcileStocksWithBLs(frigo.id);
-                setSyncToast(`✓ Déduction appliquée: ${res.deductedKg.toLocaleString()} Kg déduits sur ${res.blCount} BLs !`);
-                setTimeout(() => setSyncToast(null), 5000);
-              }}
-              className="px-3 py-1.5 bg-[#0f62fe] hover:bg-blue-700 text-white rounded text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
-              title="Déduire automatiquement toutes les sorties de BLs du stock de ce frigo"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>⚡ Appliquer Déduction Sorties BLs (-{frigoBLs.reduce((sum, b) => sum + (b.totalKg || 0), 0).toLocaleString()} Kg)</span>
-            </button>
-            <span className="text-gray-500 font-mono text-xs">({frigoStocks.length} Réf.)</span>
+            <span className="px-2.5 py-1 bg-blue-50 border border-blue-200 text-[#0f62fe] rounded text-xs font-mono font-bold">
+              {frigoStocks.length} Référence{frigoStocks.length > 1 ? 's' : ''} en stock
+            </span>
           </div>
         </div>
-
-        {syncToast && (
-          <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded font-mono text-xs font-bold animate-in fade-in">
-            {syncToast}
-          </div>
-        )}
 
         {frigoStocks.length === 0 ? (
           <div className="p-8 text-center text-gray-500 border border-dashed border-gray-300 rounded">

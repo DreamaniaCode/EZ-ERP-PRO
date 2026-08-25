@@ -454,14 +454,14 @@ export const UserManagement: React.FC = () => {
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0f62fe] focus:border-transparent bg-white text-sm font-semibold"
                 >
-                  <option value="SUPER_ADMIN">👑 Super Admin (Le Gérant / Propriétaire)</option>
-                  <option value="CONTROLEUR">👁️ Contrôleur (Audit & Inspection - Voit Tout)</option>
-                  <option value="AGENT_STOCK">📦 Agent Stock & Logistique (Entrées / Sorties)</option>
-                  <option value="RESPONSABLE_FRIGO">🏭 Responsable Frigo / Entrepôt (Bon de Sortie Photo)</option>
-                  <option value="COMPTABLE_FACTURES">📄 Responsable Facturation & Comptabilité</option>
-                  <option value="ADMIN">🛡️ Admin Général</option>
-                  <option value="COMMERCIAL">💼 Agent Commercial</option>
-                  <option value="COMPTABLE">💰 Comptable</option>
+                  <option value="SUPER_ADMIN">Super Admin (Direction & Gérance)</option>
+                  <option value="CONTROLEUR">Contrôleur (Audit & Inspection Générale)</option>
+                  <option value="AGENT_STOCK">Agent Stock & Logistique (Entrées / Sorties)</option>
+                  <option value="RESPONSABLE_FRIGO">Responsable Frigo / Quai</option>
+                  <option value="COMPTABLE_FACTURES">Responsable Facturation & Comptabilité</option>
+                  <option value="ADMIN">Admin Général</option>
+                  <option value="COMMERCIAL">Agent Commercial</option>
+                  <option value="COMPTABLE">Comptable</option>
                 </select>
 
               </div>
@@ -545,11 +545,14 @@ export const UserManagement: React.FC = () => {
                           }`}>
                             <Shield className="w-3 h-3" />
                             {
-                              user.role === 'SUPER_ADMIN' ? '👑 Super Admin (Gérant)' :
-                              user.role === 'CONTROLEUR' ? '👁️ Contrôleur (Audit)' :
-                              user.role === 'AGENT_STOCK' ? '📦 Agent Stock & Logistique' :
-                              user.role === 'RESPONSABLE_FRIGO' ? '🏭 Responsable Frigo' :
-                              user.role === 'COMPTABLE_FACTURES' ? '📄 Facturation & Comptabilité' :
+                              user.role === 'SUPER_ADMIN' ? 'Super Admin (Gérant)' :
+                              user.role === 'CONTROLEUR' ? 'Contrôleur (Audit)' :
+                              user.role === 'AGENT_STOCK' ? 'Agent Stock & Logistique' :
+                              user.role === 'RESPONSABLE_FRIGO' ? 'Responsable Frigo' :
+                              user.role === 'COMPTABLE_FACTURES' ? 'Facturation & Comptabilité' :
+                              user.role === 'ADMIN' ? 'Admin Général' :
+                              user.role === 'COMMERCIAL' ? 'Agent Commercial' :
+                              user.role === 'COMPTABLE' ? 'Comptable' :
                               user.role
                             }
                           </span>
@@ -563,10 +566,10 @@ export const UserManagement: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
-                          user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          user.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
                         }`}>
-                          {user.isActive ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
-                          {user.isActive ? t('users.active', 'Active') : t('users.disabled', 'Disabled')}
+                          <span className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                          {user.isActive ? 'Actif' : 'Désactivé'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right space-x-2 rtl:space-x-reverse">
@@ -620,14 +623,14 @@ export const UserManagement: React.FC = () => {
                                   onChange={handleInputChange}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-semibold"
                                 >
-                                  <option value="SUPER_ADMIN">👑 Super Admin (Le Gérant / Propriétaire)</option>
-                                  <option value="CONTROLEUR">👁️ Contrôleur (Audit & Inspection - Voit Tout)</option>
-                                  <option value="AGENT_STOCK">📦 Agent Stock & Logistique (Entrées / Sorties)</option>
-                                  <option value="RESPONSABLE_FRIGO">🏭 Responsable Frigo / Entrepôt (Bon de Sortie Photo)</option>
-                                  <option value="COMPTABLE_FACTURES">📄 Responsable Facturation & Comptabilité</option>
-                                  <option value="ADMIN">🛡️ Admin Général</option>
-                                  <option value="COMMERCIAL">💼 Agent Commercial</option>
-                                  <option value="COMPTABLE">💰 Comptable</option>
+                                  <option value="SUPER_ADMIN">Super Admin (Direction & Gérance)</option>
+                                  <option value="CONTROLEUR">Contrôleur (Audit & Inspection Générale)</option>
+                                  <option value="AGENT_STOCK">Agent Stock & Logistique (Entrées / Sorties)</option>
+                                  <option value="RESPONSABLE_FRIGO">Responsable Frigo / Quai</option>
+                                  <option value="COMPTABLE_FACTURES">Responsable Facturation & Comptabilité</option>
+                                  <option value="ADMIN">Admin Général</option>
+                                  <option value="COMMERCIAL">Agent Commercial</option>
+                                  <option value="COMPTABLE">Comptable</option>
                                 </select>
 
                               </div>
@@ -770,22 +773,22 @@ export const UserManagement: React.FC = () => {
                   return (
                     <tr key={module} className="hover:bg-blue-50/40">
                       <td className="px-4 py-3 font-mono font-bold text-gray-900">
-                        {module === 'DASHBOARD' && '📊 Tableau de Bord (Dashboard)'}
-                        {module === 'PRODUCTS' && '📦 Produits & Catalogue Stock'}
-                        {module === 'BL' && '🚚 Bons de Livraison (BL)'}
-                        {module === 'CLIENTS' && '👥 Annuaire Clients & Solde'}
-                        {module === 'SALES_ORDERS' && '🛒 Commandes Clients'}
-                        {module === 'PURCHASES' && '🚢 Achats & Importations'}
-                        {module === 'INVENTORY' && '📋 Inventaires Multi-Frigo'}
-                        {module === 'INVOICING' && '📄 Factures Client & Règlements'}
-                        {module === 'TREASURY' && '🏛️ Trésorerie, Chèques & Effets'}
-                        {module === 'EXPENSES' && '🧾 Frais Frigo & Dépenses'}
-                        {module === 'SUPPLIERS' && '🏬 Annuaire Fournisseurs'}
-                        {module === 'FRIGO_MGMT' && '🏭 Gestion des Entrepôts Frigo'}
-                        {module === 'COMPANY_INFO' && '🏢 Informations Société'}
-                        {module === 'USERS' && '👤 Gestion Utilisateurs & Droits'}
-                        {module === 'IMPORT_BL' && '📥 Importateur BL (Excel / PDF)'}
-                        {module === 'BACKUP' && '💾 Sauvegarde & Restauration'}
+                        {module === 'DASHBOARD' && 'Tableau de Bord (Dashboard)'}
+                        {module === 'PRODUCTS' && 'Produits & Catalogue Stock'}
+                        {module === 'BL' && 'Bons de Livraison (BL)'}
+                        {module === 'CLIENTS' && 'Annuaire Clients & Solde'}
+                        {module === 'SALES_ORDERS' && 'Commandes Clients'}
+                        {module === 'PURCHASES' && 'Achats & Importations'}
+                        {module === 'INVENTORY' && 'Inventaires Multi-Frigo'}
+                        {module === 'INVOICING' && 'Factures Client & Règlements'}
+                        {module === 'TREASURY' && 'Trésorerie, Chèques & Effets'}
+                        {module === 'EXPENSES' && 'Frais Frigo & Dépenses'}
+                        {module === 'SUPPLIERS' && 'Annuaire Fournisseurs'}
+                        {module === 'FRIGO_MGMT' && 'Gestion des Entrepôts Frigo'}
+                        {module === 'COMPANY_INFO' && 'Informations Société'}
+                        {module === 'USERS' && 'Gestion Utilisateurs & Droits'}
+                        {module === 'IMPORT_BL' && 'Importateur BL (Excel / PDF)'}
+                        {module === 'BACKUP' && 'Sauvegarde & Restauration'}
                         {!['DASHBOARD','PRODUCTS','BL','CLIENTS','SALES_ORDERS','PURCHASES','INVENTORY','INVOICING','TREASURY','EXPENSES','SUPPLIERS','FRIGO_MGMT','COMPANY_INFO','USERS','IMPORT_BL','BACKUP'].includes(module) && module}
                       </td>
 

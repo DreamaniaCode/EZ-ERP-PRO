@@ -143,7 +143,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
               className="w-full bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs py-2.5 px-3 rounded-lg transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isForceUpdating ? 'animate-spin' : ''}`} />
-              <span>{isForceUpdating ? 'Réinitialisation du cache...' : '⚡ Forcer la mise à jour (Vider le cache)'}</span>
+              <span>{isForceUpdating ? 'Réinitialisation du cache...' : 'Forcer la mise à jour (Vider le cache)'}</span>
             </button>
           </div>
 
