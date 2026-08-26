@@ -115,6 +115,11 @@ export interface Client {
   creditLimit: number;
   currentBalance: number; // Solde dû par le client
   balance?: number; // Alias for compatibility
+  photoUrl?: string; // Photo de profil ou logo du client
+  avatar?: string; // Alias pour photoUrl
+  category?: string; // e.g. GROSSISTE, DISTRIBUTEUR, RESTAURATION, PARTICULIER
+  paymentTermsDays?: number; // e.g. 30, 60 jours
+  notes?: string;
 }
 
 export interface Supplier {

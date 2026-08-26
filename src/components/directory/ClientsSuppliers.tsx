@@ -325,7 +325,10 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
                     <tr 
                       key={c.id} 
                       className={`hover:bg-blue-50/50 cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50/40' : ''}`}
-                      onClick={() => setSelectedClient(c)}
+                      onClick={() => {
+                        if (onEditClient) onEditClient(c.id);
+                        else setSelectedClient(c);
+                      }}
                     >
                       <td onClick={e => e.stopPropagation()} className="text-center">
                         <input 
@@ -370,8 +373,11 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
                       </td>
                       <td onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 py-3">
                         <button
-                          onClick={() => setSelectedClient(c)}
-                          className="px-2.5 py-1 bg-gray-100 hover:bg-[#0f62fe] hover:text-white border border-gray-300 text-gray-800 text-xs font-bold rounded flex items-center gap-1 transition-colors"
+                          onClick={() => {
+                            if (onEditClient) onEditClient(c.id);
+                            else setSelectedClient(c);
+                          }}
+                          className="px-2.5 py-1 bg-gray-100 hover:bg-[#0f62fe] hover:text-white border border-gray-300 text-gray-800 text-xs font-bold rounded flex items-center gap-1 transition-colors shadow-sm"
                           title="Ouvrir le dossier client complet"
                         >
                           <Eye className="w-3.5 h-3.5" />

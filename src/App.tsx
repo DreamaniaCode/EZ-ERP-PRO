@@ -404,7 +404,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
       case 'PRODUCT_EDIT':
         return <ProductEditPage editId={editingEntityId} onBack={navigateBack} />;
       case 'CLIENT_EDIT':
-        return <ClientEditPage editId={editingEntityId} onBack={navigateBack} />;
+        return <ClientEditPage editId={editingEntityId} onBack={navigateBack} onViewBLPdf={(blId) => navigateToEdit('BL_PDF', blId)} />;
       case 'SUPPLIER_EDIT':
         return <SupplierEditPage editId={editingEntityId} onBack={navigateBack} />;
       case 'FRIGO_EDIT':
