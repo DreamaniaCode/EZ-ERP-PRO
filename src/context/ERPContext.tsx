@@ -750,42 +750,25 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       id,
     };
 
-    setPurchaseInvoices(prev => {
-      const next = [newPur, ...prev];
-      localStorage.setItem('erp_purchase_invoices', JSON.stringify(next));
-      return next;
+    const nextPurchases = [newPur, ...purchaseInvoices];
+    setPurchaseInvoices(nextPurchases);
+    localStorage.setItem('erp_purchase_invoices', JSON.stringify(nextPurchases));
+    localStorage.setItem('erp_purchases', JSON.stringify(nextPurchases));
+
+    // Reconcile and synchronize stocks immediately
+    const { productStocks } = computeSynchronizedStocks({
+      products,
+      frigos,
+      stocks,
+      purchaseInvoices: nextPurchases,
+      deliveryNotes,
+      inventoryCounts,
+      stockMovements,
+      selectedFrigoId: 'ALL'
     });
-
-    // Increment stocks for targetFrigoId
-    if (purchaseData.targetFrigoId && Array.isArray(purchaseData.items)) {
-      setStocks(prevStocks => {
-        let next = [...prevStocks];
-        purchaseData.items.forEach(item => {
-          const addedKg = Number(item.quantityKg) || 0;
-          const addedPallets = Number(item.quantityPallets) || 0;
-          const existingIdx = next.findIndex(s => s.frigoId === purchaseData.targetFrigoId && s.productId === item.productId);
-
-          if (existingIdx >= 0) {
-            next[existingIdx] = {
-              ...next[existingIdx],
-              quantityKg: next[existingIdx].quantityKg + addedKg,
-              quantityPallets: next[existingIdx].quantityPallets + addedPallets,
-              lastUpdated: new Date().toISOString(),
-            };
-          } else {
-            next.push({
-              frigoId: purchaseData.targetFrigoId,
-              productId: item.productId,
-              quantityKg: addedKg,
-              quantityPallets: addedPallets,
-              lastUpdated: new Date().toISOString(),
-            });
-          }
-        });
-        localStorage.setItem('erp_stocks', JSON.stringify(next));
-        return next;
-      });
-    }
+    const reconciled = buildReconciledStockLevels(productStocks);
+    setStocks(reconciled);
+    localStorage.setItem('erp_stocks', JSON.stringify(reconciled));
 
     api.createPurchase(newPur)
       .then(() => refreshFromDatabase())
@@ -795,64 +778,25 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updatePurchaseInvoice = (id: string, updatedData: Partial<PurchaseImportInvoice>) => {
-    const existing = purchaseInvoices.find(p => p.id === id);
+    const nextPurchases = purchaseInvoices.map(pur => pur.id === id ? { ...pur, ...updatedData } : pur);
+    setPurchaseInvoices(nextPurchases);
+    localStorage.setItem('erp_purchase_invoices', JSON.stringify(nextPurchases));
+    localStorage.setItem('erp_purchases', JSON.stringify(nextPurchases));
 
-    // If items or target frigo changed, adjust stocks
-    if (existing && existing.targetFrigoId && Array.isArray(existing.items)) {
-      setStocks(prevStocks => {
-        let next = [...prevStocks];
-
-        // 1. Deduct old quantities from existing targetFrigoId
-        existing.items.forEach(oldItem => {
-          const oldKg = Number(oldItem.quantityKg) || 0;
-          const oldPal = Number(oldItem.quantityPallets) || 0;
-          const idx = next.findIndex(s => s.frigoId === existing.targetFrigoId && s.productId === oldItem.productId);
-          if (idx >= 0) {
-            next[idx] = {
-              ...next[idx],
-              quantityKg: Math.max(0, next[idx].quantityKg - oldKg),
-              quantityPallets: Math.max(0, next[idx].quantityPallets - oldPal),
-              lastUpdated: new Date().toISOString()
-            };
-          }
-        });
-
-        // 2. Add new quantities to new (or unchanged) targetFrigoId
-        const newFrigoId = updatedData.targetFrigoId || existing.targetFrigoId;
-        const newItems = updatedData.items || existing.items;
-        newItems.forEach(newItem => {
-          const newKg = Number(newItem.quantityKg) || 0;
-          const newPal = Number(newItem.quantityPallets) || 0;
-          const idx = next.findIndex(s => s.frigoId === newFrigoId && s.productId === newItem.productId);
-          if (idx >= 0) {
-            next[idx] = {
-              ...next[idx],
-              quantityKg: next[idx].quantityKg + newKg,
-              quantityPallets: next[idx].quantityPallets + newPal,
-              lastUpdated: new Date().toISOString()
-            };
-          } else {
-            next.push({
-              frigoId: newFrigoId,
-              productId: newItem.productId,
-              quantityKg: newKg,
-              quantityPallets: newPal,
-              lastUpdated: new Date().toISOString()
-            });
-          }
-        });
-
-        localStorage.setItem('erp_stocks', JSON.stringify(next));
-        return next;
-      });
-    }
-
-    setPurchaseInvoices(prev => {
-      const next = prev.map(pur => pur.id === id ? { ...pur, ...updatedData } : pur);
-      localStorage.setItem('erp_purchase_invoices', JSON.stringify(next));
-      localStorage.setItem('erp_purchases', JSON.stringify(next));
-      return next;
+    // Reconcile and synchronize stocks immediately with new quantities
+    const { productStocks } = computeSynchronizedStocks({
+      products,
+      frigos,
+      stocks,
+      purchaseInvoices: nextPurchases,
+      deliveryNotes,
+      inventoryCounts,
+      stockMovements,
+      selectedFrigoId: 'ALL'
     });
+    const reconciled = buildReconciledStockLevels(productStocks);
+    setStocks(reconciled);
+    localStorage.setItem('erp_stocks', JSON.stringify(reconciled));
 
     api.updatePurchase(id, updatedData)
       .then(() => refreshFromDatabase())
@@ -892,33 +836,24 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const deletePurchaseInvoice = (id: string) => {
-    const target = purchaseInvoices.find(p => p.id === id);
-    if (target && target.targetFrigoId && Array.isArray(target.items)) {
-      setStocks(prevStocks => {
-        let next = [...prevStocks];
-        target.items.forEach(item => {
-          const deductedKg = Number(item.quantityKg) || 0;
-          const deductedPallets = Number(item.quantityPallets) || 0;
-          const existingIdx = next.findIndex(s => s.frigoId === target.targetFrigoId && s.productId === item.productId);
-          if (existingIdx >= 0) {
-            next[existingIdx] = {
-              ...next[existingIdx],
-              quantityKg: Math.max(0, next[existingIdx].quantityKg - deductedKg),
-              quantityPallets: Math.max(0, next[existingIdx].quantityPallets - deductedPallets),
-              lastUpdated: new Date().toISOString(),
-            };
-          }
-        });
-        localStorage.setItem('erp_stocks', JSON.stringify(next));
-        return next;
-      });
-    }
+    const nextPurchases = purchaseInvoices.filter(p => p.id !== id);
+    setPurchaseInvoices(nextPurchases);
+    localStorage.setItem('erp_purchase_invoices', JSON.stringify(nextPurchases));
+    localStorage.setItem('erp_purchases', JSON.stringify(nextPurchases));
 
-    setPurchaseInvoices(prev => {
-      const next = prev.filter(p => p.id !== id);
-      localStorage.setItem('erp_purchase_invoices', JSON.stringify(next));
-      return next;
+    const { productStocks } = computeSynchronizedStocks({
+      products,
+      frigos,
+      stocks,
+      purchaseInvoices: nextPurchases,
+      deliveryNotes,
+      inventoryCounts,
+      stockMovements,
+      selectedFrigoId: 'ALL'
     });
+    const reconciled = buildReconciledStockLevels(productStocks);
+    setStocks(reconciled);
+    localStorage.setItem('erp_stocks', JSON.stringify(reconciled));
 
     api.deletePurchase(id)
       .then(() => refreshFromDatabase())
@@ -1004,34 +939,24 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       ]
     };
 
-    setDeliveryNotes(prev => {
-      const next = [bl, ...prev];
-      localStorage.setItem('erp_delivery_notes', JSON.stringify(next));
-      return next;
+    const nextBLs = [bl, ...deliveryNotes];
+    setDeliveryNotes(nextBLs);
+    localStorage.setItem('erp_delivery_notes', JSON.stringify(nextBLs));
+
+    // Reconcile and synchronize stocks immediately with new BL
+    const { productStocks } = computeSynchronizedStocks({
+      products,
+      frigos,
+      stocks,
+      purchaseInvoices,
+      deliveryNotes: nextBLs,
+      inventoryCounts,
+      stockMovements,
+      selectedFrigoId: 'ALL'
     });
-
-    // Decrement stocks for bl.frigoId
-    if (bl.frigoId && Array.isArray(bl.items)) {
-      setStocks(prevStocks => {
-        let next = [...prevStocks];
-        bl.items.forEach(item => {
-          const deductedKg = Number(item.quantityKg) || 0;
-          const deductedPallets = Number(item.quantityPallets) || 0;
-          const existingIdx = next.findIndex(s => s.frigoId === bl.frigoId && s.productId === item.productId);
-
-          if (existingIdx >= 0) {
-            next[existingIdx] = {
-              ...next[existingIdx],
-              quantityKg: Math.max(0, next[existingIdx].quantityKg - deductedKg),
-              quantityPallets: Math.max(0, next[existingIdx].quantityPallets - deductedPallets),
-              lastUpdated: new Date().toISOString(),
-            };
-          }
-        });
-        localStorage.setItem('erp_stocks', JSON.stringify(next));
-        return next;
-      });
-    }
+    const reconciled = buildReconciledStockLevels(productStocks);
+    setStocks(reconciled);
+    localStorage.setItem('erp_stocks', JSON.stringify(reconciled));
 
     api.createDeliveryNote(bl)
       .then(() => refreshFromDatabase())
@@ -1039,47 +964,45 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updateBL = (id: string, updatedData: Partial<DeliveryNoteBL>) => {
-    setDeliveryNotes(prev => prev.map(b => b.id === id ? { ...b, ...updatedData } : b));
+    const nextBLs = deliveryNotes.map(b => b.id === id ? { ...b, ...updatedData } : b);
+    setDeliveryNotes(nextBLs);
+    localStorage.setItem('erp_delivery_notes', JSON.stringify(nextBLs));
+
+    const { productStocks } = computeSynchronizedStocks({
+      products,
+      frigos,
+      stocks,
+      purchaseInvoices,
+      deliveryNotes: nextBLs,
+      inventoryCounts,
+      stockMovements,
+      selectedFrigoId: 'ALL'
+    });
+    const reconciled = buildReconciledStockLevels(productStocks);
+    setStocks(reconciled);
+    localStorage.setItem('erp_stocks', JSON.stringify(reconciled));
+
     api.updateDeliveryNote(id, updatedData).catch(err => console.error('Error updating BL:', err));
   };
 
   const deleteBL = (id: string) => {
-    const target = deliveryNotes.find(b => b.id === id);
-    if (target && target.frigoId && Array.isArray(target.items)) {
-      setStocks(prevStocks => {
-        let next = [...prevStocks];
-        target.items.forEach(item => {
-          const restoredKg = Number(item.quantityKg) || 0;
-          const restoredPallets = Number(item.quantityPallets) || 0;
-          const existingIdx = next.findIndex(s => s.frigoId === target.frigoId && s.productId === item.productId);
+    const nextBLs = deliveryNotes.filter(b => b.id !== id);
+    setDeliveryNotes(nextBLs);
+    localStorage.setItem('erp_delivery_notes', JSON.stringify(nextBLs));
 
-          if (existingIdx >= 0) {
-            next[existingIdx] = {
-              ...next[existingIdx],
-              quantityKg: next[existingIdx].quantityKg + restoredKg,
-              quantityPallets: next[existingIdx].quantityPallets + restoredPallets,
-              lastUpdated: new Date().toISOString(),
-            };
-          } else {
-            next.push({
-              frigoId: target.frigoId,
-              productId: item.productId,
-              quantityKg: restoredKg,
-              quantityPallets: restoredPallets,
-              lastUpdated: new Date().toISOString(),
-            });
-          }
-        });
-        localStorage.setItem('erp_stocks', JSON.stringify(next));
-        return next;
-      });
-    }
-
-    setDeliveryNotes(prev => {
-      const next = prev.filter(b => b.id !== id);
-      localStorage.setItem('erp_delivery_notes', JSON.stringify(next));
-      return next;
+    const { productStocks } = computeSynchronizedStocks({
+      products,
+      frigos,
+      stocks,
+      purchaseInvoices,
+      deliveryNotes: nextBLs,
+      inventoryCounts,
+      stockMovements,
+      selectedFrigoId: 'ALL'
     });
+    const reconciled = buildReconciledStockLevels(productStocks);
+    setStocks(reconciled);
+    localStorage.setItem('erp_stocks', JSON.stringify(reconciled));
 
     api.deleteDeliveryNote(id)
       .then(() => refreshFromDatabase())
@@ -1569,7 +1492,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ============================================================
   useEffect(() => {
     try {
-      if (products.length > 0 && (purchaseInvoices.length > 0 || deliveryNotes.length > 0)) {
+      if (products.length > 0) {
         const { productStocks } = computeSynchronizedStocks({
           products,
           frigos,
@@ -1582,22 +1505,18 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
 
         const reconciled = buildReconciledStockLevels(productStocks);
+        const recJson = JSON.stringify(reconciled);
+        const curJson = JSON.stringify(stocks);
 
-        // Check if there are real differences to avoid unnecessary re-renders
-        const hasDiff = reconciled.some(rec => {
-          const cur = stocks.find(s => s.frigoId === rec.frigoId && s.productId === rec.productId);
-          return !cur || Math.abs((cur.quantityKg || 0) - rec.quantityKg) > 0.01;
-        });
-
-        if (hasDiff) {
+        if (recJson !== curJson) {
           setStocks(reconciled);
-          localStorage.setItem('erp_stocks', JSON.stringify(reconciled));
+          localStorage.setItem('erp_stocks', recJson);
         }
       }
     } catch (e) {
       console.error('Error during auto stock synchronization:', e);
     }
-  }, [products.length, frigos.length, purchaseInvoices.length, deliveryNotes.length]);
+  }, [products, frigos, purchaseInvoices, deliveryNotes, inventoryCounts, stockMovements]);
 
   return (
     <ERPContext.Provider value={contextValue}>

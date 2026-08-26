@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
 import { Product } from '../../types';
@@ -37,6 +37,7 @@ import { NavTab } from '../layout/Sidebar';
 import { QRScannerModal } from '../common/QRScannerModal';
 import { ProductStockHistoryModal } from '../stock/ProductStockHistoryModal';
 import { StandardKpiBarChart } from './StandardKpiBarChart';
+import { computeSynchronizedStocks } from '../../utils/stockReconciler';
 
 interface DashboardOverviewProps {
   onNavigate: (tab: NavTab) => void;
@@ -62,60 +63,49 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onEditCheque
 }) => {
   const { t } = useTranslation();
-  const { products, stocks, frigos, orders, deliveryNotes, invoices, chequesEffets, expenses, clients } = useERP();
+  const { 
+    products, 
+    stocks, 
+    frigos, 
+    orders, 
+    deliveryNotes, 
+    purchaseInvoices,
+    inventoryCounts,
+    stockMovements,
+    invoices, 
+    chequesEffets, 
+    expenses, 
+    clients 
+  } = useERP();
 
   const [quickBlSearch, setQuickBlSearch] = useState('');
   const [blSearchError, setBlSearchError] = useState('');
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
   const [selectedProductForHistory, setSelectedProductForHistory] = useState<Product | null>(null);
 
-  const processBlSearch = (term: string) => {
-    setBlSearchError('');
-    const clean = term.trim();
-    if (!clean) return;
+  // Synchronized Multi-Frigo Stock Data
+  const {
+    productStocks,
+    totalConsolidatedKg,
+    totalConsolidatedPallets,
+    totalConsolidatedValuationCostHT,
+    totalConsolidatedValuationSaleHT,
+  } = useMemo(() => {
+    return computeSynchronizedStocks({
+      products,
+      frigos,
+      stocks,
+      purchaseInvoices,
+      deliveryNotes,
+      inventoryCounts,
+      stockMovements,
+      selectedFrigoId: 'ALL'
+    });
+  }, [products, frigos, stocks, purchaseInvoices, deliveryNotes, inventoryCounts, stockMovements]);
 
-    let searchCode = clean;
-    if (clean.includes('bl=')) {
-      const match = clean.match(/bl=([^&]+)/);
-      if (match) searchCode = match[1];
-    }
-
-    const found = deliveryNotes.find(b => 
-      b.blNumber.toLowerCase() === searchCode.toLowerCase() ||
-      b.blNumber.toLowerCase().includes(searchCode.toLowerCase())
-    );
-
-    if (found) {
-      if (onEditBL) {
-        onEditBL(found.id);
-      } else {
-        window.history.pushState({}, '', `/?bl=${found.blNumber}`);
-        onNavigate('DELIVERY_NOTES');
-      }
-    } else {
-      setBlSearchError(`${t('common.noData', 'Aucun BL trouvé')} (${searchCode})`);
-    }
-  };
-
-  const handleQuickBlLookup = (e: React.FormEvent) => {
-    e.preventDefault();
-    processBlSearch(quickBlSearch);
-  };
-
-  const handleQrScanSuccess = (scannedCode: string) => {
-    setIsQrScannerOpen(false);
-    setQuickBlSearch(scannedCode);
-    processBlSearch(scannedCode);
-  };
-
-  // Stock calculations
-  const totalStockKg = stocks.reduce((acc, s) => acc + s.quantityKg, 0);
-
-  // Stock Valuation HT
-  const totalStockValuationHT = stocks.reduce((acc, s) => {
-    const prd = products.find(p => p.id === s.productId);
-    return acc + (s.quantityKg * (prd ? prd.unitCostHT : 0));
-  }, 0);
+  // Synchronized totals
+  const totalStockKg = totalConsolidatedKg;
+  const totalStockValuationHT = totalConsolidatedValuationCostHT;
 
   // Sales calculations (combined Orders & DeliveryNotes BLs)
   const ordersSalesHT = (orders || []).reduce((acc, o) => acc + (o?.totalHT || 0), 0);
@@ -478,8 +468,16 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           }}
           data={
             frigos.map(f => {
-              const fKg = stocks.filter(s => s.frigoId === f.id).reduce((sum, s) => sum + s.quantityKg, 0);
-              const fPal = stocks.filter(s => s.frigoId === f.id).reduce((sum, s) => sum + s.quantityPallets, 0);
+              const { totalConsolidatedKg: fKg, totalConsolidatedPallets: fPal } = computeSynchronizedStocks({
+                products,
+                frigos,
+                stocks,
+                purchaseInvoices,
+                deliveryNotes,
+                inventoryCounts,
+                stockMovements,
+                selectedFrigoId: f.id
+              });
               const pct = f.capacityPallets > 0 ? Math.round((fPal / f.capacityPallets) * 100) : 0;
               return {
                 label: f.name,
@@ -845,8 +843,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {frigos.map(frigo => {
-            const frigoStocks = stocks.filter(s => s.frigoId === frigo.id && s.quantityKg > 0);
-            const totalKgInFrigo = frigoStocks.reduce((acc, s) => acc + s.quantityKg, 0);
+            const { totalConsolidatedKg: totalKgInFrigo, productStocks: fPrdStocks } = computeSynchronizedStocks({
+              products,
+              frigos,
+              stocks,
+              purchaseInvoices,
+              deliveryNotes,
+              inventoryCounts,
+              stockMovements,
+              selectedFrigoId: frigo.id
+            });
+            const activeProducts = fPrdStocks.filter(p => p.totalStockKg > 0);
 
             return (
               <div 
@@ -866,28 +873,22 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-xs text-[#0f62fe] font-mono">{totalKgInFrigo.toLocaleString()} Kg</div>
-                      <div className="text-[10px] text-gray-500 font-mono">{frigoStocks.length} Produit(s)</div>
+                      <div className="text-[10px] text-gray-500 font-mono">{activeProducts.length} Produit(s)</div>
                     </div>
                   </div>
 
                   {/* Products breakdown inside this frigo */}
                   <div className="mt-2 pt-2 border-t border-gray-200 flex flex-wrap gap-1.5">
-                    {frigoStocks.length === 0 ? (
+                    {activeProducts.length === 0 ? (
                       <span className="text-[10px] text-gray-400 italic">Entrepôt vide (0 Kg)</span>
                     ) : (
-                      frigoStocks.map((stk, sIdx) => {
-                        const prd = products.find(p => p.id === stk.productId);
+                      activeProducts.map((stk, sIdx) => {
                         return (
                           <span 
-                            key={stk.id || `${stk.frigoId}_${stk.productId}_${sIdx}`} 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (prd) setSelectedProductForHistory(prd);
-                            }}
-                            className="text-[10px] font-mono px-2 py-0.5 bg-white border border-gray-300 hover:border-blue-500 hover:text-blue-700 rounded text-gray-800 font-bold transition-colors"
-                            title="Voir l'historique de ce produit"
+                            key={`${frigo.id}_${stk.productId}_${sIdx}`} 
+                            className="text-[10px] bg-white border border-gray-200 px-1.5 py-0.5 rounded font-mono text-gray-700 shadow-xs"
                           >
-                            {prd ? prd.name : 'Produit'}: <b className="text-blue-700">{stk.quantityKg.toLocaleString()} Kg</b>
+                            <span className="font-bold text-gray-900">{stk.productName.split(' ')[0]}</span>: {stk.totalStockKg.toLocaleString()}kg
                           </span>
                         );
                       })
@@ -947,7 +948,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 </tr>
               ) : (
                 products.map(prd => {
-                  const totalKgPrd = stocks.filter(s => s.productId === prd.id).reduce((acc, s) => acc + s.quantityKg, 0);
+                  const prdStock = productStocks.find(ps => ps.productId === prd.id || ps.productCode === prd.code);
+                  const totalKgPrd = prdStock ? prdStock.totalStockKg : stocks.filter(s => s.productId === prd.id).reduce((acc, s) => acc + s.quantityKg, 0);
                   const unitMargin = prd.sellingPriceHT - prd.unitCostHT;
                   const marginPct = prd.sellingPriceHT > 0 ? (unitMargin / prd.sellingPriceHT) * 100 : 0;
                   const isLowStock = totalKgPrd <= prd.minStockAlertKg;

@@ -88,8 +88,8 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
   });
 
   // Product stock calculation per frigo
-  const productStocks = (product ? stocks.filter(s => s.productId === product.id) : []);
-  const totalStockKg = productStocks.reduce((sum, s) => sum + s.quantityKg, 0);
+  const productStocks = (product ? stocks.filter(s => s.productId === product.id || s.productId === product.code) : []);
+  const totalStockKgFromRecords = productStocks.reduce((sum, s) => sum + s.quantityKg, 0);
   const totalStockPallets = productStocks.reduce((sum, s) => sum + s.quantityPallets, 0);
 
   // Compile all movements for this product chronologically
@@ -224,6 +224,9 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
     .filter(m => m.changeKg < 0)
     .reduce((sum, m) => sum + Math.abs(m.changeKg), 0);
 
+  const dynamicBalanceKg = Math.max(0, totalEntriesKg - totalExitsKg);
+  const effectiveTotalStockKg = totalEntriesKg > 0 ? dynamicBalanceKg : totalStockKgFromRecords;
+
   // *** GUARD: Must come AFTER all hooks ***
   if (!isOpen || !product) return null;
 
@@ -312,7 +315,7 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
               <div>
                 <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Stock Actuel Global</span>
                 <div className="text-lg font-extrabold font-mono text-gray-900 mt-0.5">
-                  {totalStockKg.toLocaleString()} <span className="text-xs font-normal text-gray-500">Kg</span>
+                  {effectiveTotalStockKg.toLocaleString()} <span className="text-xs font-normal text-gray-500">Kg</span>
                 </div>
                 <div className="text-xs text-gray-600 font-semibold">{totalStockPallets} Palettes</div>
               </div>
@@ -357,12 +360,18 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
             <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
               <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Répartition Frigos</span>
               <div className="mt-1 space-y-1 max-h-12 overflow-y-auto pr-1">
-                {productStocks.map(s => {
-                  const fr = frigos.find(f => f.id === s.frigoId);
+                {frigos.map(fr => {
+                  const fMvs = allMovements.filter(m => m.frigoId === fr.id || (m.frigoName && fr.name && (m.frigoName.includes(fr.name) || fr.name.includes(m.frigoName))));
+                  const fEntries = fMvs.filter(m => m.changeKg > 0).reduce((sum, m) => sum + m.changeKg, 0);
+                  const fExits = fMvs.filter(m => m.changeKg < 0).reduce((sum, m) => sum + Math.abs(m.changeKg), 0);
+                  const st = productStocks.find(s => s.frigoId === fr.id || s.frigoId === fr.code);
+                  const fKg = fEntries > 0 ? Math.max(0, fEntries - fExits) : (st?.quantityKg || 0);
+                  const fPal = st && st.quantityPallets > 0 ? st.quantityPallets : (fKg > 0 ? Math.max(1, Math.ceil(fKg / (product.kgPerPallet || 500))) : 0);
+                  if (fKg <= 0 && (!st || st.quantityKg <= 0)) return null;
                   return (
-                    <div key={s.frigoId} className="flex justify-between text-[11px] font-mono">
-                      <span className="text-gray-600 truncate max-w-[110px]">{fr ? fr.name.split('-')[0].trim() : 'Frigo'}</span>
-                      <span className="font-bold text-gray-900">{s.quantityKg.toLocaleString()} kg ({s.quantityPallets} pal)</span>
+                    <div key={fr.id} className="flex justify-between text-[11px] font-mono">
+                      <span className="text-gray-600 truncate max-w-[110px]">{fr.name.split('-')[0].trim()}</span>
+                      <span className="font-bold text-gray-900">{fKg.toLocaleString()} kg ({fPal} pal)</span>
                     </div>
                   );
                 })}

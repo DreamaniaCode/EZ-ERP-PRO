@@ -14,6 +14,7 @@ import {
   UnifiedFrigoMovement,
   ProductAccumulationSummary 
 } from '../../utils/frigoStockMovements';
+import { computeSynchronizedStocks, isMatchingFrigo } from '../../utils/stockReconciler';
 
 import { 
   Warehouse, 
@@ -267,15 +268,25 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
     return products.find(p => p.id === selectedProductId || p.code === selectedProductId) || null;
   }, [products, selectedProductId]);
 
-  // Warehouse Statistics per frigo
+  // Warehouse Statistics per frigo (Guaranteed 100% Synchronized with Purchases & BLs)
   const frigoStatsList = useMemo(() => {
     return frigos.map(f => {
-      const fStocks = stocks.filter(s => s.frigoId === f.id);
-      const totalKg = fStocks.reduce((sum, s) => sum + (s.quantityKg || 0), 0);
-      const totalPallets = fStocks.reduce((sum, s) => sum + (s.quantityPallets || 0), 0);
+      const { totalConsolidatedKg, totalConsolidatedPallets } = computeSynchronizedStocks({
+        products,
+        frigos,
+        stocks,
+        purchaseInvoices,
+        deliveryNotes,
+        inventoryCounts,
+        stockMovements,
+        selectedFrigoId: f.id,
+      });
+
+      const totalKg = totalConsolidatedKg;
+      const totalPallets = totalConsolidatedPallets;
       const cap = f.capacityPallets || 1000;
       const occPercent = Math.min(100, Math.round((totalPallets / cap) * 100));
-      const mvsCount = allFrigoMovements.filter(m => m.frigoId === f.id).length;
+      const mvsCount = allFrigoMovements.filter(m => isMatchingFrigo(f, m.frigoId) || isMatchingFrigo(f, m.frigoName)).length;
       return {
         ...f,
         totalKg,
@@ -284,7 +295,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
         mvsCount,
       };
     });
-  }, [frigos, stocks, allFrigoMovements]);
+  }, [frigos, products, stocks, purchaseInvoices, deliveryNotes, inventoryCounts, stockMovements, allFrigoMovements]);
 
   // Global Warehouse Totals
   const totalOccupiedPallets = useMemo(() => {
