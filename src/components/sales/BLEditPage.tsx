@@ -9,25 +9,22 @@ import { useToast } from '../common/CarbonToastContainer';
 export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }> = ({ editId, onBack }) => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
-  const { clients, frigos, products, stocks, deliveryNotes, addBL, updateBL, activeCompanyId, activeCompany } = useERP();
+  const { clients, frigos, products, stocks, deliveryNotes, addBL, updateBL, activeCompanyId, activeCompany, companies } = useERP();
   const { notifySuccess, notifyError, notifyWarning } = useToast();
 
-
-
+  const [companyId, setCompanyId] = useState<string>(activeCompanyId !== 'ALL' ? activeCompanyId : companies[0]?.id || 'STE_1');
   const [clientId, setClientId] = useState('');
   const [frigoId, setFrigoId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [items, setItems] = useState<any[]>([]);
   const [showQuickProductModal, setShowQuickProductModal] = useState(false);
 
-
-
-
   // Load existing BL data when editId is provided
   useEffect(() => {
     if (editId && deliveryNotes) {
       const bl = (deliveryNotes || []).find((b: any) => b.id === editId);
       if (bl) {
+        if (bl.companyId) setCompanyId(bl.companyId);
         setClientId(bl.clientId || '');
         setFrigoId(bl.frigoId || '');
         setDate(bl.date || new Date().toISOString().slice(0, 10));
@@ -200,16 +197,17 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
 
     if (editId) {
       if (updateBL) {
-        updateBL(editId, payload);
+        updateBL(editId, { ...payload, companyId });
       }
     } else {
       if (addBL) {
-        const prefix = activeCompany?.blPrefix || 'BL';
+        const chosenComp = companies.find(c => c.id === companyId) || activeCompany || companies[0];
+        const prefix = chosenComp?.blPrefix || 'BL';
         const blNumber = `${prefix}-2026-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
         const newBL = {
           ...payload,
           id: `bl-${Date.now()}`,
-          companyId: activeCompanyId,
+          companyId: companyId || chosenComp?.id || 'STE_1',
           blNumber,
           orderId: '',
           orderNumber: '',
@@ -297,9 +295,53 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
           
           {/* General Parameters */}
           <div className="bg-white p-6 rounded-lg shadow-sm border border-[#e0e0e0]">
-            <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 pb-2 border-b border-[#e0e0e0]">
-              {t('sales.generalInfo', 'Informations Générales BL')}
+            <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-3 pb-2 border-b border-[#e0e0e0] flex items-center justify-between">
+              <span>{t('sales.generalInfo', 'Informations Générales BL')}</span>
+              <span className="text-xs font-mono font-normal text-gray-500">Société Émettrice & Quai</span>
             </h2>
+
+            {/* Sister Company Selection Cards */}
+            <div className="mb-4">
+              <label className="block text-xs font-bold uppercase text-gray-700 mb-1.5">
+                🏢 Société Émettrice (Sociétés Sœurs) *
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {companies.map((comp) => {
+                  const isSelected = companyId === comp.id;
+                  return (
+                    <div
+                      key={comp.id}
+                      onClick={() => setCompanyId(comp.id)}
+                      className={`cursor-pointer p-3 rounded-xl border-2 transition-all flex items-center justify-between select-none ${
+                        isSelected
+                          ? 'bg-blue-50/90 border-[#0f62fe] ring-2 ring-blue-500/20 shadow-xs'
+                          : 'bg-gray-50/80 border-gray-200 hover:border-gray-300 hover:bg-gray-100/70'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                          isSelected ? 'bg-[#0f62fe] text-white' : 'bg-gray-200 text-gray-700'
+                        }`}>
+                          {comp.code}
+                        </div>
+                        <div>
+                          <div className="font-bold text-xs text-gray-900 leading-snug">{comp.name}</div>
+                          <div className="text-[10px] text-gray-500 font-mono">
+                            N° {comp.blPrefix} • {comp.invoicePrefix}
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+                        isSelected ? 'bg-[#0f62fe] text-white' : 'border-2 border-gray-300'
+                      }`}>
+                        {isSelected && '✓'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-xs font-bold uppercase text-gray-700 mb-1">

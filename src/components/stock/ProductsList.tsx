@@ -721,19 +721,24 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
                       <div className="text-[10px] text-gray-500">{p.totalStockCartons.toLocaleString()} Colis</div>
                     </td>
 
-                    {/* Breakdown per Frigo */}
+                    {/* Breakdown per Frigo (Active Stock Only) */}
                     <td>
-                      <div className="space-y-1 text-[11px] font-mono">
-                        {p.frigoBreakdown.map(fb => (
-                          <div key={fb.frigoId} className="flex items-center justify-between gap-2 border-b border-gray-100 pb-0.5 last:border-0">
-                            <span className="text-gray-600 truncate max-w-[110px]" title={fb.frigoName}>
-                              {fb.frigoName.split('-')[0].trim()} :
+                      <div className="space-y-1.5 text-[11px] font-mono min-w-[170px]">
+                        {p.frigoBreakdown.filter(fb => fb.quantityKg > 0).map(fb => (
+                          <div key={fb.frigoId} className="flex items-center justify-between gap-2 bg-emerald-50/80 border border-emerald-200 px-2 py-1 rounded-lg">
+                            <span className="text-emerald-950 font-bold truncate max-w-[110px]" title={fb.frigoName}>
+                              🏭 {fb.frigoName.split('-')[0].trim()}
                             </span>
-                            <span className={`font-bold ${fb.quantityKg > 0 ? 'text-emerald-700' : 'text-gray-400'}`}>
-                              {fb.quantityKg.toLocaleString()} kg ({fb.quantityPallets} pal)
+                            <span className="font-extrabold text-emerald-700 whitespace-nowrap">
+                              {fb.quantityKg.toLocaleString()} kg <span className="text-[10px] text-emerald-800/80 font-normal">({fb.quantityPallets} pal)</span>
                             </span>
                           </div>
                         ))}
+                        {p.frigoBreakdown.every(fb => fb.quantityKg === 0) && (
+                          <span className="text-gray-400 italic text-[10px] block py-1">
+                            — Aucun stock frigo
+                          </span>
+                        )}
                       </div>
                     </td>
 

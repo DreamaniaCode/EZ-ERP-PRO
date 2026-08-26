@@ -33,6 +33,8 @@ export const ProductKpiCardsSection: React.FC<ProductKpiCardsSectionProps> = ({
   products,
   warehouseName = 'Tous les Frigos'
 }) => {
+  const [onlyInStock, setOnlyInStock] = React.useState<boolean>(true);
+
   // Global aggregate metrics across all products
   const globalTotalStockKg = productSummaries.reduce((sum, p) => sum + p.currentStockKg, 0);
   const globalTotalPallets = productSummaries.reduce((sum, p) => sum + p.currentStockPallets, 0);
@@ -41,6 +43,9 @@ export const ProductKpiCardsSection: React.FC<ProductKpiCardsSectionProps> = ({
   const globalTotalExitsKg = productSummaries.reduce((sum, p) => sum + p.totalExitsKg, 0);
   const globalTotalValuationCostHT = productSummaries.reduce((sum, p) => sum + p.totalValuationCostHT, 0);
   const globalTotalValuationSaleHT = productSummaries.reduce((sum, p) => sum + p.totalValuationSaleHT, 0);
+
+  const inStockSummaries = productSummaries.filter(p => p.currentStockKg > 0);
+  const displayedSummaries = onlyInStock ? inStockSummaries : productSummaries;
 
   const selectedSummary = productSummaries.find(p => p.productId === selectedProductId);
 
@@ -58,27 +63,45 @@ export const ProductKpiCardsSection: React.FC<ProductKpiCardsSectionProps> = ({
               <span className="text-[11px] font-normal text-gray-500 font-mono">({warehouseName})</span>
             </h2>
             <p className="text-[11px] text-gray-500">
-              Cliquez sur une carte produit pour filtrer instantanément le journal des mouvements et la vue cumulée.
+              {onlyInStock 
+                ? `Affichage exclusif des produits disponibles en stock (${inStockSummaries.length} référence${inStockSummaries.length > 1 ? 's' : ''})`
+                : `Affichage de toutes les références catalogue (${productSummaries.length})`}
             </p>
           </div>
         </div>
 
-        {/* Quick Filter Reset if active */}
-        {selectedProductId !== 'ALL' && selectedSummary && (
-          <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full text-xs animate-in fade-in">
-            <span className="text-blue-800 font-semibold flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#0f62fe] animate-pulse"></span>
-              Filtre actif : <b>{selectedSummary.productName}</b>
-            </span>
-            <button
-              onClick={() => onSelectProduct('ALL')}
-              className="text-gray-500 hover:text-red-600 p-0.5 rounded-full hover:bg-blue-100 transition-colors"
-              title="Réinitialiser le filtre produit"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
+        {/* In-Stock Filter Toggle & Quick Filter Reset */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setOnlyInStock(!onlyInStock)}
+            className={`px-3 py-1 rounded-full text-xs font-mono font-bold transition flex items-center gap-1.5 border cursor-pointer ${
+              onlyInStock
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-xs'
+                : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+            }`}
+            title="Basculer entre afficher uniquement les produits en stock ou tous les produits"
+          >
+            <span className={`w-2 h-2 rounded-full ${onlyInStock ? 'bg-emerald-500' : 'bg-gray-400'}`}></span>
+            <span>{onlyInStock ? `En Stock Uniquement (${inStockSummaries.length})` : `Tous les Produits (${productSummaries.length})`}</span>
+          </button>
+
+          {selectedProductId !== 'ALL' && selectedSummary && (
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full text-xs animate-in fade-in">
+              <span className="text-blue-800 font-semibold flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-[#0f62fe] animate-pulse"></span>
+                Filtre : <b>{selectedSummary.productName}</b>
+              </span>
+              <button
+                onClick={() => onSelectProduct('ALL')}
+                className="text-gray-500 hover:text-red-600 p-0.5 rounded-full hover:bg-blue-100 transition-colors"
+                title="Réinitialiser le filtre produit"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Cards Grid */}
@@ -184,7 +207,7 @@ export const ProductKpiCardsSection: React.FC<ProductKpiCardsSectionProps> = ({
         {/* ========================================================================= */}
         {/* INDIVIDUAL PRODUCT KPI CARDS (CLICKABLE)                                  */}
         {/* ========================================================================= */}
-        {productSummaries.map(summary => {
+        {displayedSummaries.map(summary => {
           const isSelected = selectedProductId === summary.productId;
           const rawProduct = products.find(p => p.id === summary.productId);
 

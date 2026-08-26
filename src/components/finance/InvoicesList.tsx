@@ -11,11 +11,15 @@ export const InvoicesList: React.FC = () => {
   const { invoices, updateInvoiceStatus, deleteInvoice, addChequeEffet, clients, companies, activeCompany, companyInfo, activeCompanyId } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [companyFilter, setCompanyFilter] = useState<string>(activeCompanyId !== 'ALL' ? activeCompanyId : 'ALL');
   const [activePdfInvoice, setActivePdfInvoice] = useState<Invoice | null>(null);
 
   const filteredInvoices = invoices.filter(inv => {
-    if (activeCompanyId !== 'ALL' && inv.companyId && inv.companyId !== activeCompanyId) {
-      return false;
+    if (companyFilter !== 'ALL') {
+      const targetCId = inv.companyId || 'STE_1';
+      if (targetCId !== companyFilter && !targetCId.toLowerCase().includes(companyFilter.toLowerCase())) {
+        return false;
+      }
     }
     const matchesSearch = inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           inv.clientName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -82,31 +86,76 @@ export const InvoicesList: React.FC = () => {
         />
       </div>
 
-      {/* Filters */}
-      <div className="carbon-card p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Rechercher Facture N°, Client..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full carbon-input pl-9 text-xs font-mono"
-          />
+      {/* Sister Companies Filter Pills & Main Filters */}
+      <div className="carbon-card p-4 space-y-3">
+        {/* Sister Companies Tabs */}
+        <div className="flex items-center gap-2 flex-wrap pb-2 border-b border-gray-100">
+          <span className="text-xs font-bold uppercase text-gray-500 mr-1">🏢 Société :</span>
+          <button
+            type="button"
+            onClick={() => setCompanyFilter('ALL')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition cursor-pointer ${
+              companyFilter === 'ALL'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            🌐 Toutes ({invoices.length})
+          </button>
+          {companies.map(c => {
+            const count = invoices.filter(i => {
+              const cId = i.companyId || 'STE_1';
+              return cId === c.id || cId.toLowerCase().includes(c.id.toLowerCase());
+            }).length;
+            const isSelected = companyFilter === c.id;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCompanyFilter(c.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  isSelected
+                    ? 'bg-[#0f62fe] text-white shadow-xs'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <span>{c.code}</span>
+                <span>•</span>
+                <span>{c.name}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-500" />
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            className="carbon-input text-xs"
-          >
-            <option value="ALL">Tous les statuts</option>
-            <option value="EMISE">Émise / En attente</option>
-            <option value="PAYEE">Payée</option>
-            <option value="PAYEE_PARTIEL">Partiellement Payée</option>
-          </select>
+        {/* Search & Status Filters */}
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full md:w-80">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Rechercher Facture N°, Client..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full carbon-input pl-9 text-xs font-mono"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-500" />
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              className="carbon-input text-xs"
+            >
+              <option value="ALL">Tous les statuts</option>
+              <option value="EMISE">Émise / En attente</option>
+              <option value="PAYEE">Payée</option>
+              <option value="PAYEE_PARTIEL">Partiellement Payée</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -116,6 +165,7 @@ export const InvoicesList: React.FC = () => {
           <table className="carbon-table">
             <thead>
               <tr>
+                <th>Société</th>
                 <th>N° Facture</th>
                 <th>Client (ICE)</th>
                 <th>Date Émission</th>
@@ -128,8 +178,15 @@ export const InvoicesList: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredInvoices.map(inv => (
+              {filteredInvoices.map(inv => {
+                const invComp = companies.find(c => c.id === inv.companyId) || (inv.companyId?.toLowerCase().includes('ain') ? companies[1] : companies[0]);
+                return (
                 <tr key={inv.id}>
+                  <td>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-900" title={invComp?.name}>
+                      {invComp?.code || 'MLHMD'}
+                    </span>
+                  </td>
                   <td className="font-mono font-bold text-[#0f62fe]">{inv.invoiceNumber}</td>
                   <td>
                     <div className="font-bold text-gray-900">{inv.clientName}</div>
@@ -190,7 +247,8 @@ export const InvoicesList: React.FC = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

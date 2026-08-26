@@ -142,7 +142,7 @@ interface ERPContextType {
   sendEmailBL: (blId: string, recipient: string) => void;
 
   // Finance Actions
-  createInvoiceFromBL: (blId: string) => Invoice;
+  createInvoiceFromBL: (blId: string, customCompanyId?: string) => Invoice;
   updateInvoiceStatus: (invoiceId: string, status: Invoice['status'], amountPaid?: number) => void;
   deleteInvoice: (id: string) => void;
   addChequeEffet: (cheque: Omit<ChequeEffet, 'id'>) => void;
@@ -1039,13 +1039,13 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ============================================================
   // INVOICING ACTIONS
   // ============================================================
-  const createInvoiceFromBL = (blId: string): Invoice => {
+  const createInvoiceFromBL = (blId: string, customCompanyId?: string): Invoice => {
     const bl = deliveryNotes.find(b => b.id === blId);
     if (!bl) throw new Error('Bon de Livraison introuvable');
 
     const count = invoices.length + 1;
-    const targetCompId = bl.companyId || activeCompanyId;
-    const targetCompany = companies.find(c => c.id === targetCompId) || activeCompany;
+    const targetCompId = customCompanyId || bl.companyId || (activeCompanyId !== 'ALL' ? activeCompanyId : companies[0]?.id || 'STE_1');
+    const targetCompany = companies.find(c => c.id === targetCompId) || activeCompany || companies[0];
     const prefix = targetCompany?.invoicePrefix || 'FAC';
     const invoiceNumber = `${prefix}-2026-${String(count).padStart(4, '0')}`;
 

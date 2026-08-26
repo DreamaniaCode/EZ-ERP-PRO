@@ -38,6 +38,7 @@ import {
   Scale,
   Receipt
 } from 'lucide-react';
+import { GenerateInvoiceModal } from '../finance/GenerateInvoiceModal';
 
 
 interface DeliveryNotesBLProps {
@@ -97,6 +98,7 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   const [activeEmailBL, setActiveEmailBL] = useState<DeliveryNoteBL | null>(null);
   const [activePdfBL, setActivePdfBL] = useState<DeliveryNoteBL | null>(null);
   const [activePdfInvoice, setActivePdfInvoice] = useState<Invoice | null>(null);
+  const [targetInvoiceBL, setTargetInvoiceBL] = useState<DeliveryNoteBL | null>(null);
   const [activeHistoryBL, setActiveHistoryBL] = useState<DeliveryNoteBL | null>(null);
   const [activeWeighingBL, setActiveWeighingBL] = useState<DeliveryNoteBL | null>(null);
   const [showExcelModal, setShowExcelModal] = useState<boolean>(false);
@@ -305,13 +307,19 @@ EasyERP Pro • Logistics Management`;
 
 
   const handleGenerateInvoice = (target: DeliveryNoteBL | string) => {
+    const targetBL = typeof target === 'string' ? deliveryNotes.find(b => b.id === target) : target;
+    if (!targetBL) {
+      alert('Bon de Livraison introuvable');
+      return;
+    }
+    setTargetInvoiceBL(targetBL);
+  };
+
+  const handleConfirmGenerateInvoice = (blId: string, selectedCompanyId: string) => {
     try {
-      const blId = typeof target === 'string' ? target : target.id;
-      const targetBL = typeof target === 'string' ? deliveryNotes.find(b => b.id === target) : target;
-      
-      const inv = createInvoiceFromBL(blId);
+      const inv = createInvoiceFromBL(blId, selectedCompanyId);
       setActivePdfInvoice(inv);
-      alert(`✓ Facture N° ${inv.invoiceNumber} générée avec succès depuis le BL ${targetBL?.blNumber || blId} !`);
+      notifySuccess(`✓ Facture N° ${inv.invoiceNumber} générée avec succès !`);
     } catch (err: any) {
       alert('Erreur lors de la création de la facture: ' + (err.message || err));
     }
@@ -1103,6 +1111,14 @@ EasyERP Pro • Logistics Management`;
           onClose={() => setActivePdfBL(null)}
         />
       )}
+
+      {/* Choose Sister Company to Generate Invoice Modal */}
+      <GenerateInvoiceModal
+        isOpen={!!targetInvoiceBL}
+        onClose={() => setTargetInvoiceBL(null)}
+        bl={targetInvoiceBL}
+        onConfirmGenerate={handleConfirmGenerateInvoice}
+      />
 
       {/* Delivery History Timeline Modal */}
       {activeHistoryBL && (
