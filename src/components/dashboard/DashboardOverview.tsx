@@ -83,6 +83,45 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
   const [selectedProductForHistory, setSelectedProductForHistory] = useState<Product | null>(null);
 
+  const processBlSearch = (term: string) => {
+    setBlSearchError('');
+    const clean = term.trim();
+    if (!clean) return;
+
+    let searchCode = clean;
+    if (clean.includes('bl=')) {
+      const match = clean.match(/bl=([^&]+)/);
+      if (match) searchCode = match[1];
+    }
+
+    const found = deliveryNotes.find(b => 
+      b.blNumber.toLowerCase() === searchCode.toLowerCase() ||
+      b.blNumber.toLowerCase().includes(searchCode.toLowerCase())
+    );
+
+    if (found) {
+      if (onEditBL) {
+        onEditBL(found.id);
+      } else {
+        window.history.pushState({}, '', `/?bl=${found.blNumber}`);
+        onNavigate('DELIVERY_NOTES');
+      }
+    } else {
+      setBlSearchError(`${t('common.noData', 'Aucun BL trouvé')} (${searchCode})`);
+    }
+  };
+
+  const handleQuickBlLookup = (e: React.FormEvent) => {
+    e.preventDefault();
+    processBlSearch(quickBlSearch);
+  };
+
+  const handleQrScanSuccess = (scannedCode: string) => {
+    setIsQrScannerOpen(false);
+    setQuickBlSearch(scannedCode);
+    processBlSearch(scannedCode);
+  };
+
   // Synchronized Multi-Frigo Stock Data
   const {
     productStocks,
