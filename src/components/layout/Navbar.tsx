@@ -121,79 +121,89 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
 
     <header className="bg-[#161616] border-b border-[#393939] text-white sticky top-0 z-40 select-none">
-      <div className="flex items-center justify-between px-2 sm:px-4 py-2 gap-1.5">
+      <div className="flex items-center justify-between px-2 sm:px-4 py-2 gap-1.5 sm:gap-3">
         
         {/* Brand & Mobile Hamburger Toggle */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {onToggleMobileMenu && (
             <button
               onClick={onToggleMobileMenu}
-              className="md:hidden p-1.5 text-gray-300 hover:text-white hover:bg-[#262626] rounded-lg transition-colors focus:outline-none"
+              className="p-1.5 text-gray-300 hover:text-white hover:bg-[#262626] rounded-lg transition-colors focus:outline-none touch-manipulation"
               aria-label="Toggle navigation menu"
             >
               {isMobileMenuOpen ? <X className="w-5 h-5 text-white" /> : <Menu className="w-5 h-5 text-white" />}
             </button>
           )}
 
-          <div className="w-8 h-8 sm:w-9 sm:h-9 p-0.5 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-400 shrink-0 shadow-md">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 p-0.5 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-400 shrink-0 shadow-sm">
             <img src="/ez_erp_logo.jpg" alt="Logo" className="w-full h-full rounded object-cover" />
           </div>
           
-          <div className="hidden min-[420px]:block">
-            <div className="flex items-center gap-1.5">
+          <div className="hidden min-[480px]:block">
+            <div className="flex items-center gap-1">
               <span className="font-bold text-xs sm:text-sm tracking-wide uppercase text-white font-mono">
                 EasyERP <span className="text-[#0f62fe]">PRO</span>
               </span>
             </div>
           </div>
 
-          {/* Active Company Switcher Dropdown - Always Visible */}
-          <div className="flex items-center gap-1 bg-[#262626] border border-[#0f62fe] px-1.5 sm:px-2 py-1 rounded shadow-sm">
-            <span className="text-xs">🏢</span>
+          {/* Active Company Switcher Dropdown - Compact on Mobile */}
+          <div className="flex items-center gap-1 bg-[#262626] border border-[#0f62fe]/80 px-1.5 sm:px-2 py-1 rounded shadow-xs">
+            <span className="text-[11px] sm:text-xs">🏢</span>
             <select
               value={activeCompanyId}
               onChange={(e) => setActiveCompanyId(e.target.value)}
-              className="bg-transparent text-white text-[11px] sm:text-xs font-bold font-mono cursor-pointer focus:outline-none max-w-[120px] sm:max-w-[190px] truncate"
+              className="bg-transparent text-white text-[10px] sm:text-xs font-bold font-mono cursor-pointer focus:outline-none max-w-[85px] min-[390px]:max-w-[110px] sm:max-w-[180px] truncate"
               title="Société Active pour les BL et Factures (Clients & Frigos partagés)"
             >
               {companies.map(c => (
                 <option key={c.id} value={c.id} className="bg-[#161616] text-white">
-                  {c.name || c.shortName}
+                  {c.shortName || c.name}
                 </option>
               ))}
 
               <option value="ALL" className="bg-[#161616] text-cyan-300">
-                🌐 Toutes (Vue Consolidée)
+                🌐 Toutes
               </option>
             </select>
           </div>
         </div>
 
 
-        {/* Global Quick Search */}
-        <div className="flex items-center flex-1 max-w-[140px] sm:max-w-xs md:max-w-md mx-1 sm:mx-4">
+        {/* Global Quick Search - Responsive Bar on desktop, Icon on Mobile */}
+        <div className="flex items-center flex-1 max-w-[40px] sm:max-w-xs md:max-w-md mx-0.5 sm:mx-2">
+          {/* Desktop/Tablet Full Search Box */}
           <button
             onClick={onOpenSearch}
-            className="w-full bg-[#262626] border border-[#525252] hover:border-[#0f62fe] text-xs text-gray-300 pl-7 sm:pl-9 pr-2 py-1 sm:py-1.5 rounded text-left relative flex items-center justify-between transition group"
+            className="hidden sm:flex w-full bg-[#262626] border border-[#525252] hover:border-[#0f62fe] text-xs text-gray-300 pl-8 pr-2 py-1.5 rounded text-left relative items-center justify-between transition group"
           >
-            <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 group-hover:text-[#0f62fe]" />
-            <span className="truncate font-mono text-[10px] sm:text-[11px] text-gray-400">{t('common.search')}...</span>
-            <span className="hidden md:inline-block text-[10px] bg-[#161616] px-1.5 py-0.5 rounded border border-[#393939] text-gray-400 font-mono">
+            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 group-hover:text-[#0f62fe]" />
+            <span className="truncate font-mono text-[11px] text-gray-400">{t('common.search')}...</span>
+            <span className="hidden md:inline-block text-[9px] bg-[#161616] px-1.5 py-0.5 rounded border border-[#393939] text-gray-400 font-mono">
               Ctrl+K
             </span>
+          </button>
+
+          {/* Mobile Icon Button */}
+          <button
+            onClick={onOpenSearch}
+            className="sm:hidden p-1.5 text-gray-300 hover:text-white hover:bg-[#262626] rounded-lg transition-colors"
+            title="Recherche Globale"
+          >
+            <Search className="w-4 h-4 text-gray-300" />
           </button>
         </div>
 
         {/* Right Section: Camera QR + PWA Install + Lang Switcher + Alerts */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           
           {/* Quick Camera QR Code Scanner */}
           <button
             onClick={() => setIsQrScannerOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-2 py-1 sm:px-2.5 sm:py-1.5 rounded flex items-center gap-1 shadow transition-all"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold p-1.5 sm:px-2.5 sm:py-1.5 rounded flex items-center gap-1 shadow-sm transition-all touch-manipulation"
             title="Ouvrir la caméra mobile pour scanner un QR Code BL"
           >
-            <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <Camera className="w-4 h-4 text-white" />
             <span className="hidden md:inline">Scanner QR</span>
           </button>
 
@@ -204,20 +214,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             onScanSuccess={handleQrCodeScanned}
           />
           
-          {/* PWA Install Button */}
+          {/* PWA Install Button (Hidden on smallest mobile to prevent wrap) */}
           <button
             onClick={() => setIsPwaModalOpen(true)}
-            className="bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-semibold px-2 py-1 sm:px-2.5 sm:py-1.5 rounded flex items-center gap-1 shadow transition-all relative group"
-            title="Installer l'application PWA sur Smartphone / Tablette / PC"
+            className="hidden sm:flex bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-semibold px-2 py-1.5 rounded items-center gap-1 shadow-xs transition-all"
+            title="Installer l'application PWA"
           >
-            <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-200" />
-            <span className="hidden sm:inline font-medium">Installer PWA</span>
-            <span className="inline sm:hidden font-medium text-[10px]">PWA</span>
+            <Smartphone className="w-3.5 h-3.5 text-blue-200" />
+            <span className="font-medium text-[11px]">PWA</span>
           </button>
 
-          {/* Live Digital Clock */}
+          {/* Live Digital Clock (Hidden on Mobile < lg) */}
           <div 
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a1a1a] hover:bg-[#222222] border border-[#393939] rounded text-gray-200 font-mono text-xs shadow-inner select-none transition-colors"
+            className="hidden lg:flex items-center gap-1.5 px-2 py-1 bg-[#1a1a1a] hover:bg-[#222222] border border-[#393939] rounded text-gray-200 font-mono text-xs shadow-inner select-none transition-colors"
             title={currentTime.toLocaleDateString(i18n.language === 'ar' ? 'ar-MA' : 'fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           >
             <Clock className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
@@ -368,10 +377,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Role Switcher */}
           <RoleSwitcher />
 
-          {/* Logout */}
+          {/* Logout (Desktop) */}
           <button
             onClick={handleLogout}
-            className="px-2 py-1.5 text-[11px] font-semibold rounded transition-colors bg-red-900/40 hover:bg-red-900/70 text-red-300 hover:text-white border border-red-800/40"
+            className="hidden md:block px-2 py-1.5 text-[11px] font-semibold rounded transition-colors bg-red-900/40 hover:bg-red-900/70 text-red-300 hover:text-white border border-red-800/40"
             title={t('auth.logout')}
           >
             {t('auth.logout')}

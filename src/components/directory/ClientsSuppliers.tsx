@@ -234,37 +234,37 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
 
       {/* Client KPI Dashboard Row */}
       {activeTab === 'CLIENTS' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="carbon-card p-4 space-y-1">
-            <div className="text-xs font-bold text-gray-500 uppercase font-mono">Total Clients Actifs</div>
-            <div className="text-2xl font-bold font-mono text-gray-900">{clients.length}</div>
-            <div className="text-[11px] text-gray-500">Comptes enregistrés dans le négoce</div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          <div className="carbon-card p-3 sm:p-4 space-y-1">
+            <div className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase font-mono truncate">Clients Actifs</div>
+            <div className="text-xl sm:text-2xl font-bold font-mono text-gray-900">{clients.length}</div>
+            <div className="text-[10px] sm:text-[11px] text-gray-500 hidden sm:block">Comptes enregistrés</div>
           </div>
 
-          <div className="carbon-card p-4 space-y-1">
-            <div className="text-xs font-bold text-gray-500 uppercase font-mono">Solde Client (Encours Total)</div>
-            <div className="text-2xl font-bold font-mono text-purple-700">
-              {clients.reduce((acc, c) => acc + (c.currentBalance || 0), 0).toLocaleString()} <span className="text-xs text-gray-500 font-normal">DH</span>
+          <div className="carbon-card p-3 sm:p-4 space-y-1">
+            <div className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase font-mono truncate">Encours Total</div>
+            <div className="text-lg sm:text-2xl font-bold font-mono text-purple-700">
+              {clients.reduce((acc, c) => acc + (c.currentBalance || 0), 0).toLocaleString()} <span className="text-[10px] sm:text-xs text-gray-500 font-normal">DH</span>
             </div>
-            <div className="text-[11px] text-gray-500">Créances totales en cours</div>
+            <div className="text-[10px] sm:text-[11px] text-gray-500 hidden sm:block">Créances en cours</div>
           </div>
 
-          <div className="carbon-card p-4 space-y-1">
-            <div className="text-xs font-bold text-gray-500 uppercase font-mono">Retards de Paiement</div>
-            <div className="text-2xl font-bold font-mono text-red-600">
-              {invoices.filter(i => i.status === 'EN_RETARD' || (i.status !== 'PAYEE' && i.dueDate < todayStr)).reduce((acc, i) => acc + (i.totalTTC - (i.amountPaid || i.paidAmount || 0)), 0).toLocaleString()} <span className="text-xs text-gray-500 font-normal">DH</span>
+          <div className="carbon-card p-3 sm:p-4 space-y-1">
+            <div className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase font-mono truncate">Retards</div>
+            <div className="text-lg sm:text-2xl font-bold font-mono text-red-600">
+              {invoices.filter(i => i.status === 'EN_RETARD' || (i.status !== 'PAYEE' && i.dueDate < todayStr)).reduce((acc, i) => acc + (i.totalTTC - (i.amountPaid || i.paidAmount || 0)), 0).toLocaleString()} <span className="text-[10px] sm:text-xs text-gray-500 font-normal">DH</span>
             </div>
-            <div className="text-[11px] text-red-600 font-semibold">
-              {invoices.filter(i => i.status === 'EN_RETARD' || (i.status !== 'PAYEE' && i.dueDate < todayStr)).length} facture(s) en souffrance
+            <div className="text-[10px] sm:text-[11px] text-red-600 font-semibold">
+              {invoices.filter(i => i.status === 'EN_RETARD' || (i.status !== 'PAYEE' && i.dueDate < todayStr)).length} facture(s)
             </div>
           </div>
 
-          <div className="carbon-card p-4 space-y-1">
-            <div className="text-xs font-bold text-gray-500 uppercase font-mono font-bold">Clients à Risque (&gt;90% Plafond)</div>
-            <div className="text-2xl font-bold font-mono text-amber-600">
+          <div className="carbon-card p-3 sm:p-4 space-y-1">
+            <div className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase font-mono truncate">Clients Risque</div>
+            <div className="text-xl sm:text-2xl font-bold font-mono text-amber-600">
               {clients.filter(c => (c.currentBalance / c.creditLimit) >= 0.9).length}
             </div>
-            <div className="text-[11px] text-amber-700 font-semibold">Seuil de crédit quasi atteint</div>
+            <div className="text-[10px] sm:text-[11px] text-amber-700 font-semibold hidden sm:block">Seuil quasi atteint</div>
           </div>
         </div>
       )}
@@ -286,7 +286,8 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
       {/* Table */}
       {activeTab === 'CLIENTS' ? (
         <div className="carbon-card overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Client Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="carbon-table">
               <thead>
                 <tr>
@@ -405,16 +406,121 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
                         </button>
                       </td>
                     </tr>
-
                   );
                 })}
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Client Cards */}
+          <div className="md:hidden divide-y divide-gray-200">
+            {filteredClients.map(c => {
+              const clientInvoices = invoices.filter(i => i.clientId === c.id);
+              const overdueCount = clientInvoices.filter(i => 
+                i.status === 'EN_RETARD' || (i.status !== 'PAYEE' && i.dueDate < todayStr)
+              ).length;
+              const usagePercent = Math.min(Math.round((c.currentBalance / c.creditLimit) * 100), 100);
+
+              return (
+                <div 
+                  key={c.id} 
+                  className="p-3.5 space-y-2.5 bg-white active:bg-gray-50 transition-colors"
+                >
+                  {/* Header: Code + Name + Status */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono font-bold text-xs text-[#0f62fe] bg-blue-50 px-2 py-0.5 rounded border border-blue-200 shrink-0">
+                          {c.code}
+                        </span>
+                        <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded truncate">
+                          {c.city}
+                        </span>
+                      </div>
+                      <div className="font-bold text-sm text-gray-900 mt-1 leading-snug">{c.name}</div>
+                      {c.companyName && <div className="text-[10px] text-gray-500">{c.companyName}</div>}
+                    </div>
+
+                    {overdueCount > 0 ? (
+                      <span className="bg-red-100 text-red-800 text-[10px] font-mono px-2 py-0.5 rounded font-bold flex items-center gap-0.5 shrink-0">
+                        <AlertTriangle className="w-3 h-3" />
+                        {overdueCount} Retard
+                      </span>
+                    ) : (
+                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-mono px-2 py-0.5 rounded font-bold shrink-0">
+                        ✓ Réglé
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Financial Info 2-col */}
+                  <div className="grid grid-cols-2 gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-200 text-xs font-mono">
+                    <div>
+                      <span className="text-[9px] text-gray-500 block uppercase font-bold tracking-wider">Encours</span>
+                      <span className="font-bold text-purple-800 text-sm">{c.currentBalance.toLocaleString()} DH</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-gray-500 block uppercase font-bold tracking-wider">Plafond</span>
+                      <span className="font-bold text-gray-700">{c.creditLimit.toLocaleString()} DH</span>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                        <div 
+                          className={`h-1.5 rounded-full transition-all ${
+                            usagePercent >= 90 ? 'bg-red-500' : usagePercent >= 60 ? 'bg-amber-500' : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${usagePercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Touch Action Buttons */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => { if (onEditClient) onEditClient(c.id); else setSelectedClient(c); }}
+                      className="flex-1 py-2 bg-[#0f62fe] hover:bg-blue-700 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer touch-manipulation active:scale-95"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>Dossier</span>
+                    </button>
+
+                    {c.phone && (
+                      <a
+                        href={`tel:${c.phone}`}
+                        className="py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors touch-manipulation active:scale-95"
+                      >
+                        <Phone className="w-4 h-4" />
+                      </a>
+                    )}
+
+                    {c.phone && (
+                      <a
+                        href={`https://wa.me/${c.phone.replace(/[\s+-]/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="py-2 px-3 bg-green-50 hover:bg-green-100 text-green-800 border border-green-300 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors touch-manipulation active:scale-95"
+                      >
+                        💬
+                      </a>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Supprimer "${c.name}" ?`)) deleteClient(c.id);
+                      }}
+                      className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg transition-colors cursor-pointer touch-manipulation active:scale-95"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div className="carbon-card overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Supplier Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="carbon-table">
               <thead>
                 <tr>
@@ -477,6 +583,69 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Supplier Cards */}
+          <div className="md:hidden divide-y divide-gray-200">
+            {filteredSuppliers.map(s => (
+              <div key={s.id} className="p-3.5 space-y-2.5 bg-white">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-mono font-bold text-xs text-[#0f62fe] bg-blue-50 px-2 py-0.5 rounded border border-blue-200 shrink-0">
+                        {s.code}
+                      </span>
+                      <span className={`text-[10px] px-2 py-0.5 font-mono font-bold rounded ${
+                        s.type === 'IMPORTATION' ? 'bg-blue-100 text-blue-900' : 'bg-emerald-100 text-emerald-900'
+                      }`}>
+                        {s.type}
+                      </span>
+                      <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{s.country}</span>
+                    </div>
+                    <div className="font-bold text-sm text-gray-900 mt-1">{s.name}</div>
+                    {s.companyName && <div className="text-[10px] text-gray-500">{s.companyName}</div>}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="font-mono font-bold text-red-600 text-sm">{s.currentBalance.toLocaleString()} DH</div>
+                    <div className="text-[9px] text-gray-500 font-mono uppercase">Solde dû</div>
+                  </div>
+                </div>
+
+                {(s.phone || s.email) && (
+                  <div className="text-[10px] font-mono text-gray-600">
+                    {s.phone && <span>📞 {s.phone}</span>}
+                    {s.phone && s.email && <span className="mx-1.5">•</span>}
+                    {s.email && <span>✉️ {s.email}</span>}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={() => onEditSupplier ? onEditSupplier(s.id) : setEditingSupplier(s)}
+                    className="flex-1 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer touch-manipulation active:scale-95"
+                  >
+                    <Edit className="w-4 h-4" />
+                    <span>Modifier</span>
+                  </button>
+
+                  {s.phone && (
+                    <a
+                      href={`tel:${s.phone}`}
+                      className="py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors touch-manipulation active:scale-95"
+                    >
+                      <Phone className="w-4 h-4" />
+                    </a>
+                  )}
+
+                  <button
+                    onClick={() => handleDeleteSupplier(s)}
+                    className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg transition-colors cursor-pointer touch-manipulation active:scale-95"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

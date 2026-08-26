@@ -459,7 +459,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
           onNavigateExtended={(tab: ExtendedNavTab) => { setActiveTab(tab); setIsMobileMenuOpen(false); }}
         />
         
-        <main className="flex-1 p-2.5 sm:p-4 md:p-6 overflow-y-auto w-full pb-24 md:pb-6 touch-manipulation">
+        <main className="flex-1 p-2.5 sm:p-4 md:p-6 overflow-y-auto w-full pb-32 sm:pb-24 md:pb-6 touch-manipulation">
           <div className="max-w-7xl mx-auto">
             <div key={activeTab + (editingEntityId || '')} className="tab-fade-in">
               <Suspense fallback={<LoadingSpinner />}>
@@ -470,24 +470,31 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
         </main>
       </div>
 
-      {/* Smartphone Bottom Quick Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#161616]/95 backdrop-blur-md border-t border-[#393939] text-white z-30 flex justify-around items-center px-1 py-1.5 shadow-2xl select-none pb-[max(0.4rem,env(safe-area-inset-bottom))]">
+      {/* Smartphone Bottom Quick Navigation (Native PWA Feel) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#161616]/95 backdrop-blur-xl border-t border-[#393939] text-white z-30 flex justify-around items-center px-1.5 py-1.5 shadow-2xl select-none pb-[max(0.6rem,env(safe-area-inset-bottom))]">
         {appUser?.role === 'RESPONSABLE_FRIGO' ? (
           <>
             <button
               onClick={() => { setNavTab('DELIVERY_NOTES'); setIsMobileMenuOpen(false); }}
-              className={`flex flex-col items-center justify-center w-1/4 py-1 text-[10px] font-mono relative ${
-                activeTab === 'DELIVERY_NOTES' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/4 py-1 text-[10px] font-mono relative rounded-xl transition-all active:scale-95 ${
+                activeTab === 'DELIVERY_NOTES' 
+                  ? 'text-white font-bold bg-[#0f62fe] shadow-sm' 
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
               <Truck className="w-5 h-5 mb-0.5" />
               <span>Bons Quai</span>
+              {deliveryNotes.filter(b => !b.frigoEmployeeApproved && (!currentUser.assignedFrigoId || b.frigoId === currentUser.assignedFrigoId)).length > 0 && (
+                <span className="absolute -top-1 right-2 bg-amber-500 text-black text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                  {deliveryNotes.filter(b => !b.frigoEmployeeApproved && (!currentUser.assignedFrigoId || b.frigoId === currentUser.assignedFrigoId)).length}
+                </span>
+              )}
             </button>
 
             <button
               onClick={() => { navigateToEdit('BL_SIGN', null); setIsMobileMenuOpen(false); }}
-              className={`flex flex-col items-center justify-center w-1/4 py-1 text-[10px] font-mono ${
-                activeTab === 'BL_SIGN' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/4 py-1 text-[10px] font-mono rounded-xl transition-all active:scale-95 ${
+                activeTab === 'BL_SIGN' ? 'text-white font-bold bg-[#0f62fe] shadow-sm' : 'text-gray-400 hover:text-white'
               }`}
             >
               <PenTool className="w-5 h-5 mb-0.5" />
@@ -496,8 +503,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
 
             <button
               onClick={() => { navigateToEdit('FRIGO_OPS', currentUser.assignedFrigoId || null); setIsMobileMenuOpen(false); }}
-              className={`flex flex-col items-center justify-center w-1/4 py-1 text-[10px] font-mono ${
-                activeTab === 'FRIGO_OPS' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/4 py-1 text-[10px] font-mono rounded-xl transition-all active:scale-95 ${
+                activeTab === 'FRIGO_OPS' ? 'text-white font-bold bg-[#0f62fe] shadow-sm' : 'text-gray-400 hover:text-white'
               }`}
             >
               <Camera className="w-5 h-5 mb-0.5" />
@@ -506,8 +513,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
 
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className={`flex flex-col items-center justify-center w-1/4 py-1 text-[10px] font-mono ${
-                isMobileMenuOpen ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/4 py-1 text-[10px] font-mono rounded-xl transition-all active:scale-95 ${
+                isMobileMenuOpen ? 'text-white font-bold bg-[#393939]' : 'text-gray-400 hover:text-white'
               }`}
             >
               <Menu className="w-5 h-5 mb-0.5" />
@@ -518,8 +525,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
           <>
             <button
               onClick={() => { setNavTab('INVOICING'); setIsMobileMenuOpen(false); }}
-              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
-                activeTab === 'INVOICING' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono rounded-xl transition-all active:scale-95 ${
+                activeTab === 'INVOICING' ? 'text-white font-bold bg-[#0f62fe] shadow-sm' : 'text-gray-400 hover:text-white'
               }`}
             >
               <FileText className="w-5 h-5 mb-0.5" />
@@ -528,8 +535,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
 
             <button
               onClick={() => { setNavTab('TREASURY_CHEQUES'); setIsMobileMenuOpen(false); }}
-              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
-                activeTab === 'TREASURY_CHEQUES' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono rounded-xl transition-all active:scale-95 ${
+                activeTab === 'TREASURY_CHEQUES' ? 'text-white font-bold bg-[#0f62fe] shadow-sm' : 'text-gray-400 hover:text-white'
               }`}
             >
               <Landmark className="w-5 h-5 mb-0.5" />
@@ -538,8 +545,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
 
             <button
               onClick={() => { setNavTab('EXPENSES'); setIsMobileMenuOpen(false); }}
-              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
-                activeTab === 'EXPENSES' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono rounded-xl transition-all active:scale-95 ${
+                activeTab === 'EXPENSES' ? 'text-white font-bold bg-[#0f62fe] shadow-sm' : 'text-gray-400 hover:text-white'
               }`}
             >
               <Receipt className="w-5 h-5 mb-0.5" />
@@ -548,8 +555,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
 
             <button
               onClick={() => { setNavTab('CLIENTS'); setIsMobileMenuOpen(false); }}
-              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
-                activeTab === 'CLIENTS' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono rounded-xl transition-all active:scale-95 ${
+                activeTab === 'CLIENTS' ? 'text-white font-bold bg-[#0f62fe] shadow-sm' : 'text-gray-400 hover:text-white'
               }`}
             >
               <Users className="w-5 h-5 mb-0.5" />
@@ -558,8 +565,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
 
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
-                isMobileMenuOpen ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono rounded-xl transition-all active:scale-95 ${
+                isMobileMenuOpen ? 'text-white font-bold bg-[#393939]' : 'text-gray-400 hover:text-white'
               }`}
             >
               <Menu className="w-5 h-5 mb-0.5" />
@@ -570,8 +577,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
           <>
             <button
               onClick={() => { setNavTab('DASHBOARD'); setIsMobileMenuOpen(false); }}
-              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
-                activeTab === 'DASHBOARD' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono rounded-xl transition-all active:scale-95 ${
+                activeTab === 'DASHBOARD' ? 'text-white font-bold bg-[#0f62fe] shadow-sm' : 'text-gray-400 hover:text-white'
               }`}
             >
               <LayoutDashboard className="w-5 h-5 mb-0.5" />
@@ -580,8 +587,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
 
             <button
               onClick={() => { setNavTab('PRODUCTS_STOCK'); setIsMobileMenuOpen(false); }}
-              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
-                activeTab === 'PRODUCTS_STOCK' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono rounded-xl transition-all active:scale-95 ${
+                activeTab === 'PRODUCTS_STOCK' ? 'text-white font-bold bg-[#0f62fe] shadow-sm' : 'text-gray-400 hover:text-white'
               }`}
             >
               <Package className="w-5 h-5 mb-0.5" />
@@ -590,18 +597,23 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
 
             <button
               onClick={() => { setNavTab('DELIVERY_NOTES'); setIsMobileMenuOpen(false); }}
-              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono relative ${
-                activeTab === 'DELIVERY_NOTES' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono relative rounded-xl transition-all active:scale-95 ${
+                activeTab === 'DELIVERY_NOTES' ? 'text-white font-bold bg-[#0f62fe] shadow-sm' : 'text-gray-400 hover:text-white'
               }`}
             >
               <Truck className="w-5 h-5 mb-0.5" />
               <span>{t('nav.bl')}</span>
+              {deliveryNotes.filter(b => !b.frigoEmployeeApproved).length > 0 && (
+                <span className="absolute -top-1 right-2 bg-amber-500 text-black text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                  {deliveryNotes.filter(b => !b.frigoEmployeeApproved).length}
+                </span>
+              )}
             </button>
 
             <button
               onClick={() => { setNavTab('CLIENTS'); setIsMobileMenuOpen(false); }}
-              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
-                activeTab === 'CLIENTS' ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono rounded-xl transition-all active:scale-95 ${
+                activeTab === 'CLIENTS' ? 'text-white font-bold bg-[#0f62fe] shadow-sm' : 'text-gray-400 hover:text-white'
               }`}
             >
               <Users className="w-5 h-5 mb-0.5" />
@@ -610,8 +622,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
 
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono ${
-                isMobileMenuOpen ? 'text-[#0f62fe] font-bold' : 'text-gray-400 hover:text-white'
+              className={`flex flex-col items-center justify-center w-1/5 py-1 text-[10px] font-mono rounded-xl transition-all active:scale-95 ${
+                isMobileMenuOpen ? 'text-white font-bold bg-[#393939]' : 'text-gray-400 hover:text-white'
               }`}
             >
               <Menu className="w-5 h-5 mb-0.5" />

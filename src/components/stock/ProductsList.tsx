@@ -387,63 +387,63 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
       {/* ========================================================================= */}
       {/* 2. REAL-TIME SYNCHRONIZED KPI CARDS                                      */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         
         {/* Card 1: Total Stock */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs hover:border-blue-300 transition flex flex-col justify-between">
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-xs hover:border-blue-300 transition flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between text-gray-500 text-xs font-semibold">
-              <span>Stock Global Physique</span>
-              <Package className="w-4 h-4 text-[#0f62fe]" />
+            <div className="flex items-center justify-between text-gray-500 text-[11px] sm:text-xs font-semibold">
+              <span className="truncate">Stock Physique</span>
+              <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0f62fe] shrink-0" />
             </div>
-            <div className="mt-2 flex items-baseline gap-1.5">
-              <span className="text-2xl font-black font-mono text-gray-900">
+            <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1">
+              <span className="text-xl sm:text-2xl font-black font-mono text-gray-900">
                 {(totalConsolidatedKg / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })}
               </span>
-              <span className="text-sm font-bold text-gray-600">Tonnes</span>
+              <span className="text-xs sm:text-sm font-bold text-gray-600">T</span>
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-xs font-mono">
+          <div className="mt-1.5 pt-1.5 sm:mt-2 sm:pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] sm:text-xs font-mono">
             <span className="font-bold text-emerald-700">{totalConsolidatedKg.toLocaleString()} Kg</span>
-            <span className="text-purple-700 font-bold">{totalConsolidatedPallets} Palettes</span>
+            <span className="text-purple-700 font-bold">{totalConsolidatedPallets} Pal.</span>
           </div>
         </div>
 
         {/* Card 2: Valuation Cost HT */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs hover:border-purple-300 transition flex flex-col justify-between">
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-xs hover:border-purple-300 transition flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between text-gray-500 text-xs font-semibold">
-              <span>Valorisation Coût d'Achat (HT)</span>
-              <Boxes className="w-4 h-4 text-purple-600" />
+            <div className="flex items-center justify-between text-gray-500 text-[11px] sm:text-xs font-semibold">
+              <span className="truncate">Valorisation Achat</span>
+              <Boxes className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 shrink-0" />
             </div>
-            <div className="mt-2 flex items-baseline gap-1.5">
-              <span className="text-2xl font-black font-mono text-purple-900">
+            <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1">
+              <span className="text-lg sm:text-2xl font-black font-mono text-purple-900 truncate">
                 {totalConsolidatedValuationCostHT.toLocaleString()}
               </span>
-              <span className="text-sm font-bold text-gray-600">DH</span>
+              <span className="text-xs sm:text-sm font-bold text-gray-600">DH</span>
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-500 font-mono">
-            Basé sur les coûts de revient réels
+          <div className="mt-1.5 pt-1.5 sm:mt-2 sm:pt-2 border-t border-gray-100 text-[10px] sm:text-xs text-gray-500 font-mono truncate">
+            Coût de revient réel
           </div>
         </div>
 
         {/* Card 3: Market Sale Valuation HT */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs hover:border-emerald-300 transition flex flex-col justify-between">
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-xs hover:border-emerald-300 transition flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between text-gray-500 text-xs font-semibold">
-              <span>Valeur Marchande (Vente HT)</span>
-              <TrendingUp className="w-4 h-4 text-emerald-600" />
+            <div className="flex items-center justify-between text-gray-500 text-[11px] sm:text-xs font-semibold">
+              <span className="truncate">Valeur Vente (HT)</span>
+              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0" />
             </div>
-            <div className="mt-2 flex items-baseline gap-1.5">
-              <span className="text-2xl font-black font-mono text-emerald-900">
+            <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1">
+              <span className="text-lg sm:text-2xl font-black font-mono text-emerald-900 truncate">
                 {totalConsolidatedValuationSaleHT.toLocaleString()}
               </span>
-              <span className="text-sm font-bold text-gray-600">DH</span>
+              <span className="text-xs sm:text-sm font-bold text-gray-600">DH</span>
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-xs font-mono">
-            <span className="text-emerald-700 font-bold">Marge : +{potentialGrossMarginHT.toLocaleString()} DH</span>
+          <div className="mt-1.5 pt-1.5 sm:mt-2 sm:pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] sm:text-xs font-mono">
+            <span className="text-emerald-700 font-bold">+{potentialGrossMarginHT.toLocaleString()} DH</span>
             <span className="text-gray-500 font-semibold">({marginPercent}%)</span>
           </div>
         </div>
@@ -634,7 +634,8 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop & Tablet Full Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="carbon-table text-xs">
             <thead>
               <tr>
@@ -827,6 +828,151 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
               </tr>
             </tfoot>
           </table>
+        </div>
+
+        {/* Mobile Responsive Cards View */}
+        <div className="md:hidden divide-y divide-gray-200">
+          {filteredProductStocks.map(p => {
+            const rawProduct = products.find(prod => prod.id === p.productId || prod.code === p.productCode);
+            const isSelected = selectedProductIds.includes(p.productId);
+
+            return (
+              <div key={p.productId} className={`p-3.5 space-y-2.5 transition-colors ${isSelected ? 'bg-indigo-50/60' : 'bg-white'}`}>
+                {/* Top Row: SKU + Category + Status */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <input 
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {
+                        setSelectedProductIds(prev => prev.includes(p.productId) ? prev.filter(id => id !== p.productId) : [...prev, p.productId]);
+                      }}
+                      className="rounded text-indigo-600 focus:ring-0 cursor-pointer w-4 h-4"
+                    />
+                    <span className="font-mono font-bold text-xs text-[#0f62fe] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                      {p.productCode}
+                    </span>
+                    <span className="text-[10px] text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded font-medium truncate max-w-[130px]">
+                      {p.category}
+                    </span>
+                  </div>
+
+                  <span className={`text-[10px] px-2 py-0.5 font-mono font-bold rounded shrink-0 ${
+                    p.status === 'DISPONIBLE' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                    p.status === 'STOCK_FAIBLE' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+                    'bg-red-100 text-red-800 border border-red-300'
+                  }`}>
+                    {p.status === 'DISPONIBLE' ? '✓ EN STOCK' : p.status === 'STOCK_FAIBLE' ? 'FAIBLE' : 'RUPTURE'}
+                  </span>
+                </div>
+
+                {/* Product Name & Packaging Specs */}
+                <div>
+                  <div className="font-bold text-sm text-gray-900 leading-snug">{p.productName}</div>
+                  <div className="text-[10px] text-gray-500 font-mono mt-0.5">
+                    {p.origin || 'Origine Locale'} • {p.kgPerCarton} kg/colis • {p.kgPerPallet} kg/pal
+                  </div>
+                </div>
+
+                {/* Metrics 2x2 Grid */}
+                <div className="grid grid-cols-2 gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-200 text-xs font-mono">
+                  <div>
+                    <span className="text-[9px] text-gray-500 block uppercase font-bold tracking-wider">Stock Physique</span>
+                    <span className={`text-base font-black ${
+                      p.status === 'RUPTURE' ? 'text-red-600' :
+                      p.status === 'STOCK_FAIBLE' ? 'text-amber-600' : 'text-emerald-700'
+                    }`}>
+                      {p.totalStockKg.toLocaleString()} Kg
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[9px] text-gray-500 block uppercase font-bold tracking-wider">Palettes / Colis</span>
+                    <span className="font-bold text-purple-800 text-sm">
+                      {p.totalStockPallets} Pal. <span className="text-gray-500 text-[10px] font-normal">({p.totalStockCartons} C.)</span>
+                    </span>
+                  </div>
+
+                  <div className="pt-1 border-t border-gray-200/60">
+                    <span className="text-[9px] text-gray-500 block uppercase font-bold tracking-wider">Prix Vente HT</span>
+                    <span className="font-bold text-emerald-800">{p.sellingPriceHT} DH/kg</span>
+                  </div>
+
+                  <div className="pt-1 border-t border-gray-200/60">
+                    <span className="text-[9px] text-gray-500 block uppercase font-bold tracking-wider">Valeur Coût HT</span>
+                    <span className="font-bold text-purple-900">{p.totalValuationCostHT.toLocaleString()} DH</span>
+                  </div>
+                </div>
+
+                {/* Frigo Distribution Mini Pill */}
+                {p.frigoBreakdown.length > 0 && (
+                  <div className="text-[10px] font-mono text-gray-600 space-y-1 pt-1">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Emplacements Frigos :</span>
+                    <div className="flex flex-wrap gap-1">
+                      {p.frigoBreakdown.filter(fb => fb.quantityKg > 0).map(fb => (
+                        <span key={fb.frigoId} className="px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-900 rounded font-semibold text-[10px]">
+                          🏭 {fb.frigoName.split('-')[0].trim()}: <b>{fb.quantityKg.toLocaleString()} kg</b> ({fb.quantityPallets}p)
+                        </span>
+                      ))}
+                      {p.frigoBreakdown.every(fb => fb.quantityKg === 0) && (
+                        <span className="text-gray-400 italic text-[10px]">Aucun stock en frigo</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Touch Action Buttons */}
+                <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                  {rawProduct && (
+                    <button
+                      onClick={() => setSelectedHistoryProduct(rawProduct)}
+                      className="flex-1 py-2 bg-blue-50 hover:bg-blue-100 text-[#0f62fe] border border-blue-200 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer touch-manipulation"
+                    >
+                      <History className="w-4 h-4" />
+                      <span>Historique</span>
+                    </button>
+                  )}
+
+                  {currentUser?.role !== 'RESPONSABLE_FRIGO' && rawProduct && (
+                    <>
+                      <button
+                        onClick={() => onEditProduct ? onEditProduct(rawProduct.id) : setEditingProduct(rawProduct)}
+                        className="flex-1 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer touch-manipulation"
+                      >
+                        <Edit className="w-4 h-4 text-amber-700" />
+                        <span>Modifier</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteProduct(rawProduct)}
+                        className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg transition-colors cursor-pointer touch-manipulation"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-600" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Mobile Consolidated Totals Card */}
+          <div className="p-4 bg-gray-100 border-t-2 border-gray-300 space-y-2 text-xs font-mono">
+            <div className="font-bold uppercase text-[11px] text-gray-700">Totaux Consolidés Catalogue :</div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Poids Total :</span>
+              <span className="font-black text-emerald-800 text-sm">{totalConsolidatedKg.toLocaleString()} Kg</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Total Palettes :</span>
+              <span className="font-bold text-purple-800">{totalConsolidatedPallets} Palettes</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Valeur Coût HT :</span>
+              <span className="font-bold text-purple-900">{totalConsolidatedValuationCostHT.toLocaleString()} DH</span>
+            </div>
+          </div>
         </div>
       </div>
 
