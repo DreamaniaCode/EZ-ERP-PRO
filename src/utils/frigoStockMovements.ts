@@ -213,6 +213,11 @@ export function compileUnifiedFrigoMovements(params: {
 
       const movementKey = `bl-${bl.id}-${prdId}`;
       processedDocKeys.add(movementKey);
+      if (bl.blNumber) {
+        processedDocKeys.add(`bl-${bl.blNumber}-${prdId}`);
+        processedDocKeys.add(`bl-${bl.blNumber}`);
+        processedDocKeys.add(`doc-${bl.blNumber}`);
+      }
 
       results.push({
         id: `mv-${movementKey}`,
@@ -277,6 +282,11 @@ export function compileUnifiedFrigoMovements(params: {
 
       const movementKey = `pur-${pur.id}-${prdId}`;
       processedDocKeys.add(movementKey);
+      if (pur.invoiceNumber) {
+        processedDocKeys.add(`pur-${pur.invoiceNumber}-${prdId}`);
+        processedDocKeys.add(`pur-${pur.invoiceNumber}`);
+        processedDocKeys.add(`doc-${pur.invoiceNumber}`);
+      }
 
       results.push({
         id: `mv-${movementKey}`,
@@ -343,6 +353,11 @@ export function compileUnifiedFrigoMovements(params: {
 
       const movementKey = `inv-${count.id}-${prdId}`;
       processedDocKeys.add(movementKey);
+      if (count.countNumber) {
+        processedDocKeys.add(`inv-${count.countNumber}-${prdId}`);
+        processedDocKeys.add(`inv-${count.countNumber}`);
+        processedDocKeys.add(`doc-${count.countNumber}`);
+      }
 
       results.push({
         id: `mv-${movementKey}`,
@@ -381,14 +396,44 @@ export function compileUnifiedFrigoMovements(params: {
     if (!isFrigoMatch(sm.frigoId, sm.frigoName)) return;
     if (!isProductMatch(sm.productId, sm.productCode, sm.productName)) return;
 
-    // Check if this movement was already captured by BL / Purchase / Inv
-    if (sm.referenceDoc && (
-      processedDocKeys.has(`bl-${sm.referenceDoc}-${sm.productId}`) ||
-      processedDocKeys.has(`pur-${sm.referenceDoc}-${sm.productId}`) ||
-      processedDocKeys.has(`inv-${sm.referenceDoc}-${sm.productId}`)
-    )) {
-      return;
+    // Check if this movement was already captured by BL / Purchase / Inv via processed keys
+    if (sm.referenceDoc) {
+      const refClean = sm.referenceDoc.trim();
+      if (
+        processedDocKeys.has(`bl-${refClean}-${sm.productId}`) ||
+        processedDocKeys.has(`pur-${refClean}-${sm.productId}`) ||
+        processedDocKeys.has(`inv-${refClean}-${sm.productId}`) ||
+        processedDocKeys.has(`bl-${refClean}`) ||
+        processedDocKeys.has(`pur-${refClean}`) ||
+        processedDocKeys.has(`inv-${refClean}`) ||
+        processedDocKeys.has(`doc-${refClean}`)
+      ) {
+        return;
+      }
     }
+
+    // Direct deduplication against Purchase Invoices
+    const isAlreadyPurchase = purchaseInvoices.some(pur => {
+      if (sm.referenceDoc && (sm.referenceDoc === pur.invoiceNumber || sm.referenceDoc === pur.id)) return true;
+      if (sm.notes && pur.invoiceNumber && sm.notes.includes(pur.invoiceNumber)) return true;
+      return false;
+    });
+    if (isAlreadyPurchase) return;
+
+    // Direct deduplication against Delivery Notes (BLs)
+    const isAlreadyBL = deliveryNotes.some(bl => {
+      if (sm.referenceDoc && (sm.referenceDoc === bl.blNumber || sm.referenceDoc === bl.id)) return true;
+      if (sm.notes && bl.blNumber && sm.notes.includes(bl.blNumber)) return true;
+      return false;
+    });
+    if (isAlreadyBL) return;
+
+    // Direct deduplication against Inventory Counts
+    const isAlreadyInv = inventoryCounts.some(inv => {
+      if (sm.referenceDoc && (sm.referenceDoc === inv.countNumber || sm.referenceDoc === inv.id)) return true;
+      return false;
+    });
+    if (isAlreadyInv) return;
 
     const { date, time, timestampMs } = extractDateAndTime(sm.date);
     const prd = products.find(p => p.id === sm.productId || p.code === sm.productCode);
