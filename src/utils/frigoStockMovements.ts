@@ -533,33 +533,45 @@ export function calculateProductAccumulation(params: {
     const totalExitsPallets = exitMovements.reduce((sum, m) => sum + m.quantityPallets, 0);
     const exitsCount = exitMovements.length;
 
-    // Current Stock Level
+    // Current Stock Level (Dynamic movement balance takes precedence over stale 0kg stocks)
     let currentStockKg = 0;
     let currentStockPallets = 0;
+
+    const dynamicBalanceKg = Math.max(0, totalEntriesKg - totalExitsKg);
+    const dynamicBalancePallets = Math.ceil(dynamicBalanceKg / kgPerPallet);
 
     if (targetFrigoId && targetFrigoId !== 'ALL') {
       const targetFrigo = frigos.find(f => f.id === targetFrigoId);
       const stkObj = stocks.find(s => 
         (s.frigoId === targetFrigoId || (targetFrigo && (s.frigoId === targetFrigo.code || s.frigoId === targetFrigo.name))) &&
-        s.productId === prd.id
+        (s.productId === prd.id || s.productId === prd.code)
       );
-      if (stkObj) {
+
+      if (totalEntriesKg > 0 || totalExitsKg > 0) {
+        currentStockKg = Math.max(dynamicBalanceKg, stkObj?.quantityKg || 0);
+        currentStockPallets = stkObj && stkObj.quantityPallets > 0 ? stkObj.quantityPallets : dynamicBalancePallets;
+      } else if (stkObj && stkObj.quantityKg > 0) {
         currentStockKg = stkObj.quantityKg;
         currentStockPallets = stkObj.quantityPallets;
       } else {
-        // Fallback calculation: entries - exits
-        currentStockKg = Math.max(0, totalEntriesKg - totalExitsKg);
-        currentStockPallets = Math.max(1, Math.ceil(currentStockKg / kgPerPallet));
+        currentStockKg = dynamicBalanceKg;
+        currentStockPallets = dynamicBalancePallets;
       }
     } else {
       // Global stock across all frigos
-      const relevantStocks = stocks.filter(s => s.productId === prd.id);
-      if (relevantStocks.length > 0) {
-        currentStockKg = relevantStocks.reduce((sum, s) => sum + s.quantityKg, 0);
-        currentStockPallets = relevantStocks.reduce((sum, s) => sum + s.quantityPallets, 0);
+      const relevantStocks = stocks.filter(s => s.productId === prd.id || s.productId === prd.code);
+      const totalStaticKg = relevantStocks.reduce((sum, s) => sum + s.quantityKg, 0);
+      const totalStaticPallets = relevantStocks.reduce((sum, s) => sum + s.quantityPallets, 0);
+
+      if (totalEntriesKg > 0 || totalExitsKg > 0) {
+        currentStockKg = Math.max(dynamicBalanceKg, totalStaticKg);
+        currentStockPallets = totalStaticPallets > 0 ? totalStaticPallets : dynamicBalancePallets;
+      } else if (totalStaticKg > 0) {
+        currentStockKg = totalStaticKg;
+        currentStockPallets = totalStaticPallets;
       } else {
-        currentStockKg = Math.max(0, totalEntriesKg - totalExitsKg);
-        currentStockPallets = Math.max(1, Math.ceil(currentStockKg / kgPerPallet));
+        currentStockKg = dynamicBalanceKg;
+        currentStockPallets = dynamicBalancePallets;
       }
     }
 

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { findMatchingProduct } from '../utils/productMatcher';
+import { computeSynchronizedStocks, buildReconciledStockLevels } from '../utils/stockReconciler';
 import {
   Product,
   ColdStorageFrigo,
@@ -120,6 +121,7 @@ interface ERPContextType {
   adjustStock: (frigoId: string, productId: string, newKg: number, newPallets: number) => void;
   transferStock: (sourceFrigoId: string, targetFrigoId: string, productId: string, kg: number, pallets: number) => void;
   clearStocks: (frigoId?: string, productId?: string) => Promise<void>;
+  recalculateAndSyncAllStocks: () => Promise<FrigoStockLevel[]>;
 
   // Purchase Actions
   createPurchaseInvoice: (purchaseData: Omit<PurchaseImportInvoice, 'id'>) => PurchaseImportInvoice;
@@ -695,6 +697,44 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return res.purgedCount;
     }).catch(err => console.error(err));
     return 0;
+  };
+
+  const recalculateAndSyncAllStocks = async (): Promise<FrigoStockLevel[]> => {
+    try {
+      const { productStocks } = computeSynchronizedStocks({
+        products,
+        frigos,
+        stocks,
+        purchaseInvoices,
+        deliveryNotes,
+        inventoryCounts,
+        stockMovements,
+        selectedFrigoId: 'ALL',
+      });
+
+      const reconciled = buildReconciledStockLevels(productStocks);
+      setStocks(reconciled);
+      localStorage.setItem('erp_stocks', JSON.stringify(reconciled));
+
+      // Background sync to backend for active stock levels
+      for (const stk of reconciled) {
+        if (stk.quantityKg > 0 || stk.quantityPallets > 0) {
+          api.adjustStock(
+            stk.frigoId,
+            stk.productId,
+            stk.quantityKg,
+            stk.quantityPallets,
+            currentUser?.name || 'Admin',
+            'Recalcul automatique synchronisé des stocks'
+          ).catch(() => {});
+        }
+      }
+
+      return reconciled;
+    } catch (e) {
+      console.error('Error during recalculateAndSyncAllStocks:', e);
+      return stocks;
+    }
   };
 
   // ============================================================
@@ -1462,6 +1502,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     adjustStock,
     transferStock,
     clearStocks,
+    recalculateAndSyncAllStocks,
     createPurchaseInvoice,
     updatePurchaseInvoice,
     addPurchasePayment,
@@ -1523,64 +1564,40 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
 
   // ============================================================
-  // AUTO RECONCILE STOCKS WITH EXISTING BLs (Runs automatically on mount)
-  // Ensures that all imported/existing BLs are deducted from stocks
+  // AUTO SYNCHRONIZE STOCKS WITH PURCHASES & BLs (Runs automatically on mount / data changes)
+  // Guarantees 100% synchronicity between purchases, BLs, frigos and product stocks
   // ============================================================
   useEffect(() => {
     try {
-      const alreadyReconciled = localStorage.getItem('erp_auto_deducted_bls_v3');
-      if (!alreadyReconciled && deliveryNotes && deliveryNotes.length > 0) {
-        console.log('⚡ Auto-reconciling stocks with ' + deliveryNotes.length + ' existing BLs...');
-        let updatedAny = false;
-
-        setStocks(prevStocks => {
-          let next = [...prevStocks];
-          deliveryNotes.forEach(bl => {
-            if (Array.isArray(bl.items)) {
-              bl.items.forEach(item => {
-                const qtyKg = Number(item.quantityKg) || 0;
-                const qtyPal = Number(item.quantityPallets) || 0;
-                if (qtyKg <= 0 && qtyPal <= 0) return;
-
-                const targetFrigo = frigos.find(f => f.id === bl.frigoId || f.name === bl.frigoName || f.code === bl.frigoId) || frigos[0];
-                const targetFrigoId = targetFrigo?.id || bl.frigoId;
-
-                const existingIdx = next.findIndex(s => {
-                  const fMatch = s.frigoId === targetFrigoId || (targetFrigo && (s.frigoId === targetFrigo.id || s.frigoId === targetFrigo.code));
-                  if (!fMatch) return false;
-
-                  const p1 = products.find(p => p.id === s.productId || p.code === s.productId);
-                  const p2 = products.find(p => p.id === item.productId || p.code === item.productCode || p.code === item.productId);
-                  return (s.productId.toLowerCase() === (item.productId || '').toLowerCase()) ||
-                         (p1 && p2 && p1.id === p2.id) ||
-                         (p1 && p1.code.toLowerCase() === (item.productCode || '').toLowerCase());
-                });
-
-                if (existingIdx >= 0) {
-                  next[existingIdx] = {
-                    ...next[existingIdx],
-                    quantityKg: Math.max(0, next[existingIdx].quantityKg - qtyKg),
-                    quantityPallets: Math.max(0, next[existingIdx].quantityPallets - qtyPal),
-                    lastUpdated: new Date().toISOString(),
-                  };
-                  updatedAny = true;
-                }
-              });
-            }
-          });
-
-          if (updatedAny) {
-            localStorage.setItem('erp_stocks', JSON.stringify(next));
-          }
-          return next;
+      if (products.length > 0 && (purchaseInvoices.length > 0 || deliveryNotes.length > 0)) {
+        const { productStocks } = computeSynchronizedStocks({
+          products,
+          frigos,
+          stocks,
+          purchaseInvoices,
+          deliveryNotes,
+          inventoryCounts,
+          stockMovements,
+          selectedFrigoId: 'ALL',
         });
 
-        localStorage.setItem('erp_auto_deducted_bls_v3', 'true');
+        const reconciled = buildReconciledStockLevels(productStocks);
+
+        // Check if there are real differences to avoid unnecessary re-renders
+        const hasDiff = reconciled.some(rec => {
+          const cur = stocks.find(s => s.frigoId === rec.frigoId && s.productId === rec.productId);
+          return !cur || Math.abs((cur.quantityKg || 0) - rec.quantityKg) > 0.01;
+        });
+
+        if (hasDiff) {
+          setStocks(reconciled);
+          localStorage.setItem('erp_stocks', JSON.stringify(reconciled));
+        }
       }
     } catch (e) {
-      console.error('Error during auto stock reconciliation:', e);
+      console.error('Error during auto stock synchronization:', e);
     }
-  }, [deliveryNotes.length, frigos.length, products.length]);
+  }, [products.length, frigos.length, purchaseInvoices.length, deliveryNotes.length]);
 
   return (
     <ERPContext.Provider value={contextValue}>
@@ -1625,6 +1642,7 @@ const defaultFallbackContext: ERPContextType = {
   adjustStock: () => {},
   transferStock: () => {},
   clearStocks: async () => {},
+  recalculateAndSyncAllStocks: async () => [],
   createPurchaseInvoice: () => ({ id: '', invoiceNumber: '', supplierId: '', supplierName: '', targetFrigoId: '', dateArrival: '', isImport: false, customsCostsHT: 0, freightCostsHT: 0, totalProductsHT: 0, totalLandedCostHT: 0, items: [], paymentStatus: 'NON_PAYÉ' }),
   updatePurchaseInvoice: () => {},
   addPurchasePayment: () => {},
