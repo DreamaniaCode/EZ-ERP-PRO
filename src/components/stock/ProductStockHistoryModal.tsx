@@ -18,7 +18,8 @@ import {
   AlertCircle,
   Package,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Clock
 } from 'lucide-react';
 
 interface ProductStockHistoryModalProps {
@@ -28,11 +29,15 @@ interface ProductStockHistoryModalProps {
   onNavigateToBL?: (blNumber: string) => void;
 }
 
+import { extractDateAndTime } from '../../utils/frigoStockMovements';
+
 export type MovementType = 'SORTIE_BL' | 'ENTREE_ACHAT' | 'AJUSTEMENT_INVENTAIRE' | 'AJUSTEMENT_MANUEL' | 'TRANSFERT';
 
 export interface StockMovementRecord {
   id: string;
+  rawDate: string;
   date: string;
+  time: string;
   type: MovementType;
   documentRef: string;
   orderRef?: string;
@@ -96,9 +101,14 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
       );
 
       if (matchedItem) {
+        const logTimestamp = bl.logs && bl.logs.length > 0 ? bl.logs[0].timestamp : undefined;
+        const { date, time, timestampMs } = extractDateAndTime(bl.date, logTimestamp || bl.frigoApprovedAt);
+
         movements.push({
           id: `mv-bl-${bl.id}-${matchedItem.productId}`,
-          date: bl.date,
+          rawDate: new Date(timestampMs).toISOString(),
+          date,
+          time,
           type: 'SORTIE_BL',
           documentRef: bl.blNumber,
           orderRef: bl.orderNumber,
@@ -124,9 +134,13 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
 
       if (matchedItem) {
         const targetFrigo = frigos.find(f => f.id === pur.targetFrigoId);
+        const { date, time, timestampMs } = extractDateAndTime(pur.dateArrival);
+
         movements.push({
           id: `mv-pur-${pur.id}-${matchedItem.productId}`,
-          date: pur.dateArrival,
+          rawDate: new Date(timestampMs).toISOString(),
+          date,
+          time,
           type: 'ENTREE_ACHAT',
           documentRef: pur.invoiceNumber,
           frigoId: pur.targetFrigoId,
@@ -148,9 +162,13 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
       if (matchedItem) {
         const countFrigo = frigos.find(f => f.id === count.frigoId);
         const palDiff = matchedItem.physicalPallets - matchedItem.theoreticalPallets;
+        const { date, time, timestampMs } = extractDateAndTime(count.date);
+
         movements.push({
           id: `mv-inv-${count.id}-${matchedItem.productId}`,
-          date: count.date,
+          rawDate: new Date(timestampMs).toISOString(),
+          date,
+          time,
           type: 'AJUSTEMENT_INVENTAIRE',
           documentRef: count.countNumber,
           frigoId: count.frigoId,
@@ -166,8 +184,8 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
 
     // Sort chronologically
     movements.sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
+      const dateA = new Date(a.rawDate).getTime();
+      const dateB = new Date(b.rawDate).getTime();
       return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
     });
 
@@ -488,6 +506,7 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
                 title={`Historique des Mouvements de Stock - ${product.code} (${product.name})`}
                 excelData={filteredMovements.map(m => ({
                   'Date': m.date,
+                  'Heure': m.time,
                   'Type Mouvement': m.type === 'SORTIE_BL' ? 'Sortie (BL)' : m.type === 'ENTREE_ACHAT' ? 'Entrée (Achat)' : 'Ajustement Inventaire',
                   'Référence Document': m.documentRef,
                   'Commande Ref': m.orderRef || '-',
@@ -512,6 +531,7 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
                 <thead>
                   <tr className="bg-gray-100 text-gray-700 text-left font-bold border-b border-gray-200">
                     <th className="py-2.5 px-3">Date</th>
+                    <th className="py-2.5 px-3">Heure</th>
                     <th className="py-2.5 px-3">Type & Référence</th>
                     <th className="py-2.5 px-3">Frigo / Emplacement</th>
                     <th className="py-2.5 px-3">Tiers (Client / Fournisseur)</th>
@@ -525,7 +545,7 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
                 <tbody className="divide-y divide-gray-100">
                   {filteredMovements.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="text-center py-12 text-gray-500">
+                      <td colSpan={10} className="text-center py-12 text-gray-500">
                         <History className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                         <p className="font-semibold text-xs">Aucun mouvement enregistré pour les critères sélectionnés.</p>
                       </td>
@@ -543,6 +563,14 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
                             <div className="flex items-center gap-1.5 font-semibold">
                               <Calendar className="w-3.5 h-3.5 text-gray-400" />
                               <span>{m.date}</span>
+                            </div>
+                          </td>
+
+                          {/* Heure */}
+                          <td className="font-mono text-gray-700 whitespace-nowrap">
+                            <div className="flex items-center gap-1 bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-[11px] font-bold w-max">
+                              <Clock className="w-3 h-3 text-[#0f62fe]" />
+                              <span>{m.time}</span>
                             </div>
                           </td>
 

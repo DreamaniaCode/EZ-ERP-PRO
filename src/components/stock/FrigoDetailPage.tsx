@@ -1,6 +1,13 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useERP } from '../../context/ERPContext';
+import { Product } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
+import { ProductKpiCardsSection } from './ProductKpiCardsSection';
+import { ProductStockHistoryModal } from './ProductStockHistoryModal';
+import { 
+  compileUnifiedFrigoMovements, 
+  calculateProductAccumulation 
+} from '../../utils/frigoStockMovements';
 import { 
   ArrowLeft, 
   Warehouse, 
@@ -13,7 +20,13 @@ import {
   Phone, 
   MapPin,
   MessageSquare,
-  ExternalLink
+  ExternalLink,
+  Calendar,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Boxes,
+  History,
+  RotateCcw
 } from 'lucide-react';
 
 interface FrigoDetailPageProps {
@@ -22,30 +35,81 @@ interface FrigoDetailPageProps {
 }
 
 export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBack }) => {
-  const { frigos, stocks, products, deliveryNotes, clients } = useERP();
+  const { 
+    frigos, 
+    stocks, 
+    products, 
+    deliveryNotes, 
+    purchaseInvoices,
+    inventoryCounts,
+    stockMovements,
+    clients 
+  } = useERP();
+
+  const [selectedProductId, setSelectedProductId] = useState<string | 'ALL'>('ALL');
+  const [selectedProductForHistory, setSelectedProductForHistory] = useState<Product | null>(null);
 
   const frigo = frigos.find(f => f.id === frigoId) || frigos[0];
 
+  // 1. Unified movements for this frigo
+  const frigoMovements = useMemo(() => {
+    if (!frigo) return [];
+    return compileUnifiedFrigoMovements({
+      frigos,
+      products,
+      stocks,
+      deliveryNotes,
+      purchaseInvoices,
+      inventoryCounts,
+      stockMovements,
+      targetFrigoId: frigo.id,
+      targetProductId: 'ALL'
+    });
+  }, [frigos, products, stocks, deliveryNotes, purchaseInvoices, inventoryCounts, stockMovements, frigo]);
+
+  // 2. Product accumulation for this frigo
+  const productSummaries = useMemo(() => {
+    if (!frigo) return [];
+    return calculateProductAccumulation({
+      products,
+      stocks,
+      movements: frigoMovements,
+      frigos,
+      targetFrigoId: frigo.id
+    });
+  }, [products, stocks, frigoMovements, frigos, frigo]);
+
+  // Filtered movements if a product card is clicked
+  const filteredMovements = useMemo(() => {
+    if (selectedProductId === 'ALL') return frigoMovements;
+    return frigoMovements.filter(m => m.productId === selectedProductId || m.productCode === selectedProductId);
+  }, [frigoMovements, selectedProductId]);
+
+  // Filtered product summaries if a product card is clicked
+  const filteredProductSummaries = useMemo(() => {
+    if (selectedProductId === 'ALL') return productSummaries;
+    return productSummaries.filter(p => p.productId === selectedProductId);
+  }, [productSummaries, selectedProductId]);
+
   if (!frigo) {
     return (
-      <div className="p-8 text-center bg-white border rounded">
+      <div className="p-8 text-center bg-white border rounded-xl shadow-xs">
         <p className="text-gray-500 text-sm">Entrepôt Frigorifique introuvable.</p>
-        <button onClick={onBack} className="mt-4 px-4 py-2 bg-[#0f62fe] text-white rounded text-xs font-bold">
+        <button onClick={onBack} className="mt-4 px-4 py-2 bg-[#0f62fe] text-white rounded-lg text-xs font-bold">
           Retour aux Frigos
         </button>
       </div>
     );
   }
 
-  // Only show stocks that have a real product in the catalog — no 'Produit Inconnu'
-  const frigoStocks = stocks.filter(s =>
-    (s.frigoId === frigo.id || s.frigoId === frigo.code || s.frigoId === frigo.name || (frigo.name && s.frigoId?.toLowerCase().includes('ain rabat'))) &&
-    s.quantityKg > 0 &&
-    products.some(p => p.id === s.productId || p.code === s.productId || p.id.toLowerCase() === s.productId.toLowerCase())
+  // Delivery Notes strictly for this frigo
+  const frigoBLs = deliveryNotes.filter(bl => 
+    bl.frigoId === frigo.id || 
+    bl.frigoName === frigo.name ||
+    (frigo.name && bl.frigoName && bl.frigoName.trim().toLowerCase() === frigo.name.trim().toLowerCase())
   );
-  const frigoBLs = deliveryNotes.filter(bl => bl.frigoId === frigo.id || bl.frigoName === frigo.name);
 
-  // Group BLs by genuine distinct client (matching with clients directory or normalized name)
+  // Group BLs by genuine distinct client
   const clientVolumeMap: { [key: string]: { name: string; kg: number; totalHT: number; count: number; clientId?: string } } = {};
   frigoBLs.forEach(bl => {
     const rawName = (bl.clientName || '').trim();
@@ -73,32 +137,24 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
 
   const distinctClientsCount = Object.keys(clientVolumeMap).length;
 
-  // Totals
-  const totalFrigoKg = frigoStocks.reduce((sum, s) => sum + s.quantityKg, 0);
-  const totalFrigoPallets = frigoStocks.reduce((sum, s) => sum + s.quantityPallets, 0);
-
-  const totalFrigoValuationHT = frigoStocks.reduce((sum, stk) => {
-    const prd = products.find(p => p.id === stk.productId);
-    return sum + (stk.quantityKg * (prd?.unitCostHT || 0));
-  }, 0);
-
-  const totalFrigoVenteHT = frigoStocks.reduce((sum, stk) => {
-    const prd = products.find(p => p.id === stk.productId);
-    return sum + (stk.quantityKg * (prd?.sellingPriceHT || 0));
-  }, 0);
+  // Totals for this frigo
+  const totalFrigoKg = productSummaries.reduce((sum, s) => sum + s.currentStockKg, 0);
+  const totalFrigoPallets = productSummaries.reduce((sum, s) => sum + s.currentStockPallets, 0);
+  const totalFrigoValuationHT = productSummaries.reduce((sum, s) => sum + s.totalValuationCostHT, 0);
+  const totalFrigoVenteHT = productSummaries.reduce((sum, s) => sum + s.totalValuationSaleHT, 0);
 
   return (
-    <div className="space-y-6 animate-in fade-in bg-[#f4f4f4] min-h-screen p-4 md:p-6">
+    <div className="space-y-6 animate-in fade-in bg-[#f4f4f4] min-h-screen p-4 md:p-6" id="frigo-detail-page">
       
       {/* Top Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 border border-gray-200 rounded shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 border border-gray-200 rounded-xl shadow-xs">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="px-3.5 py-2 bg-gray-100 hover:bg-[#0f62fe] hover:text-white border border-gray-300 text-gray-800 text-xs font-bold rounded flex items-center gap-2 transition-colors shadow-sm"
+            className="px-3.5 py-2 bg-gray-100 hover:bg-[#0f62fe] hover:text-white border border-gray-300 text-gray-800 text-xs font-bold rounded-lg flex items-center gap-2 transition-colors shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Retour à la liste des frigos</span>
+            <span>Retour aux Frigos</span>
           </button>
           <span className="text-gray-300">|</span>
           <div>
@@ -108,7 +164,7 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
               </span>
               <h1 className="text-lg font-bold text-gray-900">{frigo.name}</h1>
             </div>
-            <p className="text-xs text-gray-500 font-mono">Fiche Complète Entrepôt Frigorifique • Valorisation & Quai</p>
+            <p className="text-xs text-gray-500 font-mono">Fiche Complète Entrepôt Frigorifique • Situation Stocks & Flux Quai</p>
           </div>
         </div>
 
@@ -117,31 +173,30 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
             filename={`Situation_Frigo_${frigo.code}_${frigo.name.replace(/\s+/g, '_')}`}
             title={`SITUATION FRIGO LOGISTIQUE & VALORISATION - ${frigo.name.toUpperCase()} (${frigo.code})`}
             frigoName={frigo.name}
-            excelData={frigoStocks.map(stk => {
-              const prd = products.find(p => p.id === stk.productId);
-              const valHT = stk.quantityKg * (prd?.unitCostHT || 0);
-              const valVenteHT = stk.quantityKg * (prd?.sellingPriceHT || 0);
-              return {
-                'Code Frigo': frigo.code,
-                'Nom Frigo': frigo.name,
-                'Emplacement': frigo.location,
-                'Code Produit': prd?.code || 'PRD',
-                'Désignation Produit': prd?.name || 'Inconnu',
-                'Catégorie': prd?.category || '-',
-                'Poids Stocké (Kg)': stk.quantityKg,
-                'Nombre Palettes': stk.quantityPallets,
-                'Prix Revient Unitaire HT': prd?.unitCostHT || 0,
-                'Prix Vente Unitaire HT': prd?.sellingPriceHT || 0,
-                'Valorisation Coût HT (DH)': valHT,
-                'Valorisation Vente HT (DH)': valVenteHT,
-              };
-            })}
+            excelData={filteredProductSummaries.map(p => ({
+              'Code Frigo': frigo.code,
+              'Nom Frigo': frigo.name,
+              'Emplacement': frigo.location,
+              'Code Produit': p.productCode,
+              'Désignation Produit': p.productName,
+              'Catégorie': p.category,
+              'Cumul Entrées (Kg)': p.totalEntriesKg,
+              'Cumul Sorties (Kg)': p.totalExitsKg,
+              'Stock Restant (Kg)': p.currentStockKg,
+              'Palettes': p.currentStockPallets,
+              'Prix Revient HT': p.unitCostHT,
+              'Prix Vente HT': p.sellingPriceHT,
+              'Valorisation Coût HT (DH)': p.totalValuationCostHT,
+              'Valorisation Vente HT (DH)': p.totalValuationSaleHT,
+              'Dernier Mouvement': `${p.lastMovementDate || '-'} ${p.lastMovementTime || ''}`
+            }))}
+            pdfElementId="frigo-detail-page"
           />
         </div>
       </div>
 
-      {/* Overview Metadata Banner */}
-      <div className="bg-[#161616] text-white p-5 rounded-lg border border-[#393939] shadow-md grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+      {/* Metadata Banner */}
+      <div className="bg-[#161616] text-white p-5 rounded-xl border border-[#393939] shadow-md grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-mono">
         <div>
           <div className="text-gray-400 text-[10px] uppercase font-bold">Emplacement & Ville</div>
           <div className="font-bold text-sm text-white mt-0.5 flex items-center gap-1.5">
@@ -161,101 +216,110 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
         <div>
           <div className="text-gray-400 text-[10px] uppercase font-bold">Capacité Frigo (Palettes)</div>
           <div className="font-bold text-sm text-purple-300 mt-0.5">
-            {totalFrigoPallets} / {frigo.capacityPallets} Palettes ({frigo.capacityPallets > 0 ? Math.round((totalFrigoPallets / frigo.capacityPallets) * 100) : 0}% Occupé)
+            {totalFrigoPallets} / {frigo.capacityPallets} Pal. ({frigo.capacityPallets > 0 ? Math.round((totalFrigoPallets / frigo.capacityPallets) * 100) : 0}% Occupé)
+          </div>
+        </div>
+
+        <div>
+          <div className="text-gray-400 text-[10px] uppercase font-bold">Sorties / Clientèle</div>
+          <div className="font-bold text-sm text-blue-300 mt-0.5">
+            {distinctClientsCount} Clients ({frigoBLs.length} BLs émis)
           </div>
         </div>
       </div>
 
-      {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 font-mono text-xs">
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-gray-500 text-[10px] font-bold uppercase">Poids Total Stocké</div>
-          <div className="text-xl font-bold text-gray-900 mt-1">{totalFrigoKg.toLocaleString()} Kg</div>
-          <div className="text-gray-500 text-[11px] mt-1">{totalFrigoPallets} Palettes occupées</div>
-        </div>
+      {/* ========================================================================= */}
+      {/* CLICKABLE PRODUCT KPI CARDS BAR (SPECIFIC TO THIS FRIGO)                  */}
+      {/* ========================================================================= */}
+      <ProductKpiCardsSection
+        productSummaries={productSummaries}
+        selectedProductId={selectedProductId}
+        onSelectProduct={(pId) => setSelectedProductId(pId)}
+        onOpenProductHistory={(prd) => setSelectedProductForHistory(prd)}
+        products={products}
+        warehouseName={frigo.name}
+      />
 
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-gray-500 text-[10px] font-bold uppercase">Valorisation Coût (HT)</div>
-          <div className="text-xl font-bold text-purple-700 mt-1">{totalFrigoValuationHT.toLocaleString()} MAD</div>
-          <div className="text-purple-600 text-[11px] mt-1">Valorisation au prix de revient</div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-gray-500 text-[10px] font-bold uppercase">Valeur de Vente (HT)</div>
-          <div className="text-xl font-bold text-emerald-700 mt-1">{totalFrigoVenteHT.toLocaleString()} MAD</div>
-          <div className="text-emerald-600 text-[11px] mt-1">Valeur marchande théorique</div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-gray-500 text-[10px] font-bold uppercase">Clientèle Desservie</div>
-          <div className="text-xl font-bold text-blue-700 mt-1">{distinctClientsCount} Client{distinctClientsCount > 1 ? 's' : ''}</div>
-          <div className="text-blue-600 text-[11px] mt-1">{frigoBLs.length} Bon{frigoBLs.length > 1 ? 's' : ''} de sortie émis</div>
-        </div>
-      </div>
-
-      {/* SECTION 1: Product Stock & Detailed Financial Valuation */}
-      <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm space-y-3 text-xs">
+      {/* SECTION 1: Product Stock & Detailed Financial Valuation with Accumulation */}
+      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-xs space-y-3 text-xs">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
-          <h3 className="font-bold text-sm text-gray-900 uppercase tracking-wider flex items-center gap-2 text-[#0f62fe]">
-            <Package className="w-4 h-4" />
-            1. État du Stock Physique Réel & Valorisation Financière Précise
-          </h3>
+          <div>
+            <h3 className="font-bold text-sm text-gray-900 uppercase tracking-wider flex items-center gap-2 text-[#0f62fe]">
+              <Boxes className="w-4 h-4" />
+              1. Cumul par Produit & Valorisation Financière du Stock ({frigo.name})
+            </h3>
+            <p className="text-xs text-gray-500 font-mono mt-0.5">
+              Cumul des entrées, sorties et stock net restant pour chaque référence
+            </p>
+          </div>
           
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-1 bg-blue-50 border border-blue-200 text-[#0f62fe] rounded text-xs font-mono font-bold">
-              {frigoStocks.length} Référence{frigoStocks.length > 1 ? 's' : ''} en stock
+              {filteredProductSummaries.length} Référence{filteredProductSummaries.length > 1 ? 's' : ''}
             </span>
           </div>
         </div>
 
-        {frigoStocks.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 border border-dashed border-gray-300 rounded">
-            Aucun produit actuellement stocké dans cet entrepôt.
+        {filteredProductSummaries.length === 0 ? (
+          <div className="p-8 text-center text-gray-500 border border-dashed border-gray-300 rounded-lg">
+            Aucun produit ne correspond au filtre sélectionné pour cet entrepôt.
           </div>
         ) : (
-          <div className="overflow-x-auto border border-gray-200 rounded">
+          <div className="overflow-x-auto border border-gray-200 rounded-lg">
             <table className="carbon-table text-xs">
               <thead>
                 <tr>
                   <th>Code SKU</th>
                   <th>Désignation Produit</th>
                   <th>Catégorie</th>
-                  <th className="text-right">Stock Actuel (Kg)</th>
-                  <th className="text-right text-rose-700">Sorties BLs (Kg)</th>
+                  <th className="text-right text-emerald-800 bg-emerald-50/50">Cumul Entrées (Kg)</th>
+                  <th className="text-right text-rose-800 bg-rose-50/50">Cumul Sorties (Kg)</th>
+                  <th className="text-right font-black text-blue-900 bg-blue-50/50">Stock Restant (Kg)</th>
                   <th className="text-right">Palettes</th>
+                  <th className="text-right">Colis</th>
                   <th className="text-right">Prix Revient (HT)</th>
                   <th className="text-right">Prix Vente (HT)</th>
                   <th className="text-right">Valorisation Coût HT</th>
                   <th className="text-right">Valorisation Vente HT</th>
+                  <th className="text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {frigoStocks.map(stk => {
-                  const prd = products.find(p => p.id === stk.productId);
-                  const valHT = stk.quantityKg * (prd?.unitCostHT || 0);
-                  const valVenteHT = stk.quantityKg * (prd?.sellingPriceHT || 0);
+                {filteredProductSummaries.map(p => {
+                  const rawPrd = products.find(prod => prod.id === p.productId);
 
                   return (
-                    <tr key={stk.productId}>
-                      <td className="font-mono font-bold text-[#0f62fe]">{prd?.code || 'PRD'}</td>
-                      <td className="font-semibold text-gray-900">{prd?.name || 'Produit Inconnu'}</td>
-                      <td className="text-gray-500">{prd?.category || '-'}</td>
-                      <td className="text-right font-mono font-bold text-gray-900">{stk.quantityKg.toLocaleString()} Kg</td>
-                      <td className="text-right font-mono font-bold text-rose-600">
-                        {frigoBLs.reduce((sum, bl) => {
-                          const item = bl.items?.find(it => 
-                            it.productId === stk.productId || 
-                            it.productCode === prd?.code ||
-                            (it.productName && prd?.name && it.productName.toLowerCase().includes(prd.name.toLowerCase()))
-                          );
-                          return sum + (item ? Number(item.quantityKg) || 0 : 0);
-                        }, 0).toLocaleString()} Kg
+                    <tr key={p.productId} className="hover:bg-blue-50/30 transition-colors">
+                      <td className="font-mono font-bold text-[#0f62fe]">{p.productCode}</td>
+                      <td className="font-semibold text-gray-900">{p.productName}</td>
+                      <td className="text-gray-500">{p.category}</td>
+                      <td className="text-right font-mono font-bold text-emerald-700 bg-emerald-50/30">
+                        +{p.totalEntriesKg.toLocaleString()} Kg
                       </td>
-                      <td className="text-right font-mono font-bold text-purple-700">{stk.quantityPallets} Pal.</td>
-                      <td className="text-right font-mono text-gray-600">{prd?.unitCostHT?.toLocaleString()} DH</td>
-                      <td className="text-right font-mono text-blue-700">{prd?.sellingPriceHT?.toLocaleString()} DH</td>
-                      <td className="text-right font-mono font-bold text-purple-700">{valHT.toLocaleString()} DH</td>
-                      <td className="text-right font-mono font-bold text-emerald-700">{valVenteHT.toLocaleString()} DH</td>
+                      <td className="text-right font-mono font-bold text-rose-700 bg-rose-50/30">
+                        -{p.totalExitsKg.toLocaleString()} Kg
+                      </td>
+                      <td className="text-right font-mono font-black text-gray-900 bg-blue-50/30 text-sm">
+                        {p.currentStockKg.toLocaleString()} Kg
+                      </td>
+                      <td className="text-right font-mono font-bold text-purple-700">{p.currentStockPallets} Pal.</td>
+                      <td className="text-right font-mono text-gray-600">{p.currentStockCartons.toLocaleString()} Colis</td>
+                      <td className="text-right font-mono text-gray-600">{p.unitCostHT?.toLocaleString()} DH</td>
+                      <td className="text-right font-mono text-blue-700">{p.sellingPriceHT?.toLocaleString()} DH</td>
+                      <td className="text-right font-mono font-bold text-purple-700">{p.totalValuationCostHT.toLocaleString()} DH</td>
+                      <td className="text-right font-mono font-bold text-emerald-700">{p.totalValuationSaleHT.toLocaleString()} DH</td>
+                      <td className="text-center">
+                        {rawPrd && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProductForHistory(rawPrd)}
+                            className="p-1 text-gray-400 hover:text-[#0f62fe] hover:bg-blue-50 rounded transition-colors"
+                            title="Historique chronologique"
+                          >
+                            <History className="w-4 h-4" />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -265,12 +329,128 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
         )}
       </div>
 
-      {/* SECTION 2: Clients list */}
-      <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm space-y-3 text-xs">
+      {/* SECTION 2: Chronological Movement Feed (Date, Heure, Quantités) */}
+      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-xs space-y-3 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+          <div>
+            <h3 className="font-bold text-sm text-gray-900 uppercase tracking-wider flex items-center gap-2 text-indigo-700">
+              <Clock className="w-4 h-4" />
+              2. Journal Détaillé des Flux & Mouvements Quai (Date & Heure)
+            </h3>
+            <p className="text-xs text-gray-500 font-mono mt-0.5">
+              Historique précis de toutes les entrées et sorties pour l'entrepôt {frigo.name}
+            </p>
+          </div>
+          <span className="text-gray-500 font-mono text-xs font-bold bg-gray-100 px-2 py-1 rounded">
+            {filteredMovements.length} Mouvement(s)
+          </span>
+        </div>
+
+        {filteredMovements.length === 0 ? (
+          <div className="p-8 text-center text-gray-400 italic border border-dashed rounded-lg">
+            Aucun mouvement enregistré pour les filtres sélectionnés.
+          </div>
+        ) : (
+          <div className="overflow-x-auto border border-gray-200 rounded-lg">
+            <table className="carbon-table text-xs">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Heure</th>
+                  <th>Flux / Type</th>
+                  <th>N° Document</th>
+                  <th>Produit</th>
+                  <th className="text-right">Impact Quantité</th>
+                  <th className="text-right">Palettes</th>
+                  <th>Tiers / Opérateur</th>
+                  <th>Statut Quai</th>
+                  <th>Bon Sortie Photo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMovements.map(m => (
+                  <tr key={m.id} className="hover:bg-blue-50/30 transition-colors">
+                    <td className="font-mono font-semibold text-gray-900 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                        <span>{m.date}</span>
+                      </div>
+                    </td>
+
+                    <td className="font-mono text-gray-700 whitespace-nowrap">
+                      <div className="flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded text-[11px] font-bold w-max">
+                        <Clock className="w-3 h-3 text-[#0f62fe]" />
+                        <span>{m.time}</span>
+                      </div>
+                    </td>
+
+                    <td>
+                      {m.isEntry ? (
+                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-900 font-bold px-2 py-0.5 rounded text-[10px] border border-emerald-300">
+                          <ArrowDownLeft className="w-3 h-3 text-emerald-700" />
+                          ENTRÉE
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-900 font-bold px-2 py-0.5 rounded text-[10px] border border-rose-300">
+                          <ArrowUpRight className="w-3 h-3 text-rose-700" />
+                          SORTIE
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="font-mono font-bold text-[#0f62fe] whitespace-nowrap">
+                      {m.documentRef}
+                    </td>
+
+                    <td>
+                      <div className="font-bold text-gray-900 line-clamp-1">{m.productName}</div>
+                      <div className="text-[10px] font-mono text-gray-500">{m.productCode}</div>
+                    </td>
+
+                    <td className="text-right font-mono font-bold whitespace-nowrap">
+                      <span className={m.isEntry ? 'text-emerald-700 font-black' : 'text-rose-700 font-black'}>
+                        {m.signedKg > 0 ? `+${m.signedKg.toLocaleString()}` : m.signedKg.toLocaleString()} Kg
+                      </span>
+                    </td>
+
+                    <td className="text-right font-mono text-gray-700">
+                      {m.signedPallets > 0 ? `+${m.signedPallets}` : m.signedPallets} Pal.
+                    </td>
+
+                    <td className="text-gray-800 font-medium">
+                      {m.partyName}
+                    </td>
+
+                    <td>
+                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-mono px-2 py-0.5 rounded font-bold">
+                        ✓ {m.performedBy || 'Validé'}
+                      </span>
+                    </td>
+
+                    <td>
+                      {m.photoUrl ? (
+                        <span className="text-emerald-700 font-mono text-[10px] font-bold flex items-center gap-1">
+                          <Camera className="w-3 h-3" />
+                          <span>Photo dispo</span>
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 font-mono text-[10px]">Non jointe</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* SECTION 3: Client Withdrawals Summary */}
+      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-xs space-y-3 text-xs">
         <h3 className="font-bold text-sm text-gray-900 uppercase tracking-wider flex items-center justify-between border-b pb-2">
           <span className="flex items-center gap-2 text-amber-700">
             <UserCheck className="w-4 h-4" />
-            2. Clients Ayant Acheté / Retiré la Marchandise Depuis ce Frigo
+            3. Synthèse des Clients Ayant Retiré la Marchandise de ce Frigo
           </span>
           <span className="text-gray-500 font-mono text-xs">{Object.keys(clientVolumeMap).length} Client(s)</span>
         </h3>
@@ -278,7 +458,7 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
         {Object.keys(clientVolumeMap).length === 0 ? (
           <div className="p-6 text-center text-gray-400 italic">Aucune sortie client enregistrée pour ce frigo.</div>
         ) : (
-          <div className="overflow-x-auto border border-gray-200 rounded">
+          <div className="overflow-x-auto border border-gray-200 rounded-lg">
             <table className="carbon-table text-xs">
               <thead>
                 <tr>
@@ -303,61 +483,14 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
         )}
       </div>
 
-      {/* SECTION 3: Recent BL Movements */}
-      <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm space-y-3 text-xs">
-        <h3 className="font-bold text-sm text-gray-900 uppercase tracking-wider flex items-center justify-between border-b pb-2">
-          <span className="flex items-center gap-2 text-indigo-700">
-            <Layers className="w-4 h-4" />
-            3. Historique Chronologique des Bons de Livraison & Sorties Quai
-          </span>
-          <span className="text-gray-500 font-mono text-xs">{frigoBLs.length} Mouvement(s)</span>
-        </h3>
-
-        <div className="overflow-x-auto border border-gray-200 rounded">
-          <table className="carbon-table text-xs">
-            <thead>
-              <tr>
-                <th>N° BL</th>
-                <th>Date</th>
-                <th>Client Destinataire</th>
-                <th className="text-right">Poids (Kg)</th>
-                <th className="text-right">Montant TTC</th>
-                <th>Statut Chargement Quai</th>
-                <th>Bon Sortie Photo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {frigoBLs.map(bl => (
-                <tr key={bl.id}>
-                  <td className="font-mono font-bold text-[#0f62fe]">{bl.blNumber}</td>
-                  <td className="font-mono text-gray-600">{bl.date}</td>
-                  <td className="font-semibold text-gray-900">{bl.clientName}</td>
-                  <td className="text-right font-mono font-bold text-gray-900">{bl.totalKg.toLocaleString()} Kg</td>
-                  <td className="text-right font-mono font-bold text-purple-700">{bl.totalTTC.toLocaleString()} DH</td>
-                  <td>
-                    {bl.frigoEmployeeApproved ? (
-                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-mono px-2 py-0.5 rounded font-bold">
-                        ✓ Approuvé ({bl.frigoApprovedBy})
-                      </span>
-                    ) : (
-                      <span className="bg-amber-100 text-amber-800 text-[10px] font-mono px-2 py-0.5 rounded font-bold">
-                        En attente
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    {bl.bonDeSortiePhotoUrl ? (
-                      <span className="text-emerald-700 font-mono text-[10px] font-bold">📷 Photo dispo</span>
-                    ) : (
-                      <span className="text-gray-400 font-mono text-[10px]">Non jointe</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Chronological Detailed Product Movement History Modal */}
+      {selectedProductForHistory && (
+        <ProductStockHistoryModal
+          product={selectedProductForHistory}
+          isOpen={!!selectedProductForHistory}
+          onClose={() => setSelectedProductForHistory(null)}
+        />
+      )}
 
     </div>
   );
