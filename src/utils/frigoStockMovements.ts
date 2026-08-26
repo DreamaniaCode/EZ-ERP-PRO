@@ -33,6 +33,7 @@ export interface UnifiedFrigoMovement {
   balanceAfterKg?: number;
   blId?: string;
   invoiceId?: string;
+  purchaseInvoiceId?: string;
 }
 
 export interface ProductAccumulationSummary {
@@ -162,10 +163,12 @@ export function compileUnifiedFrigoMovements(params: {
   const isFrigoMatch = (fId?: string, fName?: string) => {
     if (!targetFrigoId || targetFrigoId === 'ALL') return true;
     if (fId === targetFrigoId) return true;
+    if (!fId && frigos.length === 1 && frigos[0].id === targetFrigoId) return true;
     const targetFrigo = frigos.find(f => f.id === targetFrigoId);
     if (!targetFrigo) return false;
     if (fId === targetFrigo.code || fId === targetFrigo.name) return true;
     if (fName && targetFrigo.name && fName.trim().toLowerCase() === targetFrigo.name.trim().toLowerCase()) return true;
+    if (fId && targetFrigo.id && fId.trim().toLowerCase() === targetFrigo.id.trim().toLowerCase()) return true;
     if (targetFrigo.name && fId && fId.toLowerCase().includes('ain rabat') && targetFrigo.name.toLowerCase().includes('ain rabat')) return true;
     return false;
   };
@@ -302,7 +305,8 @@ export function compileUnifiedFrigoMovements(params: {
         partyType: 'FOURNISSEUR',
         status: pur.paymentStatus,
         performedBy: 'Service Réception / Douane',
-        notes: pur.containerNumber ? `Conteneur : ${pur.containerNumber}` : 'Réception Fournisseur'
+        notes: pur.containerNumber ? `Conteneur : ${pur.containerNumber}` : 'Réception Fournisseur',
+        purchaseInvoiceId: pur.id
       });
     });
   });

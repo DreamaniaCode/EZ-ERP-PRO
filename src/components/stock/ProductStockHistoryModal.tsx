@@ -19,8 +19,11 @@ import {
   Package,
   Layers,
   ArrowRight,
-  Clock
+  Clock,
+  Pencil
 } from 'lucide-react';
+import { EditPurchaseInvoiceModal } from '../purchases/EditPurchaseInvoiceModal';
+import { PurchaseImportInvoice } from '../../types';
 
 interface ProductStockHistoryModalProps {
   product: Product | null;
@@ -50,6 +53,7 @@ export interface StockMovementRecord {
   totalHT?: number;
   status?: string;
   notes?: string;
+  purchaseInvoiceId?: string;
 }
 
 export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> = ({
@@ -70,6 +74,7 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [editingPurchaseInvoice, setEditingPurchaseInvoice] = useState<PurchaseImportInvoice | null>(null);
 
   // Manual adjustment sub-form toggle
   const [showManualForm, setShowManualForm] = useState<boolean>(false);
@@ -152,6 +157,7 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
           totalHT: matchedItem.totalHT,
           status: pur.paymentStatus,
           notes: pur.containerNumber ? `Conteneur : ${pur.containerNumber}` : 'Réception Fournisseur',
+          purchaseInvoiceId: pur.id,
         });
       }
     });
@@ -659,11 +665,25 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
                             {m.type === 'SORTIE_BL' && (
                               <button
                                 onClick={() => handleOpenBL(m.documentRef)}
-                                className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-[#0f62fe] font-bold rounded text-[11px] border border-blue-200 transition inline-flex items-center gap-1"
+                                className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-[#0f62fe] font-bold rounded text-[11px] border border-blue-200 transition inline-flex items-center gap-1 cursor-pointer"
                                 title="Voir la fiche détaillée du Bon de Livraison (BL)"
                               >
                                 <FileText className="w-3 h-3" />
                                 <span>Voir BL</span>
+                              </button>
+                            )}
+
+                            {m.type === 'ENTREE_ACHAT' && m.purchaseInvoiceId && (
+                              <button
+                                onClick={() => {
+                                  const pur = purchaseInvoices.find(p => p.id === m.purchaseInvoiceId);
+                                  if (pur) setEditingPurchaseInvoice(pur);
+                                }}
+                                className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded text-[11px] border border-amber-200 transition inline-flex items-center gap-1 cursor-pointer"
+                                title="Modifier cette facture d'achat"
+                              >
+                                <Pencil className="w-3 h-3" />
+                                <span>Modifier</span>
                               </button>
                             )}
                           </td>
@@ -686,13 +706,21 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded font-semibold text-xs transition"
+            className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded font-semibold text-xs transition cursor-pointer"
           >
             Fermer
           </button>
         </div>
 
       </div>
+
+      {/* Edit Purchase Invoice Modal */}
+      {editingPurchaseInvoice && (
+        <EditPurchaseInvoiceModal
+          invoice={editingPurchaseInvoice}
+          onClose={() => setEditingPurchaseInvoice(null)}
+        />
+      )}
     </div>
   );
 };

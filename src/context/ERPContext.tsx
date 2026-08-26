@@ -123,6 +123,7 @@ interface ERPContextType {
 
   // Purchase Actions
   createPurchaseInvoice: (purchaseData: Omit<PurchaseImportInvoice, 'id'>) => PurchaseImportInvoice;
+  updatePurchaseInvoice: (id: string, updatedData: Partial<PurchaseImportInvoice>) => void;
   addPurchasePayment: (purchaseInvoiceId: string, payment: { amount: number; paymentMethod: PaymentMethod; date: string; reference?: string; bankName?: string; notes?: string }) => void;
   deletePurchaseInvoice: (id: string) => void;
 
@@ -288,7 +289,16 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [treasuryAccounts, setTreasuryAccounts] = useState<TreasuryAccount[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [inventoryCounts, setInventoryCounts] = useState<MultiSiteInventoryCount[]>([]);
-  const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseImportInvoice[]>([]);
+  const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseImportInvoice[]>(() => {
+    try {
+      const saved = localStorage.getItem('erp_purchase_invoices') || localStorage.getItem('erp_purchases');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
 
   // Persistent localStorage auto-sync hooks
   useEffect(() => {
@@ -310,6 +320,13 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     if (frigos.length > 0) localStorage.setItem('erp_frigos', JSON.stringify(frigos));
   }, [frigos]);
+
+  useEffect(() => {
+    if (purchaseInvoices.length > 0) {
+      localStorage.setItem('erp_purchase_invoices', JSON.stringify(purchaseInvoices));
+      localStorage.setItem('erp_purchases', JSON.stringify(purchaseInvoices));
+    }
+  }, [purchaseInvoices]);
 
   // Multi-Company resolution
   const activeCompany = useMemo(() => {
@@ -735,6 +752,71 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       .catch(err => console.error('Error saving purchase invoice:', err));
 
     return newPur;
+  };
+
+  const updatePurchaseInvoice = (id: string, updatedData: Partial<PurchaseImportInvoice>) => {
+    const existing = purchaseInvoices.find(p => p.id === id);
+
+    // If items or target frigo changed, adjust stocks
+    if (existing && existing.targetFrigoId && Array.isArray(existing.items)) {
+      setStocks(prevStocks => {
+        let next = [...prevStocks];
+
+        // 1. Deduct old quantities from existing targetFrigoId
+        existing.items.forEach(oldItem => {
+          const oldKg = Number(oldItem.quantityKg) || 0;
+          const oldPal = Number(oldItem.quantityPallets) || 0;
+          const idx = next.findIndex(s => s.frigoId === existing.targetFrigoId && s.productId === oldItem.productId);
+          if (idx >= 0) {
+            next[idx] = {
+              ...next[idx],
+              quantityKg: Math.max(0, next[idx].quantityKg - oldKg),
+              quantityPallets: Math.max(0, next[idx].quantityPallets - oldPal),
+              lastUpdated: new Date().toISOString()
+            };
+          }
+        });
+
+        // 2. Add new quantities to new (or unchanged) targetFrigoId
+        const newFrigoId = updatedData.targetFrigoId || existing.targetFrigoId;
+        const newItems = updatedData.items || existing.items;
+        newItems.forEach(newItem => {
+          const newKg = Number(newItem.quantityKg) || 0;
+          const newPal = Number(newItem.quantityPallets) || 0;
+          const idx = next.findIndex(s => s.frigoId === newFrigoId && s.productId === newItem.productId);
+          if (idx >= 0) {
+            next[idx] = {
+              ...next[idx],
+              quantityKg: next[idx].quantityKg + newKg,
+              quantityPallets: next[idx].quantityPallets + newPal,
+              lastUpdated: new Date().toISOString()
+            };
+          } else {
+            next.push({
+              frigoId: newFrigoId,
+              productId: newItem.productId,
+              quantityKg: newKg,
+              quantityPallets: newPal,
+              lastUpdated: new Date().toISOString()
+            });
+          }
+        });
+
+        localStorage.setItem('erp_stocks', JSON.stringify(next));
+        return next;
+      });
+    }
+
+    setPurchaseInvoices(prev => {
+      const next = prev.map(pur => pur.id === id ? { ...pur, ...updatedData } : pur);
+      localStorage.setItem('erp_purchase_invoices', JSON.stringify(next));
+      localStorage.setItem('erp_purchases', JSON.stringify(next));
+      return next;
+    });
+
+    api.updatePurchase(id, updatedData)
+      .then(() => refreshFromDatabase())
+      .catch(err => console.error('Error updating purchase invoice in API:', err));
   };
 
   const addPurchasePayment = (
@@ -1381,6 +1463,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     transferStock,
     clearStocks,
     createPurchaseInvoice,
+    updatePurchaseInvoice,
     addPurchasePayment,
     deletePurchaseInvoice,
     createOrder,
@@ -1543,6 +1626,7 @@ const defaultFallbackContext: ERPContextType = {
   transferStock: () => {},
   clearStocks: async () => {},
   createPurchaseInvoice: () => ({ id: '', invoiceNumber: '', supplierId: '', supplierName: '', targetFrigoId: '', dateArrival: '', isImport: false, customsCostsHT: 0, freightCostsHT: 0, totalProductsHT: 0, totalLandedCostHT: 0, items: [], paymentStatus: 'NON_PAYÉ' }),
+  updatePurchaseInvoice: () => {},
   addPurchasePayment: () => {},
   deletePurchaseInvoice: () => {},
   createOrder: () => ({ id: '', orderNumber: '', clientId: '', clientName: '', clientICE: '', clientPhone: '', clientEmail: '', date: '', expectedDeliveryDate: '', items: [], totalHT: 0, totalVAT: 0, totalTTC: 0, totalCostHT: 0, grossMarginHT: 0, marginPercentage: 0, createdByName: '', status: 'DEVIS' }),

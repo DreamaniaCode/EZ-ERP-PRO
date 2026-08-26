@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { useERP } from '../../context/ERPContext';
-import { ColdStorageFrigo, Product } from '../../types';
+import { ColdStorageFrigo, Product, PurchaseImportInvoice } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
 import { StockTransferModal } from './StockTransferModal';
 import { FrigoDetailPage } from './FrigoDetailPage';
 import { ProductKpiCardsSection } from './ProductKpiCardsSection';
 import { ProductStockHistoryModal } from './ProductStockHistoryModal';
+import { EditPurchaseInvoiceModal } from '../purchases/EditPurchaseInvoiceModal';
+import { SupplierPaymentModal } from '../purchases/SupplierPaymentModal';
 import { 
   compileUnifiedFrigoMovements, 
   calculateProductAccumulation,
@@ -40,7 +42,14 @@ import {
   Camera,
   History,
   TrendingUp,
-  X
+  X,
+  Ship,
+  CreditCard,
+  Pencil,
+  Building2,
+  Check,
+  ChevronRight,
+  SlidersHorizontal
 } from 'lucide-react';
 
 interface FrigoManagementProps {
@@ -67,7 +76,8 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
     addFrigo, 
     updateFrigo, 
     deleteFrigo, 
-    clearStocks 
+    clearStocks,
+    deletePurchaseInvoice
   } = useERP();
 
   // Selected Frigo Filter ('ALL' or a specific frigo.id)
@@ -77,7 +87,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
   const [selectedProductId, setSelectedProductId] = useState<string | 'ALL'>('ALL');
 
   // Active View Tab
-  const [activeTab, setActiveTab] = useState<'MOVEMENTS' | 'CUMUL_PRODUCTS' | 'WAREHOUSES'>('MOVEMENTS');
+  const [activeTab, setActiveTab] = useState<'MOVEMENTS' | 'CUMUL_PRODUCTS' | 'PURCHASE_INVOICES' | 'WAREHOUSES'>('MOVEMENTS');
 
   // Movement Type Filter
   const [movementTypeFilter, setMovementTypeFilter] = useState<'ALL' | 'ENTREES' | 'SORTIES' | 'TRANSFERTS'>('ALL');
@@ -95,6 +105,8 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
   const [editingFrigo, setEditingFrigo] = useState<ColdStorageFrigo | null>(null);
   const [selectedFrigoDetailId, setSelectedFrigoDetailId] = useState<string | null>(null);
   const [selectedProductForHistory, setSelectedProductForHistory] = useState<Product | null>(null);
+  const [editingPurchaseInvoice, setEditingPurchaseInvoice] = useState<PurchaseImportInvoice | null>(null);
+  const [paymentModalInvoice, setPaymentModalInvoice] = useState<PurchaseImportInvoice | null>(null);
 
   // Form State for Add / Edit Frigo
   const [formData, setFormData] = useState<Omit<ColdStorageFrigo, 'id' | 'code'>>({
@@ -173,13 +185,13 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
 
       // Text Search
       if (searchTerm.trim()) {
-        const term = searchTerm.toLowerCase().trim();
+        const term = searchTerm.toLowerCase();
         const matchesDoc = mv.documentRef?.toLowerCase().includes(term);
-        const matchesPrd = mv.productName?.toLowerCase().includes(term) || mv.productCode?.toLowerCase().includes(term);
         const matchesParty = mv.partyName?.toLowerCase().includes(term);
-        const matchesFrigo = mv.frigoName?.toLowerCase().includes(term);
+        const matchesProduct = mv.productName?.toLowerCase().includes(term) || mv.productCode?.toLowerCase().includes(term);
         const matchesNotes = mv.notes?.toLowerCase().includes(term);
-        if (!matchesDoc && !matchesPrd && !matchesParty && !matchesFrigo && !matchesNotes) {
+        const matchesFrigo = mv.frigoName?.toLowerCase().includes(term);
+        if (!matchesDoc && !matchesParty && !matchesProduct && !matchesNotes && !matchesFrigo) {
           return false;
         }
       }
@@ -188,59 +200,110 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
     });
   }, [allFrigoMovements, selectedProductId, movementTypeFilter, startDateFilter, endDateFilter, searchTerm]);
 
-  // =========================================================================
-  // 4. FILTERED PRODUCT ACCUMULATION LIST
-  // =========================================================================
+  // Filtered Product Summaries for Tab 2
   const filteredProductSummaries = useMemo(() => {
-    return productSummaries.filter(summary => {
-      if (selectedProductId !== 'ALL' && summary.productId !== selectedProductId) {
+    return productSummaries.filter(p => {
+      if (selectedProductId !== 'ALL' && p.productId !== selectedProductId && p.productCode !== selectedProductId) {
         return false;
       }
       if (searchTerm.trim()) {
-        const term = searchTerm.toLowerCase().trim();
-        const matchesCode = summary.productCode.toLowerCase().includes(term);
-        const matchesName = summary.productName.toLowerCase().includes(term);
-        const matchesCategory = summary.category.toLowerCase().includes(term);
-        if (!matchesCode && !matchesName && !matchesCategory) return false;
+        const term = searchTerm.toLowerCase();
+        const matchesCode = p.productCode.toLowerCase().includes(term);
+        const matchesName = p.productName.toLowerCase().includes(term);
+        const matchesCat = p.category.toLowerCase().includes(term);
+        if (!matchesCode && !matchesName && !matchesCat) return false;
       }
       return true;
     });
   }, [productSummaries, selectedProductId, searchTerm]);
 
-  // Stats for warehouse capacity
-  const getFrigoStockStats = (frigoId: string) => {
-    const targetFrigo = frigos.find(f => f.id === frigoId);
-    const frigoStocks = stocks.filter(s => 
-      s.frigoId === frigoId || 
-      (targetFrigo && (s.frigoId === targetFrigo.code || s.frigoId === targetFrigo.name || (targetFrigo.name && s.frigoId?.toLowerCase().includes('ain rabat'))))
-    );
-    const totalPallets = frigoStocks.reduce((sum, s) => sum + s.quantityPallets, 0);
-    const totalKg = frigoStocks.reduce((sum, s) => sum + s.quantityKg, 0);
-    return { totalPallets, totalKg };
-  };
+  // Filtered Purchase / Entry Invoices for Tab 3
+  const filteredPurchaseInvoices = useMemo(() => {
+    return purchaseInvoices.filter(pur => {
+      // Frigo filter
+      if (selectedFrigoId !== 'ALL') {
+        const matchesFrigo = pur.targetFrigoId === selectedFrigoId || 
+          frigos.find(f => f.id === selectedFrigoId)?.name === pur.targetFrigoId ||
+          frigos.find(f => f.id === selectedFrigoId)?.code === pur.targetFrigoId ||
+          (!pur.targetFrigoId && frigos.length === 1);
+        if (!matchesFrigo) return false;
+      }
 
-  const filteredFrigos = useMemo(() => {
-    return frigos.filter(f => 
-      f.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      f.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      f.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      f.managerName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [frigos, searchTerm]);
+      // Product filter
+      if (selectedProductId !== 'ALL') {
+        const hasProduct = pur.items?.some(it => 
+          it.productId === selectedProductId || 
+          it.productCode === selectedProductId
+        );
+        if (!hasProduct) return false;
+      }
 
-  // Overall Global Capacity Stats
-  const totalCapacityPallets = frigos.reduce((sum, f) => sum + (f.capacityPallets || 0), 0);
-  const totalOccupiedPallets = stocks.reduce((sum, s) => sum + s.quantityPallets, 0);
-  const totalOccupiedKg = stocks.reduce((sum, s) => sum + s.quantityKg, 0);
-  const globalOccupationRate = totalCapacityPallets > 0 ? Math.round((totalOccupiedPallets / totalCapacityPallets) * 100) : 0;
+      // Search term
+      if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase();
+        const matches = (pur.invoiceNumber || '').toLowerCase().includes(term) ||
+          (pur.supplierName || '').toLowerCase().includes(term) ||
+          (pur.containerNumber || '').toLowerCase().includes(term);
+        if (!matches) return false;
+      }
 
-  // Selected product object for direct helper
+      // Date filter
+      if (startDateFilter) {
+        const arrivalDate = pur.dateArrival ? pur.dateArrival.slice(0, 10) : '';
+        if (arrivalDate && arrivalDate < startDateFilter) return false;
+      }
+      if (endDateFilter) {
+        const arrivalDate = pur.dateArrival ? pur.dateArrival.slice(0, 10) : '';
+        if (arrivalDate && arrivalDate > endDateFilter) return false;
+      }
+
+      return true;
+    });
+  }, [purchaseInvoices, selectedFrigoId, selectedProductId, searchTerm, startDateFilter, endDateFilter, frigos]);
+
+  // Selected Product helper object
   const selectedProductObj = useMemo(() => {
     if (selectedProductId === 'ALL') return null;
-    return products.find(p => p.id === selectedProductId) || null;
+    return products.find(p => p.id === selectedProductId || p.code === selectedProductId) || null;
   }, [products, selectedProductId]);
 
-  // Handlers for Add/Edit Frigo
+  // Warehouse Statistics per frigo
+  const frigoStatsList = useMemo(() => {
+    return frigos.map(f => {
+      const fStocks = stocks.filter(s => s.frigoId === f.id);
+      const totalKg = fStocks.reduce((sum, s) => sum + (s.quantityKg || 0), 0);
+      const totalPallets = fStocks.reduce((sum, s) => sum + (s.quantityPallets || 0), 0);
+      const cap = f.capacityPallets || 1000;
+      const occPercent = Math.min(100, Math.round((totalPallets / cap) * 100));
+      const mvsCount = allFrigoMovements.filter(m => m.frigoId === f.id).length;
+      return {
+        ...f,
+        totalKg,
+        totalPallets,
+        occPercent,
+        mvsCount,
+      };
+    });
+  }, [frigos, stocks, allFrigoMovements]);
+
+  // Global Warehouse Totals
+  const totalOccupiedPallets = useMemo(() => {
+    return frigoStatsList.reduce((acc, f) => acc + f.totalPallets, 0);
+  }, [frigoStatsList]);
+
+  const totalCapacityPallets = useMemo(() => {
+    return frigos.reduce((acc, f) => acc + (f.capacityPallets || 1000), 0);
+  }, [frigos]);
+
+  const totalOccupiedKg = useMemo(() => {
+    return frigoStatsList.reduce((acc, f) => acc + f.totalKg, 0);
+  }, [frigoStatsList]);
+
+  const globalOccupationRate = totalCapacityPallets > 0 
+    ? Math.min(100, Math.round((totalOccupiedPallets / totalCapacityPallets) * 100))
+    : 0;
+
+  // Handlers for Add / Edit Frigo Modal
   const handleOpenAdd = () => {
     if (onNewFrigo) {
       onNewFrigo();
@@ -312,7 +375,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
     }
   };
 
-  // Prepares Excel Export Data for Movements
+  // Export Data for Movements
   const movementsExportData = useMemo(() => {
     return filteredMovements.map(m => ({
       'Date': m.date,
@@ -334,7 +397,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
     }));
   }, [filteredMovements]);
 
-  // Prepares Excel Export Data for Product Accumulation
+  // Export Data for Product Accumulation
   const accumulationExportData = useMemo(() => {
     return filteredProductSummaries.map(p => ({
       'Code SKU': p.productCode,
@@ -359,6 +422,23 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
       'Statut Stock': p.stockStatus
     }));
   }, [filteredProductSummaries]);
+
+  // Export Data for Purchase Invoices
+  const purchasesExportData = useMemo(() => {
+    return filteredPurchaseInvoices.map(pur => ({
+      'N° Facture': pur.invoiceNumber,
+      'N° Conteneur': pur.containerNumber || '-',
+      'Fournisseur': pur.supplierName,
+      'Date Arrivée': pur.dateArrival,
+      'Frigo Réception': frigos.find(f => f.id === pur.targetFrigoId)?.name || 'Frigo',
+      'Total Colis': pur.items?.reduce((acc, i) => acc + (i.quantityCartons || 0), 0) || 0,
+      'Poids Pesé Total (Kg)': pur.items?.reduce((acc, i) => acc + (i.quantityKg || 0), 0) || 0,
+      'Montant Total Landed HT (DH)': pur.totalLandedCostHT || 0,
+      'Montant Réglé (DH)': pur.paidAmount || 0,
+      'Solde Dû (DH)': pur.remainingBalance !== undefined ? pur.remainingBalance : ((pur.totalLandedCostHT || 0) - (pur.paidAmount || 0)),
+      'Statut Paiement': pur.paymentStatus || 'NON_PAYÉ'
+    }));
+  }, [filteredPurchaseInvoices, frigos]);
 
   // Detailed view of a single warehouse page
   if (selectedFrigoDetailId) {
@@ -395,41 +475,30 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
               )}
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
-              Journal précis des flux (Entrées / Sorties avec Date & Heure) • Cumul par produit • Cartes KPI interactives
+              Journal précis des flux (Entrées / Sorties avec Date & Heure) • Cumul par produit • Factures d'Achat Modifiables • Cartes KPI
             </p>
           </div>
         </div>
 
-        {/* Global Controls & Filters */}
+        {/* Global Controls & Actions */}
         <div className="flex items-center gap-2.5 flex-wrap">
           
-          {/* Frigo Selector */}
-          <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-300 rounded-lg px-2.5 py-1 text-xs">
-            <Warehouse className="w-3.5 h-3.5 text-[#0f62fe]" />
-            <select
-              value={selectedFrigoId}
-              onChange={(e) => setSelectedFrigoId(e.target.value)}
-              className="bg-transparent border-none text-xs font-bold text-gray-800 focus:ring-0 cursor-pointer pr-2"
-            >
-              <option value="ALL">🏢 Tous les Frigos (Vue Consolidée)</option>
-              {frigos.map(f => (
-                <option key={f.id} value={f.id}>🏭 {f.code} - {f.name}</option>
-              ))}
-            </select>
-          </div>
-
           {/* Export Buttons */}
           <ExportButtons 
             filename={`Mouvements_Frigo_${selectedFrigoId === 'ALL' ? 'Tous' : selectedFrigoId}`} 
             title={`RAPPORT SITUATION & MOUVEMENTS FRIGO - ${warehouseDisplayLabel.toUpperCase()}`}
-            excelData={activeTab === 'CUMUL_PRODUCTS' ? accumulationExportData : movementsExportData}
+            excelData={
+              activeTab === 'CUMUL_PRODUCTS' ? accumulationExportData :
+              activeTab === 'PURCHASE_INVOICES' ? purchasesExportData :
+              movementsExportData
+            }
             pdfElementId="frigo-management-page"
           />
 
           {/* Inter-frigo Transfer */}
           <button
             onClick={() => setShowTransferModal(true)}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold text-xs px-3 py-2 rounded-lg transition shadow-xs"
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold text-xs px-3 py-2 rounded-lg transition shadow-xs cursor-pointer"
             title="Transférer du stock d'un frigo vers un autre"
           >
             <ArrowLeftRight className="w-3.5 h-3.5 text-cyan-200" />
@@ -439,7 +508,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
           {/* New Warehouse */}
           <button
             onClick={handleOpenAdd}
-            className="flex items-center gap-1.5 bg-[#0f62fe] hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition shadow-xs"
+            className="flex items-center gap-1.5 bg-[#0f62fe] hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition shadow-xs cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Nouveau Frigo</span>
@@ -449,7 +518,171 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. CLICKABLE PRODUCT KPI CARDS SECTION (PRO & INTERACTIVE)                */}
+      {/* 2. PROMINENT FRIGO SELECTOR STRIP (FACILE À TROUVER & BIEN TRIÉ)           */}
+      {/* ========================================================================= */}
+      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Warehouse className="w-4 h-4 text-[#0f62fe]" />
+            <h2 className="text-xs font-bold text-gray-900 uppercase tracking-wide">
+              Sélectionnez un Entrepôt Frigorifique (Accès Immédiat) :
+            </h2>
+          </div>
+          <span className="text-[11px] font-semibold text-gray-500 font-mono">
+            {frigos.length} entrepôt{frigos.length > 1 ? 's' : ''} configuré{frigos.length > 1 ? 's' : ''}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          
+          {/* Card 1: ALL FRIGOS (VUE CONSOLIDÉE) */}
+          <div
+            onClick={() => setSelectedFrigoId('ALL')}
+            className={`cursor-pointer p-3.5 rounded-xl transition-all border-2 flex flex-col justify-between relative ${
+              selectedFrigoId === 'ALL'
+                ? 'bg-blue-50/80 border-[#0f62fe] shadow-sm ring-2 ring-blue-500/20'
+                : 'bg-gray-50/70 border-gray-200 hover:border-gray-300 hover:bg-gray-100/70'
+            }`}
+          >
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
+                  selectedFrigoId === 'ALL' ? 'bg-[#0f62fe] text-white' : 'bg-gray-200 text-gray-700'
+                }`}>
+                  MULTI-SITES
+                </span>
+                {selectedFrigoId === 'ALL' && (
+                  <span className="flex items-center gap-1 text-[11px] font-bold text-[#0f62fe]">
+                    <Check className="w-3.5 h-3.5" /> Actif
+                  </span>
+                )}
+              </div>
+              <h3 className="font-bold text-xs text-gray-900">
+                🏢 Tous les Frigos (Vue Consolidée)
+              </h3>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                Totalité des stocks et des flux de l'entreprise
+              </p>
+            </div>
+
+            <div className="mt-3 pt-2 border-t border-gray-200/80 flex items-center justify-between text-xs font-mono">
+              <span className="font-bold text-emerald-700">
+                {(totalOccupiedKg / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} T ({totalOccupiedKg.toLocaleString()} Kg)
+              </span>
+              <span className="text-gray-600 font-semibold">
+                {totalOccupiedPallets} Pal.
+              </span>
+            </div>
+          </div>
+
+          {/* Individual Frigo Cards */}
+          {frigoStatsList.map(frigo => {
+            const isSelected = selectedFrigoId === frigo.id;
+            return (
+              <div
+                key={frigo.id}
+                onClick={() => setSelectedFrigoId(frigo.id)}
+                className={`cursor-pointer p-3.5 rounded-xl transition-all border-2 flex flex-col justify-between relative ${
+                  isSelected
+                    ? 'bg-blue-50/80 border-[#0f62fe] shadow-sm ring-2 ring-blue-500/20'
+                    : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
+                      isSelected ? 'bg-[#0f62fe] text-white' : 'bg-gray-100 text-gray-800 border border-gray-300'
+                    }`}>
+                      {frigo.code}
+                    </span>
+                    
+                    <div className="flex items-center gap-1">
+                      {isSelected ? (
+                        <span className="flex items-center gap-0.5 text-[11px] font-bold text-[#0f62fe]">
+                          <Check className="w-3.5 h-3.5" /> Actif
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-mono text-gray-500 flex items-center gap-0.5">
+                          <MapPin className="w-3 h-3 text-gray-400" /> {frigo.location || 'Site'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <h3 className="font-bold text-xs text-gray-900 line-clamp-1">
+                    🏭 {frigo.name}
+                  </h3>
+
+                  {/* Occupation Gauge & Info */}
+                  <div className="mt-2 space-y-1">
+                    <div className="flex justify-between text-[11px] font-mono">
+                      <span className="text-gray-500">Occupation:</span>
+                      <span className="font-bold text-gray-800">{frigo.totalPallets} / {frigo.capacityPallets} Pal. ({frigo.occPercent}%)</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className={`h-1.5 rounded-full transition-all ${
+                          frigo.occPercent >= 90 ? 'bg-rose-500' : frigo.occPercent >= 75 ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`}
+                        style={{ width: `${Math.min(100, frigo.occPercent)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-2 border-t border-gray-200/80 flex items-center justify-between text-[11px]">
+                  <span className="font-mono font-bold text-emerald-700">
+                    {(frigo.totalKg / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} T ({frigo.totalKg.toLocaleString()} Kg)
+                  </span>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenEdit(frigo);
+                      }}
+                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                      title="Modifier cet entrepôt"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onViewFrigoDetail) onViewFrigoDetail(frigo.id);
+                        else setSelectedFrigoDetailId(frigo.id);
+                      }}
+                      className="p-1 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded"
+                      title="Voir la fiche détaillée du quai"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Card Add Frigo */}
+          <div
+            onClick={handleOpenAdd}
+            className="cursor-pointer p-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#0f62fe] hover:bg-blue-50/30 flex flex-col items-center justify-center text-center gap-1.5 text-gray-500 hover:text-[#0f62fe] transition-all min-h-[120px]"
+          >
+            <div className="p-2 bg-gray-100 rounded-full text-gray-600">
+              <Plus className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-bold font-mono">+ Ajouter un Entrepôt</span>
+            <span className="text-[10px] text-gray-400">Nouveau site frigo</span>
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 3. CLICKABLE PRODUCT KPI CARDS SECTION (PRO & INTERACTIVE)                */}
       {/* ========================================================================= */}
       <ProductKpiCardsSection
         productSummaries={productSummaries}
@@ -461,24 +694,27 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
       />
 
       {/* ========================================================================= */}
-      {/* 3. TABS NAVIGATION & SEARCH / FILTER DOCK                                 */}
+      {/* 4. MAIN TABS NAVIGATION (4 ONGLETS CLAIRS & BIEN TRIÉS)                    */}
       {/* ========================================================================= */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-3 space-y-3">
+      <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-xs space-y-3">
         
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+        {/* Tab Buttons & Search Bar */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-gray-200 pb-3">
           
-          {/* Main Tabs */}
-          <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-lg text-xs font-semibold">
+          {/* Tabs Navigation */}
+          <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-lg text-xs font-semibold overflow-x-auto">
+            
+            {/* Tab 1: Mouvements */}
             <button
               onClick={() => setActiveTab('MOVEMENTS')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all whitespace-nowrap cursor-pointer ${
                 activeTab === 'MOVEMENTS'
                   ? 'bg-white text-[#0f62fe] font-bold shadow-xs'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>1. Journal des Mouvements (Date & Heure)</span>
+              <ArrowLeftRight className="w-3.5 h-3.5" />
+              <span>1. Journal des Mouvements</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
                 activeTab === 'MOVEMENTS' ? 'bg-blue-50 text-[#0f62fe]' : 'bg-gray-200 text-gray-700'
               }`}>
@@ -486,9 +722,10 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
               </span>
             </button>
 
+            {/* Tab 2: Cumul Produits */}
             <button
               onClick={() => setActiveTab('CUMUL_PRODUCTS')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all whitespace-nowrap cursor-pointer ${
                 activeTab === 'CUMUL_PRODUCTS'
                   ? 'bg-white text-[#0f62fe] font-bold shadow-xs'
                   : 'text-gray-600 hover:text-gray-900'
@@ -503,16 +740,35 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
               </span>
             </button>
 
+            {/* Tab 3: Factures d'Entrée & Achats (NEW) */}
+            <button
+              onClick={() => setActiveTab('PURCHASE_INVOICES')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === 'PURCHASE_INVOICES'
+                  ? 'bg-white text-emerald-700 font-bold shadow-xs'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Ship className="w-3.5 h-3.5 text-emerald-600" />
+              <span>3. Factures d'Entrée & Réceptions</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                activeTab === 'PURCHASE_INVOICES' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-200 text-gray-700'
+              }`}>
+                {filteredPurchaseInvoices.length}
+              </span>
+            </button>
+
+            {/* Tab 4: Entrepôts & Capacités */}
             <button
               onClick={() => setActiveTab('WAREHOUSES')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all whitespace-nowrap cursor-pointer ${
                 activeTab === 'WAREHOUSES'
                   ? 'bg-white text-[#0f62fe] font-bold shadow-xs'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               <Warehouse className="w-3.5 h-3.5" />
-              <span>3. Entrepôts & Capacités</span>
+              <span>4. Entrepôts & Capacités</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
                 activeTab === 'WAREHOUSES' ? 'bg-blue-50 text-[#0f62fe]' : 'bg-gray-200 text-gray-700'
               }`}>
@@ -521,12 +777,12 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
             </button>
           </div>
 
-          {/* Quick Search */}
+          {/* Quick Search Input */}
           <div className="relative w-full md:w-72">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-gray-400" />
             <input
               type="text"
-              placeholder="Rechercher par BL, produit, client..."
+              placeholder="Rechercher par BL, Facture, produit, client..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe]"
@@ -548,12 +804,12 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
             
             {/* Flow Type Filter Buttons */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-gray-500 text-[11px] font-semibold">Sens du Flux :</span>
               
               <button
                 onClick={() => setMovementTypeFilter('ALL')}
-                className={`px-2.5 py-1 rounded text-xs font-semibold transition ${
+                className={`px-2.5 py-1 rounded text-xs font-semibold transition cursor-pointer ${
                   movementTypeFilter === 'ALL'
                     ? 'bg-gray-900 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -564,7 +820,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
 
               <button
                 onClick={() => setMovementTypeFilter('ENTREES')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition cursor-pointer ${
                   movementTypeFilter === 'ENTREES'
                     ? 'bg-emerald-600 text-white'
                     : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
@@ -576,7 +832,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
 
               <button
                 onClick={() => setMovementTypeFilter('SORTIES')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition cursor-pointer ${
                   movementTypeFilter === 'SORTIES'
                     ? 'bg-rose-600 text-white'
                     : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
@@ -588,7 +844,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
 
               <button
                 onClick={() => setMovementTypeFilter('TRANSFERTS')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition cursor-pointer ${
                   movementTypeFilter === 'TRANSFERTS'
                     ? 'bg-indigo-600 text-white'
                     : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
@@ -600,7 +856,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
             </div>
 
             {/* Date Range Pickers & Clear */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1 text-[11px] text-gray-500 font-mono">
                 <span>Du:</span>
                 <input
@@ -627,7 +883,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                     setSelectedProductId('ALL');
                     setSearchTerm('');
                   }}
-                  className="flex items-center gap-1 text-gray-500 hover:text-red-600 text-[11px] font-semibold px-2 py-1 bg-gray-100 rounded transition"
+                  className="flex items-center gap-1 text-gray-500 hover:text-red-600 text-[11px] font-semibold px-2 py-1 bg-gray-100 rounded transition cursor-pointer"
                   title="Réinitialiser tous les filtres"
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -642,7 +898,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 4. TAB 1 CONTENT: JOURNAL DES MOUVEMENTS (DATE, HEURE, QUANTITÉS)         */}
+      {/* 5. TAB 1 CONTENT: JOURNAL DES MOUVEMENTS (DATE, HEURE, QUANTITÉS)         */}
       {/* ========================================================================= */}
       {activeTab === 'MOVEMENTS' && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
@@ -660,7 +916,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
             {selectedProductObj && (
               <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded font-medium flex items-center gap-1.5">
                 <span>Produit ciblé : <b>{selectedProductObj.name}</b></span>
-                <button onClick={() => setSelectedProductId('ALL')} className="hover:text-red-600">×</button>
+                <button onClick={() => setSelectedProductId('ALL')} className="hover:text-red-600 font-bold">×</button>
               </div>
             )}
           </div>
@@ -669,7 +925,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
             <div className="p-12 text-center text-gray-500 space-y-2">
               <Package className="w-10 h-10 text-gray-300 mx-auto" />
               <p className="font-bold text-xs">Aucun mouvement ne correspond aux critères sélectionnés.</p>
-              <p className="text-[11px] text-gray-400">Modifiez les filtres de date, produit ou sens du flux.</p>
+              <p className="text-[11px] text-gray-400">Modifiez les filtres de date, produit ou entrepôt.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -678,42 +934,43 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                   <tr>
                     <th className="w-28">Date</th>
                     <th className="w-24">Heure</th>
-                    <th>Type / Sens</th>
+                    <th className="w-32">Type / Flux</th>
                     <th>N° Document</th>
-                    <th>Produit & Catégorie</th>
-                    <th className="text-right">Impact Quantité</th>
+                    <th>Produit</th>
+                    <th className="text-right">Impact Poids (Kg)</th>
                     <th className="text-right">Palettes</th>
-                    <th className="text-right">Colis</th>
+                    <th className="text-right">Colis / Cartons</th>
                     <th>Tiers / Opérateur</th>
-                    <th>Entrepôt</th>
+                    <th>Entrepôt Frigo</th>
                     <th className="text-center">Statut Quai</th>
-                    <th className="text-center">Action</th>
+                    <th className="text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100">
                   {filteredMovements.map(m => {
                     const rawPrd = products.find(p => p.id === m.productId || p.code === m.productCode);
+                    const purchaseInvoice = m.purchaseInvoiceId ? purchaseInvoices.find(p => p.id === m.purchaseInvoiceId) : null;
 
                     return (
-                      <tr key={m.id} className="hover:bg-blue-50/30 transition-colors">
+                      <tr key={m.id} className="hover:bg-gray-50/80 transition-colors">
                         
-                        {/* Date Column */}
-                        <td className="font-mono font-semibold text-gray-900 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                        {/* Date */}
+                        <td className="font-mono text-gray-800 whitespace-nowrap">
+                          <div className="flex items-center gap-1 font-semibold">
+                            <Calendar className="w-3 h-3 text-gray-400 shrink-0" />
                             <span>{m.date}</span>
                           </div>
                         </td>
 
-                        {/* Heure Column (Exact Hour) */}
-                        <td className="font-mono text-gray-700 whitespace-nowrap">
-                          <div className="flex items-center gap-1 bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-[11px] font-bold w-max">
+                        {/* Heure */}
+                        <td className="font-mono whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1 bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-[11px] font-bold">
                             <Clock className="w-3 h-3 text-[#0f62fe]" />
                             <span>{m.time}</span>
                           </div>
                         </td>
 
-                        {/* Type & Direction Badge */}
+                        {/* Movement Flow Type */}
                         <td>
                           {m.type === 'ENTRÉE_ACHAT' && (
                             <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-900 font-bold px-2.5 py-0.5 rounded text-[10px] border border-emerald-300 shadow-2xs">
@@ -755,14 +1012,25 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
 
                         {/* Document Reference */}
                         <td className="font-mono font-bold text-[#0f62fe] whitespace-nowrap">
-                          {m.documentRef}
+                          <div className="flex items-center gap-1">
+                            <span>{m.documentRef}</span>
+                            {purchaseInvoice && (
+                              <button
+                                onClick={() => setEditingPurchaseInvoice(purchaseInvoice)}
+                                className="p-0.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded"
+                                title="Modifier cette facture d'achat"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
                         </td>
 
                         {/* Product & SKU */}
                         <td>
                           <div className="font-bold text-gray-900 line-clamp-1">{m.productName}</div>
                           <div className="text-[10px] font-mono text-gray-500 flex items-center gap-1">
-                            <span className="text-[#0f62fe]">{m.productCode}</span>
+                            <span className="text-[#0f62fe] font-bold">{m.productCode}</span>
                             {m.productCategory && <span>• {m.productCategory}</span>}
                           </div>
                         </td>
@@ -815,18 +1083,32 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                           </div>
                         </td>
 
-                        {/* Action: Open History */}
-                        <td className="text-center">
-                          {rawPrd && (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedProductForHistory(rawPrd)}
-                              className="p-1 text-gray-400 hover:text-[#0f62fe] hover:bg-blue-50 rounded transition-colors"
-                              title="Historique chronologique de ce produit"
-                            >
-                              <History className="w-4 h-4" />
-                            </button>
-                          )}
+                        {/* Actions */}
+                        <td className="text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1">
+                            {purchaseInvoice && (
+                              <button
+                                type="button"
+                                onClick={() => setEditingPurchaseInvoice(purchaseInvoice)}
+                                className="px-2 py-1 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded text-[10px] font-bold flex items-center gap-1 transition"
+                                title="Modifier la facture d'achat / réception"
+                              >
+                                <Pencil className="w-3 h-3" />
+                                <span>Modifier</span>
+                              </button>
+                            )}
+
+                            {rawPrd && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedProductForHistory(rawPrd)}
+                                className="p-1 text-gray-400 hover:text-[#0f62fe] hover:bg-blue-50 rounded transition-colors"
+                                title="Historique chronologique de ce produit"
+                              >
+                                <History className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </td>
 
                       </tr>
@@ -841,7 +1123,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* 5. TAB 2 CONTENT: CUMUL & SITUATION PAR PRODUIT ("CUMULE EN PRODUITS")    */}
+      {/* 6. TAB 2 CONTENT: CUMUL & SITUATION PAR PRODUIT ("CUMULE EN PRODUITS")    */}
       {/* ========================================================================= */}
       {activeTab === 'CUMUL_PRODUCTS' && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden space-y-4 p-4">
@@ -858,93 +1140,104 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 bg-blue-50 border border-blue-200 text-[#0f62fe] rounded text-xs font-mono font-bold">
-                {filteredProductSummaries.length} Référence{filteredProductSummaries.length > 1 ? 's' : ''}
+              <span className="text-xs text-gray-500 font-mono">
+                {filteredProductSummaries.length} référence{filteredProductSummaries.length > 1 ? 's' : ''}
               </span>
             </div>
           </div>
 
-          <div className="overflow-x-auto border border-gray-200 rounded-lg">
+          <div className="overflow-x-auto">
             <table className="carbon-table text-xs">
               <thead>
                 <tr>
                   <th>Code SKU</th>
                   <th>Désignation Produit</th>
                   <th>Catégorie</th>
-                  <th className="text-right text-emerald-800 bg-emerald-50/50">Cumul Entrées (Kg)</th>
-                  <th className="text-right text-rose-800 bg-rose-50/50">Cumul Sorties (Kg)</th>
-                  <th className="text-right font-black text-blue-900 bg-blue-50/50">Stock Restant (Kg)</th>
+                  <th className="text-right">Cumul Entrées</th>
+                  <th className="text-right">Cumul Sorties</th>
+                  <th className="text-right">Stock Restant (Kg)</th>
                   <th className="text-right">Palettes</th>
                   <th className="text-right">Colis</th>
                   <th className="text-right">Prix Revient HT</th>
                   <th className="text-right">Valorisation Coût HT</th>
                   <th className="text-right">Valeur Vente HT</th>
-                  <th className="text-center">Dernier Flux</th>
+                  <th className="text-center">Dernier Mouvement</th>
                   <th className="text-center">Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100">
                 {filteredProductSummaries.map(p => {
-                  const rawPrd = products.find(prod => prod.id === p.productId);
-
+                  const rawPrd = products.find(prod => prod.id === p.productId || prod.code === p.productCode);
+                  
                   return (
-                    <tr key={p.productId} className="hover:bg-gray-50 transition-colors">
-                      {/* Code SKU */}
-                      <td className="font-mono font-bold text-[#0f62fe] whitespace-nowrap">
+                    <tr key={p.productId} className="hover:bg-gray-50/80 transition-colors">
+                      
+                      {/* SKU */}
+                      <td className="font-mono font-bold text-[#0f62fe]">
                         {p.productCode}
                       </td>
 
                       {/* Product Name */}
-                      <td className="font-bold text-gray-900">
-                        {p.productName}
+                      <td>
+                        <div className="font-bold text-gray-900 line-clamp-1">{p.productName}</div>
+                        <div className="text-[10px] text-gray-400 font-mono">{p.origin || 'Import'}</div>
                       </td>
 
                       {/* Category */}
-                      <td className="text-gray-500 whitespace-nowrap">
-                        {p.category}
+                      <td>
+                        <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-[10px] font-semibold">
+                          {p.category}
+                        </span>
                       </td>
 
-                      {/* Cumul Entrées Kg */}
-                      <td className="text-right font-mono font-bold text-emerald-700 bg-emerald-50/30">
-                        +{p.totalEntriesKg.toLocaleString()} Kg
-                        <div className="text-[10px] text-gray-400 font-normal">{p.entriesCount} réceptions</div>
+                      {/* Total Entries */}
+                      <td className="text-right font-mono font-bold text-emerald-700 whitespace-nowrap">
+                        <div>+{p.totalEntriesKg.toLocaleString()} Kg</div>
+                        <div className="text-[10px] text-gray-400 font-normal">
+                          {p.totalEntriesCartons.toLocaleString()} Colis ({p.entriesCount} réceptions)
+                        </div>
                       </td>
 
-                      {/* Cumul Sorties Kg */}
-                      <td className="text-right font-mono font-bold text-rose-700 bg-rose-50/30">
-                        -{p.totalExitsKg.toLocaleString()} Kg
-                        <div className="text-[10px] text-gray-400 font-normal">{p.exitsCount} BLs</div>
+                      {/* Total Exits */}
+                      <td className="text-right font-mono font-bold text-rose-700 whitespace-nowrap">
+                        <div>-{p.totalExitsKg.toLocaleString()} Kg</div>
+                        <div className="text-[10px] text-gray-400 font-normal">
+                          {p.totalExitsCartons.toLocaleString()} Colis ({p.exitsCount} BLs)
+                        </div>
                       </td>
 
-                      {/* Stock Restant Net Kg */}
-                      <td className="text-right font-mono font-black text-gray-900 bg-blue-50/30 text-sm">
-                        <span className={p.currentStockKg <= 0 ? 'text-red-600' : 'text-blue-900'}>
+                      {/* Current Stock Remaining */}
+                      <td className="text-right font-mono whitespace-nowrap">
+                        <span className={`font-black text-sm ${
+                          p.stockStatus === 'RUPTURE' ? 'text-red-600' :
+                          p.stockStatus === 'STOCK_FAIBLE' ? 'text-amber-600' : 'text-[#0f62fe]'
+                        }`}>
                           {p.currentStockKg.toLocaleString()} Kg
                         </span>
                       </td>
 
-                      {/* Palettes */}
-                      <td className="text-right font-mono font-semibold text-purple-700">
+                      {/* Pallets */}
+                      <td className="text-right font-mono font-bold text-purple-700">
                         {p.currentStockPallets} Pal.
                       </td>
 
-                      {/* Colis */}
-                      <td className="text-right font-mono text-gray-600">
+                      {/* Cartons */}
+                      <td className="text-right font-mono text-gray-700">
                         {p.currentStockCartons.toLocaleString()} Colis
                       </td>
 
-                      {/* Unit Cost */}
-                      <td className="text-right font-mono text-gray-600 whitespace-nowrap">
-                        {p.unitCostHT.toLocaleString()} DH/kg
+                      {/* Unit Cost HT */}
+                      <td className="text-right font-mono text-gray-800">
+                        {p.unitCostHT} DH
                       </td>
 
-                      {/* Cost Valuation */}
-                      <td className="text-right font-mono font-bold text-purple-700 whitespace-nowrap">
+                      {/* Valuation Cost HT */}
+                      <td className="text-right font-mono font-bold text-purple-800">
                         {p.totalValuationCostHT.toLocaleString()} DH
                       </td>
 
-                      {/* Sale Valuation */}
-                      <td className="text-right font-mono font-bold text-emerald-700 whitespace-nowrap">
+                      {/* Valuation Sale HT */}
+                      <td className="text-right font-mono font-bold text-emerald-800">
                         {p.totalValuationSaleHT.toLocaleString()} DH
                       </td>
 
@@ -952,8 +1245,10 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                       <td className="text-center font-mono text-[11px] whitespace-nowrap">
                         {p.lastMovementDate ? (
                           <div>
-                            <span className="font-semibold text-gray-800">{p.lastMovementDate}</span>
-                            <span className="text-gray-400 text-[10px] ml-1">({p.lastMovementTime})</span>
+                            <span className="text-gray-800 font-semibold">{p.lastMovementDate}</span>
+                            {p.lastMovementTime && (
+                              <span className="block text-[10px] text-[#0f62fe] font-bold">{p.lastMovementTime}</span>
+                            )}
                           </div>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -966,7 +1261,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                           <button
                             type="button"
                             onClick={() => setSelectedProductForHistory(rawPrd)}
-                            className="px-2.5 py-1 bg-blue-50 text-[#0f62fe] hover:bg-blue-100 border border-blue-200 rounded font-bold text-[11px] flex items-center gap-1 mx-auto transition"
+                            className="px-2.5 py-1 bg-blue-50 text-[#0f62fe] hover:bg-blue-100 border border-blue-200 rounded font-bold text-[11px] flex items-center gap-1 mx-auto transition cursor-pointer"
                             title="Voir l'historique chronologique complet"
                           >
                             <History className="w-3.5 h-3.5" />
@@ -1018,7 +1313,185 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* 6. TAB 3 CONTENT: ENTREPÔTS & CAPACITÉS (SUPERVISION DES SITES)           */}
+      {/* 7. TAB 3 CONTENT: FACTURES D'ENTRÉE & RÉCEPTIONS (MODIFIABLES & ACCESSIBLES) */}
+      {/* ========================================================================= */}
+      {activeTab === 'PURCHASE_INVOICES' && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden space-y-4 p-4">
+          
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+            <div>
+              <h3 className="font-bold text-sm text-gray-900 flex items-center gap-2">
+                <Ship className="w-4 h-4 text-emerald-600" />
+                <span>Factures d'Entrée & Réceptions Fournisseurs ({filteredPurchaseInvoices.length})</span>
+              </h3>
+              <p className="text-xs text-gray-500">
+                Arrivages conteneurs et factures d'achat injectées en stock dans {warehouseDisplayLabel} (Modifiables en 1 clic)
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 font-mono">
+                Total Factures : <b>{filteredPurchaseInvoices.reduce((sum, p) => sum + (p.totalLandedCostHT || 0), 0).toLocaleString()} DH</b>
+              </span>
+            </div>
+          </div>
+
+          {filteredPurchaseInvoices.length === 0 ? (
+            <div className="p-12 text-center text-gray-500 space-y-2">
+              <Ship className="w-10 h-10 text-gray-300 mx-auto" />
+              <p className="font-bold text-xs">Aucune facture d'achat / entrée trouvée pour ce filtre.</p>
+              <p className="text-[11px] text-gray-400">Sélectionnez "Tous les Frigos" ou modifiez votre recherche.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="carbon-table text-xs">
+                <thead>
+                  <tr>
+                    <th>Date d'Arrivée</th>
+                    <th>N° Facture / Conteneur</th>
+                    <th>Fournisseur</th>
+                    <th>Frigo de Réception</th>
+                    <th className="text-right">Colis Reçus</th>
+                    <th className="text-right">Poids Pesé (Kg)</th>
+                    <th className="text-right">Total Coût Revient HT</th>
+                    <th className="text-right">Réglé / Solde</th>
+                    <th className="text-center">Statut Paiement</th>
+                    <th className="text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredPurchaseInvoices.map(pur => {
+                    const targetFrigo = frigos.find(f => f.id === pur.targetFrigoId);
+                    const totalCartons = pur.items?.reduce((acc, i) => acc + (i.quantityCartons || 0), 0) || 0;
+                    const totalKg = pur.items?.reduce((acc, i) => acc + (i.quantityKg || 0), 0) || 0;
+                    const totalHT = pur.totalLandedCostHT || 0;
+                    const paid = pur.paidAmount || 0;
+                    const remaining = pur.remainingBalance !== undefined ? pur.remainingBalance : Math.max(0, totalHT - paid);
+                    const status = pur.paymentStatus || (remaining <= 0 ? 'PAYÉ' : paid > 0 ? 'PARTIEL' : 'NON_PAYÉ');
+
+                    return (
+                      <tr key={pur.id} className="hover:bg-gray-50/80 transition-colors">
+                        
+                        {/* Date Arrival */}
+                        <td className="font-mono text-gray-800 whitespace-nowrap">
+                          <div className="flex items-center gap-1 font-semibold">
+                            <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                            <span>{pur.dateArrival ? pur.dateArrival.slice(0, 10) : '-'}</span>
+                          </div>
+                        </td>
+
+                        {/* Invoice & Container */}
+                        <td className="font-mono font-bold text-[#0f62fe]">
+                          <div>{pur.invoiceNumber}</div>
+                          {pur.containerNumber && (
+                            <div className="text-[10px] text-gray-500 font-normal">
+                              Conteneur: {pur.containerNumber}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Supplier */}
+                        <td>
+                          <div className="font-bold text-gray-900">{pur.supplierName}</div>
+                          <div className="text-[10px] text-gray-500">{pur.isImport ? 'Importation' : 'Fournisseur Local'}</div>
+                        </td>
+
+                        {/* Target Frigo */}
+                        <td className="font-mono font-bold text-emerald-800">
+                          {targetFrigo?.name || 'Entrepôt Réception'}
+                        </td>
+
+                        {/* Total Cartons */}
+                        <td className="text-right font-mono font-bold text-blue-900">
+                          {totalCartons.toLocaleString()} Colis
+                        </td>
+
+                        {/* Total Kg */}
+                        <td className="text-right font-mono font-bold text-emerald-700">
+                          {totalKg.toLocaleString()} Kg
+                        </td>
+
+                        {/* Total Landed Cost HT */}
+                        <td className="text-right font-mono font-bold text-gray-900">
+                          {totalHT.toLocaleString()} DH
+                          <div className="text-[10px] text-gray-400 font-normal">
+                            Frais: {((pur.customsCostsHT || 0) + (pur.freightCostsHT || 0)).toLocaleString()} DH
+                          </div>
+                        </td>
+
+                        {/* Paid & Remaining */}
+                        <td className="text-right font-mono text-xs">
+                          <div className="text-emerald-700 font-semibold">Réglé: {paid.toLocaleString()} DH</div>
+                          <div className={`font-bold ${remaining > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                            Solde: {remaining.toLocaleString()} DH
+                          </div>
+                        </td>
+
+                        {/* Payment Status */}
+                        <td className="text-center">
+                          <span className={`text-[10px] px-2 py-0.5 font-mono font-bold rounded ${
+                            status === 'PAYÉ' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                            status === 'PARTIEL' ? 'bg-blue-100 text-blue-800 border border-blue-300' :
+                            'bg-red-100 text-red-800 border border-red-300'
+                          }`}>
+                            {status === 'PAYÉ' ? '✓ PAYÉ' : status === 'PARTIEL' ? 'PARTIEL' : 'NON PAYÉ'}
+                          </span>
+                        </td>
+
+                        {/* Action Buttons: Modifier, Régler, Supprimer */}
+                        <td className="text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1.5">
+                            
+                            {/* Modifier Button */}
+                            <button
+                              onClick={() => setEditingPurchaseInvoice(pur)}
+                              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] rounded flex items-center gap-1 shadow-xs transition cursor-pointer"
+                              title="Modifier cette facture d'achat / réception et ajuster le stock"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span>Modifier</span>
+                            </button>
+
+                            {/* Régler Button */}
+                            {status !== 'PAYÉ' && (
+                              <button
+                                onClick={() => setPaymentModalInvoice(pur)}
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded flex items-center gap-1 shadow-xs transition cursor-pointer"
+                                title="Enregistrer un règlement fournisseur"
+                              >
+                                <CreditCard className="w-3.5 h-3.5" />
+                                <span>Régler</span>
+                              </button>
+                            )}
+
+                            {/* Supprimer Button */}
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Êtes-vous sûr de vouloir supprimer la facture fournisseur N° ${pur.invoiceNumber} ? Le stock sera automatiquement déduit.`)) {
+                                  deletePurchaseInvoice(pur.id);
+                                }
+                              }}
+                              className="p-1 text-red-600 hover:bg-red-50 rounded border border-red-200 transition cursor-pointer"
+                              title="Supprimer cette facture"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 8. TAB 4 CONTENT: ENTREPÔTS & CAPACITÉS (SUPERVISION DES SITES)           */}
       {/* ========================================================================= */}
       {activeTab === 'WAREHOUSES' && (
         <div className="space-y-4">
@@ -1077,74 +1550,65 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
 
           {/* Frigo Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredFrigos.map(frigo => {
-              const { totalPallets, totalKg } = getFrigoStockStats(frigo.id);
-              const freePallets = Math.max(0, frigo.capacityPallets - totalPallets);
-              const occupationPercent = frigo.capacityPallets > 0 ? Math.round((totalPallets / frigo.capacityPallets) * 100) : 0;
+            {frigoStatsList.map(frigo => {
+              const freePallets = Math.max(0, (frigo.capacityPallets || 1000) - frigo.totalPallets);
 
               return (
                 <div 
-                  key={frigo.id} 
-                  className="bg-white border border-gray-200 rounded-xl shadow-xs hover:border-[#0f62fe] transition flex flex-col justify-between overflow-hidden"
+                  key={frigo.id}
+                  className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden hover:shadow-md transition-shadow flex flex-col justify-between"
                 >
-                  {/* Card Header */}
-                  <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                    <div className="flex items-start justify-between">
+                  <div className="p-4 space-y-3">
+                    
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-700 px-2 py-0.5 bg-blue-50 border border-blue-200 rounded">
-                          {frigo.code}
-                        </span>
-                        <h3 className="text-base font-bold text-gray-900 mt-1.5">{frigo.name}</h3>
-                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                          <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                          <span>{frigo.location}</span>
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleOpenEdit(frigo)}
-                          className="p-1.5 text-gray-400 hover:text-[#0f62fe] hover:bg-blue-50 rounded-lg transition"
-                          title="Modifier les infos"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteFrigo(frigo)}
-                          className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                          title="Supprimer le frigo"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Body & Capacity Gauge */}
-                  <div className="p-4 space-y-3 flex-1 text-xs text-gray-700">
-                    {/* Manager Contact */}
-                    <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-200 space-y-1">
-                      <div className="flex items-center justify-between text-[11px] font-semibold text-gray-800">
-                        <span className="flex items-center gap-1.5 text-gray-600">
-                          <UserCheck className="w-3.5 h-3.5 text-blue-600" />
-                          Responsable Quai:
-                        </span>
-                        <span className="font-bold text-gray-900">{frigo.managerName}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="flex items-center gap-1.5 text-gray-500">
-                          <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                          Téléphone:
-                        </span>
-                        <a href={`tel:${frigo.managerPhone}`} className="font-mono text-blue-700 hover:underline">
-                          {frigo.managerPhone}
-                        </a>
-                      </div>
-                      {frigo.whatsappGroupLink && (
-                        <div className="pt-1 border-t border-gray-200 flex items-center justify-between text-[11px]">
-                          <span className="flex items-center gap-1.5 text-emerald-700 font-medium">
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            Groupe WhatsApp:
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold px-2 py-0.5 bg-blue-50 text-[#0f62fe] border border-blue-200 rounded">
+                            {frigo.code}
                           </span>
+                          <h4 className="font-bold text-sm text-gray-900 line-clamp-1">{frigo.name}</h4>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                          <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                          <span>{frigo.location || 'Localisation non spécifiée'}</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleOpenEdit(frigo)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                        title="Modifier les informations du frigo"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Manager & WhatsApp info */}
+                    <div className="space-y-1.5 pt-1 text-xs text-gray-600 border-t border-gray-100">
+                      {frigo.managerName && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">Responsable Quai :</span>
+                          <span className="font-semibold text-gray-800">{frigo.managerName}</span>
+                        </div>
+                      )}
+
+                      {frigo.managerPhone && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">Téléphone :</span>
+                          <a 
+                            href={`tel:${frigo.managerPhone}`}
+                            className="font-mono text-[#0f62fe] hover:underline flex items-center gap-1"
+                          >
+                            <Phone className="w-3 h-3" />
+                            <span>{frigo.managerPhone}</span>
+                          </a>
+                        </div>
+                      )}
+
+                      {frigo.whatsappGroupLink && (
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-gray-500">Groupe Quai :</span>
                           <a 
                             href={frigo.whatsappGroupLink} 
                             target="_blank" 
@@ -1163,20 +1627,20 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-semibold text-gray-600">Occupation Palettes:</span>
                         <span className="font-bold text-gray-900">
-                          {totalPallets} / {frigo.capacityPallets} <span className="text-[10px] font-normal text-gray-500">({occupationPercent}%)</span>
+                          {frigo.totalPallets} / {frigo.capacityPallets} <span className="text-[10px] font-normal text-gray-500">({frigo.occPercent}%)</span>
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                         <div 
                           className={`h-2 rounded-full transition-all ${
-                            occupationPercent >= 90 ? 'bg-rose-500' : occupationPercent >= 75 ? 'bg-amber-500' : 'bg-emerald-500'
+                            frigo.occPercent >= 90 ? 'bg-rose-500' : frigo.occPercent >= 75 ? 'bg-amber-500' : 'bg-emerald-500'
                           }`}
-                          style={{ width: `${Math.min(100, occupationPercent)}%` }}
+                          style={{ width: `${Math.min(100, frigo.occPercent)}%` }}
                         />
                       </div>
                       <div className="flex items-center justify-between text-[11px] text-gray-500 pt-0.5">
                         <span>Disponibles: <b>{freePallets} Pal.</b></span>
-                        <span>Poids total: <b>{(totalKg / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} T</b></span>
+                        <span>Poids total: <b>{(frigo.totalKg / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} T</b></span>
                       </div>
                     </div>
                   </div>
@@ -1191,7 +1655,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                           setSelectedFrigoDetailId(frigo.id);
                         }
                       }}
-                      className="flex-1 text-center text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 py-1.5 rounded-lg transition flex items-center justify-center gap-1"
+                      className="flex-1 text-center text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 py-1.5 rounded-lg transition flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <Package className="w-3.5 h-3.5" />
                       <span>Fiche Détail</span>
@@ -1202,7 +1666,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                         setSelectedFrigoId(frigo.id);
                         setActiveTab('MOVEMENTS');
                       }}
-                      className="flex-1 text-center text-xs font-bold text-white bg-[#0f62fe] hover:bg-blue-700 py-1.5 rounded-lg transition flex items-center justify-center gap-1 shadow-xs"
+                      className="flex-1 text-center text-xs font-bold text-white bg-[#0f62fe] hover:bg-blue-700 py-1.5 rounded-lg transition flex items-center justify-center gap-1 shadow-xs cursor-pointer"
                     >
                       <ArrowLeftRight className="w-3.5 h-3.5" />
                       <span>Voir Flux</span>
@@ -1210,7 +1674,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
 
                     <button
                       onClick={() => handleClearFrigoStock(frigo)}
-                      className="text-center text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 py-1.5 px-2.5 rounded-lg transition flex items-center justify-center gap-1"
+                      className="text-center text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 py-1.5 px-2.5 rounded-lg transition flex items-center justify-center gap-1 cursor-pointer"
                       title="Vider tous les stocks de cet entrepôt (0 Kg)"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -1227,8 +1691,10 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* 7. MODALS (Add/Edit Frigo, History Modal, Transfer Modal)                  */}
+      {/* 9. MODALS (Add/Edit Frigo, Edit Purchase, Supplier Payment, History)       */}
       {/* ========================================================================= */}
+      
+      {/* Add / Edit Frigo Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl border border-gray-300 shadow-2xl max-w-lg w-full overflow-hidden">
@@ -1239,7 +1705,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
               </h3>
               <button 
                 onClick={() => setShowAddModal(false)}
-                className="text-gray-400 hover:text-gray-600 font-bold text-lg"
+                className="text-gray-400 hover:text-gray-600 font-bold text-lg cursor-pointer"
               >
                 ×
               </button>
@@ -1336,13 +1802,13 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 font-semibold"
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 font-semibold cursor-pointer"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0f62fe] text-white rounded-lg font-semibold hover:bg-blue-700 shadow-sm"
+                  className="px-4 py-2 bg-[#0f62fe] text-white rounded-lg font-semibold hover:bg-blue-700 shadow-sm cursor-pointer"
                 >
                   {editingFrigo ? 'Enregistrer les Modifications' : 'Créer le Frigo'}
                 </button>
@@ -1350,6 +1816,22 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Edit Purchase / Entry Invoice Modal */}
+      {editingPurchaseInvoice && (
+        <EditPurchaseInvoiceModal
+          invoice={editingPurchaseInvoice}
+          onClose={() => setEditingPurchaseInvoice(null)}
+        />
+      )}
+
+      {/* Supplier Payment Modal */}
+      {paymentModalInvoice && (
+        <SupplierPaymentModal
+          invoice={paymentModalInvoice}
+          onClose={() => setPaymentModalInvoice(null)}
+        />
       )}
 
       {/* Inter-Frigo Stock Transfer Modal */}

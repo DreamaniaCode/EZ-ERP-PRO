@@ -4,6 +4,8 @@ import { Product } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
 import { ProductKpiCardsSection } from './ProductKpiCardsSection';
 import { ProductStockHistoryModal } from './ProductStockHistoryModal';
+import { EditPurchaseInvoiceModal } from '../purchases/EditPurchaseInvoiceModal';
+import { PurchaseImportInvoice } from '../../types';
 import { 
   compileUnifiedFrigoMovements, 
   calculateProductAccumulation 
@@ -26,7 +28,8 @@ import {
   ArrowUpRight,
   Boxes,
   History,
-  RotateCcw
+  RotateCcw,
+  Pencil
 } from 'lucide-react';
 
 interface FrigoDetailPageProps {
@@ -48,6 +51,7 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
 
   const [selectedProductId, setSelectedProductId] = useState<string | 'ALL'>('ALL');
   const [selectedProductForHistory, setSelectedProductForHistory] = useState<Product | null>(null);
+  const [editingPurchaseInvoice, setEditingPurchaseInvoice] = useState<PurchaseImportInvoice | null>(null);
 
   const frigo = frigos.find(f => f.id === frigoId) || frigos[0];
 
@@ -399,7 +403,22 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
                     </td>
 
                     <td className="font-mono font-bold text-[#0f62fe] whitespace-nowrap">
-                      {m.documentRef}
+                      <div className="flex items-center gap-1.5">
+                        <span>{m.documentRef}</span>
+                        {m.purchaseInvoiceId && (
+                          <button
+                            onClick={() => {
+                              const pur = purchaseInvoices.find(p => p.id === m.purchaseInvoiceId);
+                              if (pur) setEditingPurchaseInvoice(pur);
+                            }}
+                            className="px-1.5 py-0.5 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded text-[10px] font-bold flex items-center gap-0.5 transition cursor-pointer"
+                            title="Modifier cette facture d'achat"
+                          >
+                            <Pencil className="w-2.5 h-2.5" />
+                            <span>Modifier</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
 
                     <td>
@@ -489,6 +508,14 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
           product={selectedProductForHistory}
           isOpen={!!selectedProductForHistory}
           onClose={() => setSelectedProductForHistory(null)}
+        />
+      )}
+
+      {/* Edit Purchase Invoice Modal */}
+      {editingPurchaseInvoice && (
+        <EditPurchaseInvoiceModal
+          invoice={editingPurchaseInvoice}
+          onClose={() => setEditingPurchaseInvoice(null)}
         />
       )}
 

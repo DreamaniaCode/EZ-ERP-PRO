@@ -3,12 +3,13 @@ import { useERP } from '../../context/ERPContext';
 import { PurchaseImportInvoice } from '../../types';
 import { QuickProductModal } from '../stock/QuickProductModal';
 import { SupplierPaymentModal } from './SupplierPaymentModal';
-import { Ship, Plus, Search, Package, CheckCircle, ChevronDown, ChevronUp, Trash2, CreditCard, DollarSign, Filter, RefreshCw } from 'lucide-react';
+import { Ship, Plus, Search, Package, CheckCircle, ChevronDown, ChevronUp, Trash2, CreditCard, DollarSign, Filter, RefreshCw, Pencil, Edit3, X, Save } from 'lucide-react';
 
 export const ImportInvoiceEntry: React.FC = () => {
-  const { suppliers, products, frigos, purchaseInvoices, createPurchaseInvoice, deletePurchaseInvoice } = useERP();
+  const { suppliers, products, frigos, purchaseInvoices, createPurchaseInvoice, updatePurchaseInvoice, deletePurchaseInvoice } = useERP();
 
   const [showAddForm, setShowAddForm] = useState(true);
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [showQuickProductModal, setShowQuickProductModal] = useState(false);
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
   const [paymentModalInvoice, setPaymentModalInvoice] = useState<PurchaseImportInvoice | null>(null);
@@ -115,6 +116,52 @@ export const ImportInvoiceEntry: React.FC = () => {
     }));
   };
 
+  const handleStartEdit = (invoice: PurchaseImportInvoice) => {
+    setEditingInvoiceId(invoice.id);
+    setSelectedSupplierId(invoice.supplierId);
+    setInvoiceNumber(invoice.invoiceNumber);
+    setContainerNumber(invoice.containerNumber || '');
+    setTargetFrigoId(invoice.targetFrigoId);
+    setDateArrival(invoice.dateArrival ? invoice.dateArrival.slice(0, 10) : new Date().toISOString().slice(0, 10));
+    setIsImport(!!invoice.isImport);
+    setCustomsCostsHT(invoice.customsCostsHT || 0);
+    setFreightCostsHT(invoice.freightCostsHT || 0);
+
+    if (invoice.items && invoice.items.length > 0) {
+      setPurchaseItems(invoice.items.map(it => ({
+        productId: it.productId,
+        quantityCartons: it.quantityCartons !== undefined ? it.quantityCartons : '',
+        theoreticalKg: it.theoreticalKg || it.quantityKg,
+        weighedKg: it.weighedKg !== undefined ? it.weighedKg : it.quantityKg,
+        quantityKg: it.quantityKg,
+        quantityPallets: it.quantityPallets || 1,
+        purchaseUnitPriceHT: it.purchaseUnitPriceHT !== undefined ? it.purchaseUnitPriceHT : ''
+      })));
+    }
+    setShowAddForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingInvoiceId(null);
+    setInvoiceNumber('');
+    setContainerNumber('');
+    setCustomsCostsHT(0);
+    setFreightCostsHT(0);
+    const defaultPrd = products[0];
+    setPurchaseItems([
+      {
+        productId: defaultPrd ? defaultPrd.id : '',
+        quantityCartons: '',
+        theoreticalKg: 0,
+        weighedKg: '',
+        quantityKg: 0,
+        quantityPallets: 0,
+        purchaseUnitPriceHT: '',
+      }
+    ]);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const supplier = suppliers.find(s => s.id === selectedSupplierId);
@@ -162,6 +209,27 @@ export const ImportInvoiceEntry: React.FC = () => {
       };
     });
 
+    if (editingInvoiceId) {
+      updatePurchaseInvoice(editingInvoiceId, {
+        invoiceNumber,
+        supplierId: supplier.id,
+        supplierName: supplier.companyName || supplier.name,
+        dateArrival,
+        targetFrigoId,
+        isImport,
+        containerNumber,
+        customsCostsHT: customs,
+        freightCostsHT: freight,
+        totalProductsHT,
+        totalLandedCostHT,
+        items,
+      });
+
+      alert(`Facture Achat N° ${invoiceNumber} MODIFIÉE avec succès ! Les stocks et prix de revient ont été mis à jour.`);
+      handleCancelEdit();
+      return;
+    }
+
     createPurchaseInvoice({
       invoiceNumber,
       supplierId: supplier.id,
@@ -181,8 +249,7 @@ export const ImportInvoiceEntry: React.FC = () => {
     alert(`Facture Achat N° ${invoiceNumber} enregistrée avec succès ! Le stock a été directement injecté dans le frigo.`);
     
     // Reset form
-    setInvoiceNumber('');
-    setContainerNumber('');
+    handleCancelEdit();
   };
 
   return (
@@ -193,21 +260,39 @@ export const ImportInvoiceEntry: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold font-mono uppercase tracking-wide flex items-center gap-2">
             <Ship className="w-5 h-5 text-[#0f62fe]" />
-            Saisie des Factures d'Achat & Entrées en Frigo
+            {editingInvoiceId ? 'Modification Facture Achat / Entrée' : "Saisie des Factures d'Achat & Entrées en Frigo"}
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            Réception en Cartons/Colis & Pesée Frigo • Calcul du Prix de Revient (Landed Cost)
+            {editingInvoiceId 
+              ? `Modification en cours de la facture d'achat N° ${invoiceNumber}` 
+              : 'Réception en Cartons/Colis & Pesée Frigo • Calcul du Prix de Revient (Landed Cost)'}
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowAddForm(prev => !prev)}
-          className="carbon-btn-primary text-xs flex items-center gap-1.5 rounded"
-        >
-          <Plus className="w-4 h-4" />
-          {showAddForm ? 'Masquer le Formulaire' : 'Nouveau Bon / Arrivée Achat'}
-        </button>
+        <div className="flex items-center gap-2">
+          {editingInvoiceId && (
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded flex items-center gap-1"
+            >
+              <X className="w-4 h-4" />
+              Annuler Modification
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              if (editingInvoiceId) handleCancelEdit();
+              setShowAddForm(prev => !prev);
+            }}
+            className="carbon-btn-primary text-xs flex items-center gap-1.5 rounded"
+          >
+            <Plus className="w-4 h-4" />
+            {showAddForm ? (editingInvoiceId ? 'Fermer la Modification' : 'Masquer le Formulaire') : 'Nouveau Bon / Arrivée Achat'}
+          </button>
+        </div>
       </div>
 
       {/* Main Form Section - Styled exactly as requested */}
@@ -438,17 +523,29 @@ export const ImportInvoiceEntry: React.FC = () => {
             <div className="pt-4 border-t border-gray-200 flex justify-end gap-3 items-center">
               <button
                 type="button"
-                onClick={() => setShowAddForm(false)}
+                onClick={() => {
+                  if (editingInvoiceId) handleCancelEdit();
+                  setShowAddForm(false);
+                }}
                 className="px-5 py-2 border border-gray-400 hover:bg-gray-100 text-xs font-bold text-gray-700 rounded-md"
               >
-                Annuler
+                {editingInvoiceId ? 'Annuler la modification' : 'Fermer'}
               </button>
               <button
                 type="submit"
-                className="px-6 py-2.5 bg-[#0f62fe] hover:bg-blue-700 text-white text-xs font-black rounded-md flex items-center gap-2 shadow-md transition-all"
+                className={`px-6 py-2.5 ${editingInvoiceId ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#0f62fe] hover:bg-blue-700'} text-white text-xs font-black rounded-md flex items-center gap-2 shadow-md transition-all`}
               >
-                <CheckCircle className="w-4 h-4" />
-                Enregistrer & Alimenter le Frigo
+                {editingInvoiceId ? (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Enregistrer les Modifications
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Enregistrer & Alimenter le Frigo
+                  </>
+                )}
               </button>
             </div>
 
@@ -588,6 +685,15 @@ export const ImportInvoiceEntry: React.FC = () => {
                                 <CreditCard className="w-3.5 h-3.5" /> Régler
                               </button>
                             )}
+
+                            <button
+                              onClick={() => handleStartEdit(pur)}
+                              className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold rounded flex items-center gap-1 shadow-sm transition-colors"
+                              title="Modifier cette facture d'achat / entrée"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              Modifier
+                            </button>
 
                             <button
                               onClick={() => setExpandedInvoiceId(isExpanded ? null : pur.id)}
