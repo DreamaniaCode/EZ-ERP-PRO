@@ -85,12 +85,13 @@ const BackupRestore = safeLazy(() => import('./components/settings/BackupRestore
 const BLSignaturePage = safeLazy(() => import('./components/sales/BLSignaturePage').then(m => ({ default: m.BLSignaturePage })));
 const BLPdfPage = safeLazy(() => import('./components/sales/BLPdfPage').then(m => ({ default: m.BLPdfPage })));
 const FrigoOperationsPage = safeLazy(() => import('./components/stock/FrigoOperationsPage').then(m => ({ default: m.FrigoOperationsPage })));
+const ProductStockHistoryPage = safeLazy(() => import('./components/stock/ProductStockHistoryPage').then(m => ({ default: m.ProductStockHistoryPage })));
 
 // Extended NavTab type with edit sub-views
 export type ExtendedNavTab = NavTab | 
   'PRODUCT_EDIT' | 'CLIENT_EDIT' | 'SUPPLIER_EDIT' | 'FRIGO_EDIT' |
   'BL_EDIT' | 'ORDER_EDIT' | 'EXPENSE_EDIT' | 'CHEQUE_EDIT' |
-  'USERS' | 'IMPORT_BL' | 'BACKUP' | 'BL_SIGN' | 'BL_PDF' | 'FRIGO_OPS';
+  'USERS' | 'IMPORT_BL' | 'BACKUP' | 'BL_SIGN' | 'BL_PDF' | 'FRIGO_OPS' | 'PRODUCT_HISTORY';
 
 function LoadingSpinner() {
   return (
@@ -254,6 +255,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
         return true;
       case 'PRODUCTS_STOCK':
       case 'PRODUCT_EDIT':
+      case 'PRODUCT_HISTORY':
       case 'DELIVERY_NOTES':
       case 'BL_EDIT':
       case 'BL_SIGN':
@@ -348,6 +350,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
             onViewBLPdf={(id) => navigateToEdit('BL_PDF', id)}
             onEditClient={(id) => navigateToEdit('CLIENT_EDIT', id)}
             onEditProduct={(id) => navigateToEdit('PRODUCT_EDIT', id)}
+            onViewProductHistory={(id) => navigateToEdit('PRODUCT_HISTORY', id)}
             onEditFrigo={(id) => navigateToEdit('FRIGO_EDIT', id)}
             onEditOrder={(id) => navigateToEdit('ORDER_EDIT', id)}
             onEditCheque={(id) => navigateToEdit('CHEQUE_EDIT', id)}
@@ -359,7 +362,22 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
           />
         );
       case 'PRODUCTS_STOCK':
-        return <ProductsList onEditProduct={(id) => navigateToEdit('PRODUCT_EDIT', id)} onNewProduct={() => navigateToEdit('PRODUCT_EDIT', null)} />;
+        return (
+          <ProductsList 
+            onEditProduct={(id) => navigateToEdit('PRODUCT_EDIT', id)} 
+            onNewProduct={() => navigateToEdit('PRODUCT_EDIT', null)} 
+            onViewProductHistory={(id) => navigateToEdit('PRODUCT_HISTORY', id)}
+          />
+        );
+      case 'PRODUCT_HISTORY':
+        return (
+          <ProductStockHistoryPage 
+            productId={editingEntityId} 
+            onBack={navigateBack} 
+            onNavigateToBL={(blId) => navigateToEdit('BL_PDF', blId)}
+            onSelectProduct={(id) => setEditingEntityId(id)}
+          />
+        );
       case 'DELIVERY_NOTES':
         return (
           <DeliveryNotesBL 
@@ -394,6 +412,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
             onEditFrigo={(id) => navigateToEdit('FRIGO_EDIT', id)} 
             onNewFrigo={() => navigateToEdit('FRIGO_EDIT', null)} 
             initialFrigoId={editingEntityId}
+            onViewProductHistory={(id) => navigateToEdit('PRODUCT_HISTORY', id)}
           />
         );
 

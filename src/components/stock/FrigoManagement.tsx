@@ -57,13 +57,15 @@ interface FrigoManagementProps {
   onEditFrigo?: (id: string) => void;
   onNewFrigo?: () => void;
   onViewFrigoDetail?: (id: string) => void;
+  onViewProductHistory?: (productId: string) => void;
   initialFrigoId?: string | null;
 }
 
 export const FrigoManagement: React.FC<FrigoManagementProps> = ({ 
   onEditFrigo, 
   onNewFrigo, 
-  onViewFrigoDetail, 
+  onViewFrigoDetail,
+  onViewProductHistory, 
   initialFrigoId 
 }) => {
   const { 
@@ -457,6 +459,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
       <FrigoDetailPage
         frigoId={selectedFrigoDetailId}
         onBack={() => setSelectedFrigoDetailId(null)}
+        onViewProductHistory={onViewProductHistory}
       />
     );
   }
@@ -699,7 +702,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
         productSummaries={productSummaries}
         selectedProductId={selectedProductId}
         onSelectProduct={(pId) => setSelectedProductId(pId)}
-        onOpenProductHistory={(prd) => setSelectedProductForHistory(prd)}
+        onOpenProductHistory={(prd) => onViewProductHistory ? onViewProductHistory(prd.id) : setSelectedProductForHistory(prd)}
         products={products}
         warehouseName={warehouseDisplayLabel}
       />
@@ -1112,8 +1115,8 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                             {rawPrd && (
                               <button
                                 type="button"
-                                onClick={() => setSelectedProductForHistory(rawPrd)}
-                                className="p-1 text-gray-400 hover:text-[#0f62fe] hover:bg-blue-50 rounded transition-colors"
+                                onClick={() => onViewProductHistory ? onViewProductHistory(rawPrd.id) : setSelectedProductForHistory(rawPrd)}
+                                className="p-1 text-gray-400 hover:text-[#0f62fe] hover:bg-blue-50 rounded transition-colors cursor-pointer"
                                 title="Historique chronologique de ce produit"
                               >
                                 <History className="w-4 h-4" />
@@ -1271,7 +1274,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                         {rawPrd && (
                           <button
                             type="button"
-                            onClick={() => setSelectedProductForHistory(rawPrd)}
+                            onClick={() => onViewProductHistory ? onViewProductHistory(rawPrd.id) : setSelectedProductForHistory(rawPrd)}
                             className="px-2.5 py-1 bg-blue-50 text-[#0f62fe] hover:bg-blue-100 border border-blue-200 rounded font-bold text-[11px] flex items-center gap-1 mx-auto transition cursor-pointer"
                             title="Voir l'historique chronologique complet"
                           >

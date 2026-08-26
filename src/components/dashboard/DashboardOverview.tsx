@@ -46,6 +46,7 @@ interface DashboardOverviewProps {
   onViewBLPdf?: (blId: string) => void;
   onEditClient?: (clientId: string) => void;
   onEditProduct?: (productId: string) => void;
+  onViewProductHistory?: (productId: string) => void;
   onEditFrigo?: (frigoId: string) => void;
   onEditOrder?: (orderId: string) => void;
   onEditCheque?: (chequeId: string) => void;
@@ -58,6 +59,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onViewBLPdf,
   onEditClient,
   onEditProduct,
+  onViewProductHistory,
   onEditFrigo,
   onEditOrder,
   onEditCheque
@@ -998,7 +1000,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                       <td className="font-mono font-bold text-[#0f62fe]">
                         <button
                           type="button"
-                          onClick={() => setSelectedProductForHistory(prd)}
+                          onClick={() => onViewProductHistory ? onViewProductHistory(prd.id) : setSelectedProductForHistory(prd)}
                           className="hover:underline text-left cursor-pointer flex items-center gap-1 text-[#0f62fe]"
                           title="Cliquer pour voir l'historique détaillé des mouvements du produit"
                         >
@@ -1012,6 +1014,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                           onClick={() => {
                             if (onEditProduct) {
                               onEditProduct(prd.id);
+                            } else if (onViewProductHistory) {
+                              onViewProductHistory(prd.id);
                             } else {
                               setSelectedProductForHistory(prd);
                             }
@@ -1037,7 +1041,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                       <td className="font-mono">
                         <button
                           type="button"
-                          onClick={() => setSelectedProductForHistory(prd)}
+                          onClick={() => onViewProductHistory ? onViewProductHistory(prd.id) : setSelectedProductForHistory(prd)}
                           className={`font-bold hover:underline cursor-pointer ${isLowStock ? 'text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200' : 'text-gray-900'}`}
                           title="Voir le détail du stock par frigo"
                         >
@@ -1047,8 +1051,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                       <td className="text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => setSelectedProductForHistory(prd)}
-                            className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-[10px] font-sans font-semibold"
+                            onClick={() => onViewProductHistory ? onViewProductHistory(prd.id) : setSelectedProductForHistory(prd)}
+                            className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-[10px] font-sans font-semibold cursor-pointer"
                             title="Historique des mouvements"
                           >
                             Historique

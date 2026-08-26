@@ -35,9 +35,10 @@ import {
 interface FrigoDetailPageProps {
   frigoId: string;
   onBack: () => void;
+  onViewProductHistory?: (productId: string) => void;
 }
 
-export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBack }) => {
+export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBack, onViewProductHistory }) => {
   const { 
     frigos, 
     stocks, 
@@ -239,7 +240,7 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
         productSummaries={productSummaries}
         selectedProductId={selectedProductId}
         onSelectProduct={(pId) => setSelectedProductId(pId)}
-        onOpenProductHistory={(prd) => setSelectedProductForHistory(prd)}
+        onOpenProductHistory={(prd) => onViewProductHistory ? onViewProductHistory(prd.id) : setSelectedProductForHistory(prd)}
         products={products}
         warehouseName={frigo.name}
       />
@@ -316,8 +317,8 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
                         {rawPrd && (
                           <button
                             type="button"
-                            onClick={() => setSelectedProductForHistory(rawPrd)}
-                            className="p-1 text-gray-400 hover:text-[#0f62fe] hover:bg-blue-50 rounded transition-colors"
+                            onClick={() => onViewProductHistory ? onViewProductHistory(rawPrd.id) : setSelectedProductForHistory(rawPrd)}
+                            className="p-1 text-gray-400 hover:text-[#0f62fe] hover:bg-blue-50 rounded transition-colors cursor-pointer"
                             title="Historique chronologique"
                           >
                             <History className="w-4 h-4" />

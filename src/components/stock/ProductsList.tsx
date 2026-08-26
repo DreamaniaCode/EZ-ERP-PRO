@@ -35,9 +35,10 @@ import {
 interface ProductsListProps {
   onEditProduct?: (id: string) => void;
   onNewProduct?: () => void;
+  onViewProductHistory?: (id: string) => void;
 }
 
-export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNewProduct }) => {
+export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNewProduct, onViewProductHistory }) => {
   const { t } = useTranslation();
   const { 
     currentUser,
@@ -770,7 +771,7 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
                         {/* History Button */}
                         {rawProduct && (
                           <button
-                            onClick={() => setSelectedHistoryProduct(rawProduct)}
+                            onClick={() => onViewProductHistory ? onViewProductHistory(rawProduct.id) : setSelectedHistoryProduct(rawProduct)}
                             title="Historique chronologique des mouvements (Achats, BLs, etc.)"
                             className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
                           >
@@ -925,7 +926,7 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
                 <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
                   {rawProduct && (
                     <button
-                      onClick={() => setSelectedHistoryProduct(rawProduct)}
+                      onClick={() => onViewProductHistory ? onViewProductHistory(rawProduct.id) : setSelectedHistoryProduct(rawProduct)}
                       className="flex-1 py-2 bg-blue-50 hover:bg-blue-100 text-[#0f62fe] border border-blue-200 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer touch-manipulation"
                     >
                       <History className="w-4 h-4" />
