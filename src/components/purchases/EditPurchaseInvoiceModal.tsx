@@ -3,6 +3,7 @@ import { PurchaseImportInvoice } from '../../types';
 import { useERP } from '../../context/ERPContext';
 import { Ship, X, Plus, Trash2, CheckCircle, Save, Package, Building2, Calendar, FileText, RefreshCw } from 'lucide-react';
 import { generateAutoSupplierInvoiceNumber } from '../../utils/supplierInvoiceHelper';
+import { SearchableProductSelect } from '../common/SearchableProductSelect';
 
 interface EditPurchaseInvoiceModalProps {
   invoice: PurchaseImportInvoice;
@@ -389,18 +390,15 @@ export const EditPurchaseInvoiceModal: React.FC<EditPurchaseInvoiceModalProps> =
                     
                     {/* Product Selector */}
                     <div className="sm:col-span-4">
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">
-                        PRODUIT
+                      <label className="block text-[10px] font-bold text-gray-700 uppercase mb-0.5">
+                        PRODUIT (RECHERCHE PAR CODE / NOM) *
                       </label>
-                      <select
+                      <SearchableProductSelect
+                        products={products}
                         value={item.productId}
-                        onChange={e => handleItemChange(idx, 'productId', e.target.value)}
-                        className="w-full carbon-input text-xs font-bold bg-white border-gray-300 h-9"
-                      >
-                        {products.map(p => (
-                          <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
-                        ))}
-                      </select>
+                        onChange={newPrdId => handleItemChange(idx, 'productId', newPrdId)}
+                        placeholder="Rechercher produit..."
+                      />
                     </div>
 
                     {/* Quantity Cartons */}

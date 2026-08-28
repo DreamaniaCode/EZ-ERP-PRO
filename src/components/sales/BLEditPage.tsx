@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
 import { ArrowLeft, Save, X, Plus, Trash2, RefreshCw, Sparkles, Truck } from 'lucide-react';
 import { QuickProductModal } from '../stock/QuickProductModal';
+import { SearchableProductSelect } from '../common/SearchableProductSelect';
 import { generateWhatsAppBLLink } from '../../utils/whatsappUtils';
 import { useToast } from '../common/CarbonToastContainer';
 
@@ -446,23 +447,15 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
 
                     return (
                       <tr key={item.id || index} className={!isStockOk ? 'bg-red-50/70' : ''}>
-                        <td>
-                          <select
+                        <td className="min-w-[240px]">
+                          <SearchableProductSelect
+                            products={products || []}
                             value={item.productId}
-                            onChange={(e) => handleItemChange(index, 'productId', e.target.value)}
-                            className="w-full border border-[#e0e0e0] rounded p-1.5 text-xs font-medium focus:ring-1 focus:ring-[#0f62fe]"
-                          >
-                            <option value="">-- Sélectionner Produit --</option>
-                            {products?.map((p: any) => {
-                              const pStk = stocks?.find(s => s.frigoId === frigoId && s.productId === p.id);
-                              const pKg = pStk ? pStk.quantityKg : 0;
-                              return (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} — [Stock: {pKg.toLocaleString()} Kg | {p.kgPerCarton || 10} kg/carton] ({p.sellingPriceHT} DH/kg)
-                                </option>
-                              );
-                            })}
-                          </select>
+                            onChange={(newPrdId) => handleItemChange(index, 'productId', newPrdId)}
+                            stocks={stocks}
+                            frigoId={frigoId}
+                            placeholder="Rechercher produit..."
+                          />
                         </td>
 
                         <td>

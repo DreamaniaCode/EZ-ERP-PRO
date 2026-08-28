@@ -3,11 +3,15 @@ import { useERP } from '../../context/ERPContext';
 import { PurchaseImportInvoice } from '../../types';
 import { QuickProductModal } from '../stock/QuickProductModal';
 import { SupplierPaymentModal } from './SupplierPaymentModal';
-import { Ship, Plus, Search, Package, CheckCircle, ChevronDown, ChevronUp, Trash2, CreditCard, DollarSign, Filter, RefreshCw, Pencil, Edit3, X, Save, Sparkles } from 'lucide-react';
+import { SearchableProductSelect } from '../common/SearchableProductSelect';
+import { ExportButtons } from '../common/ExportButtons';
+import { generateAndDownloadPurchaseInvoicePdf } from '../../utils/pdfGenerators';
+import { exportToExcel } from '../../utils/exportUtils';
+import { Ship, Plus, Search, Package, CheckCircle, ChevronDown, ChevronUp, Trash2, CreditCard, DollarSign, Filter, RefreshCw, Pencil, Edit3, X, Save, Sparkles, FileText, FileSpreadsheet, Download } from 'lucide-react';
 import { generateAutoSupplierInvoiceNumber } from '../../utils/supplierInvoiceHelper';
 
 export const ImportInvoiceEntry: React.FC = () => {
-  const { suppliers, products, frigos, purchaseInvoices, createPurchaseInvoice, updatePurchaseInvoice, deletePurchaseInvoice } = useERP();
+  const { company, suppliers, products, frigos, purchaseInvoices, createPurchaseInvoice, updatePurchaseInvoice, deletePurchaseInvoice } = useERP();
 
   const [showAddForm, setShowAddForm] = useState(true);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
@@ -265,6 +269,80 @@ export const ImportInvoiceEntry: React.FC = () => {
     handleCancelEdit();
   };
 
+  const handleExportSingleInvoiceExcel = (pur: PurchaseImportInvoice) => {
+    const frigoObj = frigos.find(f => f.id === pur.targetFrigoId);
+    const rows = pur.items.map((it, idx) => ({
+      'Ligne': idx + 1,
+      'N° Facture Fournisseur': pur.invoiceNumber,
+      'Fournisseur': pur.supplierName,
+      'Date Réception': pur.dateArrival,
+      'N° Conteneur': pur.containerNumber || '-',
+      'Frigo Destination': frigoObj?.name || pur.targetFrigoId,
+      'Code SKU': it.productCode,
+      'Désignation Produit': it.productName,
+      'Cartons / Colis': it.quantityCartons || 0,
+      'Poids Pesé (Kg)': it.quantityKg,
+      'Prix Achat HT (DH/Kg)': it.purchaseUnitPriceHT,
+      'Coût Revient HT (DH/Kg)': it.landedCostPerKgHT || it.purchaseUnitPriceHT,
+      'Total Ligne HT (DH)': it.totalHT,
+      'Frais Douane Total (DH)': pur.customsCostsHT,
+      'Frais Fret Total (DH)': pur.freightCostsHT,
+      'Coût Global Facture HT (DH)': pur.totalLandedCostHT,
+      'Montant Réglé (DH)': pur.paidAmount || 0,
+      'Solde Restant (DH)': pur.remainingBalance || 0,
+      'Statut Paiement': pur.paymentStatus || 'NON_PAYÉ'
+    }));
+
+    exportToExcel(rows, `Facture_Achat_${pur.invoiceNumber}_${pur.supplierName}`, {
+      title: `FACTURE D'ACHAT & ENTRÉE STOCK - N° ${pur.invoiceNumber}`,
+      frigoName: frigoObj?.name,
+      includeTotals: true,
+      sheetName: `Facture ${pur.invoiceNumber.slice(0, 20)}`
+    });
+  };
+
+  const handleDownloadInvoicePdf = (pur: PurchaseImportInvoice) => {
+    const frigoObj = frigos.find(f => f.id === pur.targetFrigoId);
+    generateAndDownloadPurchaseInvoicePdf({ ...pur, frigoName: frigoObj?.name }, company);
+  };
+
+  const exportAllInvoicesData = purchaseInvoices
+    .filter(pur => {
+      const matchesSearch = (pur.invoiceNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (pur.supplierName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (pur.containerNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'ALL' || pur.paymentStatus === statusFilter;
+      const matchesSupplier = supplierFilter === 'ALL' || pur.supplierId === supplierFilter;
+      return matchesSearch && matchesStatus && matchesSupplier;
+    })
+    .map(pur => {
+      const frigoObj = frigos.find(f => f.id === pur.targetFrigoId);
+      const totalCartons = pur.items.reduce((acc, i) => acc + (i.quantityCartons || 0), 0);
+      const totalKg = pur.items.reduce((acc, i) => acc + (i.quantityKg || 0), 0);
+      const totalHT = pur.totalLandedCostHT || 0;
+      const paid = pur.paidAmount || 0;
+      const remaining = pur.remainingBalance !== undefined ? pur.remainingBalance : Math.max(0, totalHT - paid);
+      
+      return {
+        'N° Facture': pur.invoiceNumber,
+        'Fournisseur': pur.supplierName,
+        'Type': pur.isImport ? 'Importation' : 'Fournisseur Local',
+        'N° Conteneur': pur.containerNumber || '-',
+        'Date Arrivée': pur.dateArrival,
+        'Frigo Destination': frigoObj?.name || 'Frigo',
+        'Nbre Articles': pur.items.length,
+        'Total Colis': totalCartons,
+        'Poids Total (Kg)': totalKg,
+        'Total Produits HT (DH)': pur.totalProductsHT,
+        'Frais Douane HT (DH)': pur.customsCostsHT,
+        'Frais Fret HT (DH)': pur.freightCostsHT,
+        'Coût Revient Total HT (DH)': totalHT,
+        'Montant Réglé (DH)': paid,
+        'Solde Restant (DH)': remaining,
+        'Statut Paiement': pur.paymentStatus || (remaining <= 0 ? 'PAYÉ' : paid > 0 ? 'PARTIEL' : 'NON_PAYÉ')
+      };
+    });
+
   return (
     <div className="space-y-6">
       
@@ -478,18 +556,15 @@ export const ImportInvoiceEntry: React.FC = () => {
                       
                       {/* Product Selector */}
                       <div className="sm:col-span-4">
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                          PRODUIT
+                        <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">
+                          PRODUIT (RECHERCHE PAR CODE / NOM) *
                         </label>
-                        <select
+                        <SearchableProductSelect
+                          products={products}
                           value={item.productId}
-                          onChange={e => handleItemChange(idx, 'productId', e.target.value)}
-                          className="w-full carbon-input text-xs font-mono font-bold bg-white border-gray-900 h-9"
-                        >
-                          {products.map(p => (
-                            <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
-                          ))}
-                        </select>
+                          onChange={newPrdId => handleItemChange(idx, 'productId', newPrdId)}
+                          placeholder="Rechercher produit..."
+                        />
                         <div className="text-[10px] text-gray-500 font-medium mt-1">
                           Ratio: {kgCartonRatio} kg / carton
                         </div>
@@ -647,6 +722,25 @@ export const ImportInvoiceEntry: React.FC = () => {
               <option value="PARTIEL">🔵 Partiel</option>
               <option value="PAYÉ">🟢 Payé</option>
             </select>
+
+            {/* Export All Filtered Invoices (Excel & PDF) */}
+            <ExportButtons
+              filename={`Factures_Achats_${new Date().toISOString().slice(0, 10)}`}
+              title="REGISTRE DES FACTURES D'ACHAT FOURNISSEURS"
+              excelData={exportAllInvoicesData}
+              pdfHeaders={['N° Facture', 'Fournisseur', 'Date', 'Frigo', 'Colis', 'Poids Kg', 'Total HT (DH)', 'Statut']}
+              pdfRows={exportAllInvoicesData.map(d => [
+                d['N° Facture'],
+                d['Fournisseur'],
+                d['Date Arrivée'],
+                d['Frigo Destination'],
+                d['Total Colis'],
+                `${d['Poids Total (Kg)']} Kg`,
+                `${d['Coût Revient Total HT (DH)'].toLocaleString()} DH`,
+                d['Statut Paiement']
+              ])}
+              size="sm"
+            />
           </div>
         </div>
 
@@ -661,7 +755,7 @@ export const ImportInvoiceEntry: React.FC = () => {
                 <th>Total Facture HT</th>
                 <th>Réglé / Restant</th>
                 <th>Statut Paiement</th>
-                <th>Actions</th>
+                <th>Actions & Export</th>
               </tr>
             </thead>
             <tbody>
@@ -724,6 +818,27 @@ export const ImportInvoiceEntry: React.FC = () => {
                         </td>
                         <td>
                           <div className="flex items-center gap-1.5 flex-wrap">
+                            
+                            {/* PDF Export button */}
+                            <button
+                              onClick={() => handleDownloadInvoicePdf(pur)}
+                              className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded flex items-center gap-1 shadow-xs transition-colors"
+                              title="Télécharger la Facture d'Achat en PDF"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>PDF</span>
+                            </button>
+
+                            {/* Excel Export button */}
+                            <button
+                              onClick={() => handleExportSingleInvoiceExcel(pur)}
+                              className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold rounded flex items-center gap-1 shadow-xs transition-colors"
+                              title="Exporter le détail en Excel (.xlsx)"
+                            >
+                              <FileSpreadsheet className="w-3.5 h-3.5" />
+                              <span>Excel</span>
+                            </button>
+
                             {status !== 'PAYÉ' && (
                               <button
                                 onClick={() => setPaymentModalInvoice(pur)}
@@ -772,9 +887,25 @@ export const ImportInvoiceEntry: React.FC = () => {
                           <td colSpan={8} className="p-3 space-y-3">
                             {/* Received Items */}
                             <div className="bg-white p-3 rounded border border-blue-200 space-y-2">
-                              <div className="text-xs font-bold text-blue-900 uppercase font-mono border-b pb-1 flex justify-between items-center">
-                                <span>Détails des Produits Réçus - Facture {pur.invoiceNumber}</span>
-                                <span>{pur.items.length} Article(s)</span>
+                              <div className="text-xs font-bold text-blue-900 uppercase font-mono border-b pb-1 flex flex-wrap justify-between items-center gap-2">
+                                <span>Détails des Produits Reçus - Facture {pur.invoiceNumber}</span>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleDownloadInvoicePdf(pur)}
+                                    className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded flex items-center gap-1 shadow-xs transition"
+                                  >
+                                    <FileText className="w-3 h-3" />
+                                    <span>Télécharger Facture PDF</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleExportSingleInvoiceExcel(pur)}
+                                    className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-bold rounded flex items-center gap-1 shadow-xs transition"
+                                  >
+                                    <FileSpreadsheet className="w-3 h-3" />
+                                    <span>Export Excel (.xlsx)</span>
+                                  </button>
+                                  <span className="text-gray-500 font-normal ml-1">({pur.items.length} Articles)</span>
+                                </div>
                               </div>
                               <table className="w-full text-xs font-mono">
                                 <thead>
