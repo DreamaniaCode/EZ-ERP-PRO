@@ -6,6 +6,7 @@ import { findMatchingProduct } from '../../utils/productMatcher';
 import { ExportButtons } from '../common/ExportButtons';
 import { ProductStockHistoryModal } from './ProductStockHistoryModal';
 import { PriceDiagnosticModal } from './PriceDiagnosticModal';
+import { StockRepackagingModal } from './StockRepackagingModal';
 import { computeSynchronizedStocks, isMatchingFrigo } from '../../utils/stockReconciler';
 import { 
   Plus, 
@@ -29,7 +30,8 @@ import {
   Check,
   Building2,
   SlidersHorizontal,
-  X
+  X,
+  Scissors
 } from 'lucide-react';
 
 interface ProductsListProps {
@@ -65,6 +67,8 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showRepackagingModal, setShowRepackagingModal] = useState(false);
+  const [repackagingInitialProduct, setRepackagingInitialProduct] = useState<string>('');
   const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [selectedHistoryProduct, setSelectedHistoryProduct] = useState<Product | null>(null);
@@ -369,6 +373,19 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
           >
             <ArrowRightLeft className="w-3.5 h-3.5" />
             <span>Transfert Inter-Frigos</span>
+          </button>
+
+          {/* Repackaging & Division Button */}
+          <button
+            onClick={() => {
+              setRepackagingInitialProduct('');
+              setShowRepackagingModal(true);
+            }}
+            className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-semibold text-xs px-3 py-2 rounded-lg transition shadow-xs cursor-pointer"
+            title="Diviser / Reconditionner un produit vrac en paquets détail"
+          >
+            <Scissors className="w-3.5 h-3.5 text-yellow-300" />
+            <span>Reconditionnement</span>
           </button>
 
           {/* New Product */}
@@ -1450,6 +1467,18 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
             </div>
           </div>
         </div>
+      )}
+
+      {/* Stock Repackaging & Division Modal */}
+      {showRepackagingModal && (
+        <StockRepackagingModal
+          onClose={() => {
+            setShowRepackagingModal(false);
+            setRepackagingInitialProduct('');
+          }}
+          defaultFrigoId={selectedFrigoFilter !== 'ALL' ? selectedFrigoFilter : (frigos[0]?.id || '')}
+          defaultSourceProductId={repackagingInitialProduct}
+        />
       )}
 
     </div>

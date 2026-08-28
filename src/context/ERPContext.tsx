@@ -120,6 +120,21 @@ interface ERPContextType {
   // Stock Actions
   adjustStock: (frigoId: string, productId: string, newKg: number, newPallets: number) => void;
   transferStock: (sourceFrigoId: string, targetFrigoId: string, productId: string, kg: number, pallets: number) => void;
+  repackageStock: (payload: {
+    frigoId: string;
+    sourceProductId: string;
+    sourceKg: number;
+    sourceCartons?: number;
+    sourcePallets?: number;
+    targetItems: {
+      productId: string;
+      quantityPacks: number;
+      quantityKg: number;
+      quantityPallets?: number;
+    }[];
+    wasteKg?: number;
+    notes?: string;
+  }) => void;
   clearStocks: (frigoId?: string, productId?: string) => Promise<void>;
   recalculateAndSyncAllStocks: () => Promise<FrigoStockLevel[]>;
 
@@ -664,6 +679,86 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       pallets,
       performedBy: currentUser?.name || 'Admin'
     }).then(() => refreshFromDatabase()).catch(err => console.error('Error transferring stock:', err));
+  };
+
+  const repackageStock = (payload: {
+    frigoId: string;
+    sourceProductId: string;
+    sourceKg: number;
+    sourceCartons?: number;
+    sourcePallets?: number;
+    targetItems: {
+      productId: string;
+      quantityPacks: number;
+      quantityKg: number;
+      quantityPallets?: number;
+    }[];
+    wasteKg?: number;
+    notes?: string;
+  }) => {
+    const { frigoId, sourceProductId, sourceKg, targetItems, notes } = payload;
+    const author = currentUser?.name || 'Responsable Stock';
+
+    setStocks(prev => {
+      let updated = [...prev];
+
+      // 1. Decrement source product stock
+      const srcIdx = updated.findIndex(s => s.frigoId === frigoId && s.productId === sourceProductId);
+      const srcPrd = products.find(p => p.id === sourceProductId);
+      if (srcIdx !== -1) {
+        const currentSrcKg = updated[srcIdx].quantityKg;
+        const newSrcKg = Math.max(0, currentSrcKg - sourceKg);
+        const newSrcPallets = Math.max(0, Math.ceil(newSrcKg / (srcPrd?.kgPerPallet || 600)));
+        updated[srcIdx] = {
+          ...updated[srcIdx],
+          quantityKg: newSrcKg,
+          quantityPallets: newSrcPallets,
+          lastUpdated: new Date().toISOString()
+        };
+      }
+
+      // 2. Increment target products stock
+      targetItems.forEach(tItem => {
+        const tgtIdx = updated.findIndex(s => s.frigoId === frigoId && s.productId === tItem.productId);
+        const tgtPrd = products.find(p => p.id === tItem.productId);
+        const addKg = tItem.quantityKg;
+        const addPallets = tItem.quantityPallets || Math.max(1, Math.ceil(addKg / (tgtPrd?.kgPerPallet || 600)));
+
+        if (tgtIdx !== -1) {
+          const newTgtKg = updated[tgtIdx].quantityKg + addKg;
+          const newTgtPallets = updated[tgtIdx].quantityPallets + addPallets;
+          updated[tgtIdx] = {
+            ...updated[tgtIdx],
+            quantityKg: newTgtKg,
+            quantityPallets: newTgtPallets,
+            lastUpdated: new Date().toISOString()
+          };
+        } else {
+          updated.push({
+            frigoId,
+            productId: tItem.productId,
+            quantityKg: addKg,
+            quantityPallets: addPallets,
+            lastUpdated: new Date().toISOString()
+          });
+        }
+      });
+
+      localStorage.setItem('erp_stocks', JSON.stringify(updated));
+      return updated;
+    });
+
+    // Save adjustment to backend API if available
+    targetItems.forEach(tItem => {
+      api.adjustStock({
+        frigoId,
+        productId: tItem.productId,
+        newKg: (stocks.find(s => s.frigoId === frigoId && s.productId === tItem.productId)?.quantityKg || 0) + tItem.quantityKg,
+        newPallets: 1,
+        performedBy: author,
+        notes: notes || `Reconditionnement depuis ${sourceProductId}`
+      }).catch(err => console.error(err));
+    });
   };
 
   const clearStocks = async (frigoId?: string, productId?: string) => {
@@ -1427,6 +1522,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     deleteFrigo,
     adjustStock,
     transferStock,
+    repackageStock,
     clearStocks,
     recalculateAndSyncAllStocks,
     createPurchaseInvoice,
@@ -1563,6 +1659,7 @@ const defaultFallbackContext: ERPContextType = {
   deleteFrigo: () => {},
   adjustStock: () => {},
   transferStock: () => {},
+  repackageStock: () => {},
   clearStocks: async () => {},
   recalculateAndSyncAllStocks: async () => [],
   createPurchaseInvoice: () => ({ id: '', invoiceNumber: '', supplierId: '', supplierName: '', targetFrigoId: '', dateArrival: '', isImport: false, customsCostsHT: 0, freightCostsHT: 0, totalProductsHT: 0, totalLandedCostHT: 0, items: [], paymentStatus: 'NON_PAYÉ' }),

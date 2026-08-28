@@ -3,6 +3,7 @@ import { useERP } from '../../context/ERPContext';
 import { Product, InventoryCountItem, ColdStorageFrigo } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
 import { StockTransferModal } from './StockTransferModal';
+import { StockRepackagingModal } from './StockRepackagingModal';
 
 import { 
   ClipboardCheck, 
@@ -24,7 +25,8 @@ import {
   Sliders,
   Trash2,
   Zap,
-  RotateCcw
+  RotateCcw,
+  Scissors
 } from 'lucide-react';
 
 export const MultiFrigoInventory: React.FC = () => {
@@ -50,6 +52,8 @@ export const MultiFrigoInventory: React.FC = () => {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferInitialProduct, setTransferInitialProduct] = useState<string>('');
   const [transferInitialSource, setTransferInitialSource] = useState<string>('');
+  const [showRepackagingModal, setShowRepackagingModal] = useState(false);
+  const [repackagingInitialProduct, setRepackagingInitialProduct] = useState<string>('');
   const [editingFrigo, setEditingFrigo] = useState<ColdStorageFrigo | null>(null);
 
   // View mode switcher: 'SHEET' (Physical count sheet) vs 'MATRIX' (Multi-frigo consolidated comparative grid)
@@ -386,6 +390,18 @@ export const MultiFrigoInventory: React.FC = () => {
           >
             <ArrowLeftRight className="w-4 h-4 text-cyan-300" />
             <span>Transfert Inter-Frigos</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setRepackagingInitialProduct('');
+              setShowRepackagingModal(true);
+            }}
+            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-all shadow-sm"
+            title="Reconditionner / Diviser un produit vrac/gros (ex: 12KG) en paquets détail (ex: 3KG, 2KG)"
+          >
+            <Scissors className="w-4 h-4 text-yellow-300" />
+            <span>Reconditionnement / Division</span>
           </button>
 
           <button
@@ -1498,6 +1514,18 @@ export const MultiFrigoInventory: React.FC = () => {
           }}
           defaultSourceFrigoId={transferInitialSource || selectedFrigoId}
           defaultProductId={transferInitialProduct}
+        />
+      )}
+
+      {/* Stock Repackaging & Division Modal */}
+      {showRepackagingModal && (
+        <StockRepackagingModal
+          onClose={() => {
+            setShowRepackagingModal(false);
+            setRepackagingInitialProduct('');
+          }}
+          defaultFrigoId={selectedFrigoId}
+          defaultSourceProductId={repackagingInitialProduct}
         />
       )}
 
