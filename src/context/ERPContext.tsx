@@ -741,11 +741,14 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // PURCHASE & IMPORT ACTIONS
   // ============================================================
   const createPurchaseInvoice = (purchaseData: Omit<PurchaseImportInvoice, 'id'>): PurchaseImportInvoice => {
+    const now = new Date();
     const id = `pur-${Date.now()}`;
     const newPur: PurchaseImportInvoice = {
       paidAmount: 0,
       remainingBalance: purchaseData.totalLandedCostHT,
       payments: [],
+      createdAt: now.toISOString(),
+      timeArrival: now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       ...purchaseData,
       id,
     };

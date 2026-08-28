@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { PurchaseImportInvoice } from '../../types';
 import { useERP } from '../../context/ERPContext';
-import { Ship, X, Plus, Trash2, CheckCircle, Save, Package, Building2, Calendar, FileText } from 'lucide-react';
+import { Ship, X, Plus, Trash2, CheckCircle, Save, Package, Building2, Calendar, FileText, RefreshCw } from 'lucide-react';
+import { generateAutoSupplierInvoiceNumber } from '../../utils/supplierInvoiceHelper';
 
 interface EditPurchaseInvoiceModalProps {
   invoice: PurchaseImportInvoice;
@@ -14,10 +15,16 @@ export const EditPurchaseInvoiceModal: React.FC<EditPurchaseInvoiceModalProps> =
   onClose,
   onSaved 
 }) => {
-  const { suppliers, products, frigos, updatePurchaseInvoice } = useERP();
+  const { suppliers, products, frigos, updatePurchaseInvoice, purchaseInvoices } = useERP();
 
   const [selectedSupplierId, setSelectedSupplierId] = useState(invoice.supplierId || suppliers[0]?.id || '');
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoiceNumber || '');
+
+  const handleAutoGenerateInvoiceNumber = () => {
+    const s = suppliers.find(sup => sup.id === selectedSupplierId);
+    const autoNum = generateAutoSupplierInvoiceNumber(s?.companyName || s?.name || s?.code, dateArrival, purchaseInvoices.filter(p => p.id !== invoice.id));
+    setInvoiceNumber(autoNum);
+  };
   const [containerNumber, setContainerNumber] = useState(invoice.containerNumber || '');
   const [targetFrigoId, setTargetFrigoId] = useState(invoice.targetFrigoId || frigos[0]?.id || '');
   const [dateArrival, setDateArrival] = useState(invoice.dateArrival ? invoice.dateArrival.slice(0, 10) : new Date().toISOString().slice(0, 10));
@@ -249,16 +256,37 @@ export const EditPurchaseInvoiceModal: React.FC<EditPurchaseInvoiceModalProps> =
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                N° FACTURE FOURNISSEUR *
-              </label>
-              <input
-                type="text"
-                required
-                value={invoiceNumber}
-                onChange={e => setInvoiceNumber(e.target.value)}
-                className="w-full carbon-input font-mono text-sm bg-gray-50 border-gray-300 h-10 font-bold text-[#0f62fe]"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-gray-700 uppercase">
+                  N° FACTURE FOURNISSEUR *
+                </label>
+                <button
+                  type="button"
+                  onClick={handleAutoGenerateInvoiceNumber}
+                  className="text-[10px] font-bold text-[#0f62fe] hover:underline flex items-center gap-1 cursor-pointer"
+                  title="Générer automatiquement selon le Fournisseur et la Date"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>N° Auto (Date)</span>
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  value={invoiceNumber}
+                  onChange={e => setInvoiceNumber(e.target.value)}
+                  className="w-full carbon-input font-mono text-sm bg-gray-50 border-gray-300 h-10 font-bold text-[#0f62fe] pr-14"
+                />
+                <button
+                  type="button"
+                  onClick={handleAutoGenerateInvoiceNumber}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-bold bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded border border-blue-200 hover:bg-blue-200 transition"
+                  title="Générer automatiquement"
+                >
+                  AUTO
+                </button>
+              </div>
             </div>
 
             <div>

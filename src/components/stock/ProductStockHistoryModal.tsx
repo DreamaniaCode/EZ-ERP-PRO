@@ -139,7 +139,7 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
 
       if (matchedItem) {
         const targetFrigo = frigos.find(f => f.id === pur.targetFrigoId);
-        const { date, time, timestampMs } = extractDateAndTime(pur.dateArrival);
+        const { date, time, timestampMs } = extractDateAndTime(pur.dateArrival, (pur as any).createdAt || (pur as any).timeArrival || pur.id);
 
         movements.push({
           id: `mv-pur-${pur.id}-${matchedItem.productId}`,

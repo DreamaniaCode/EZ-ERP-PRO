@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useERP } from '../../context/ERPContext';
 import { PurchaseImportInvoice } from '../../types';
 import { QuickProductModal } from '../stock/QuickProductModal';
 import { SupplierPaymentModal } from './SupplierPaymentModal';
-import { Ship, Plus, Search, Package, CheckCircle, ChevronDown, ChevronUp, Trash2, CreditCard, DollarSign, Filter, RefreshCw, Pencil, Edit3, X, Save } from 'lucide-react';
+import { Ship, Plus, Search, Package, CheckCircle, ChevronDown, ChevronUp, Trash2, CreditCard, DollarSign, Filter, RefreshCw, Pencil, Edit3, X, Save, Sparkles } from 'lucide-react';
+import { generateAutoSupplierInvoiceNumber } from '../../utils/supplierInvoiceHelper';
 
 export const ImportInvoiceEntry: React.FC = () => {
   const { suppliers, products, frigos, purchaseInvoices, createPurchaseInvoice, updatePurchaseInvoice, deletePurchaseInvoice } = useERP();
@@ -21,11 +22,23 @@ export const ImportInvoiceEntry: React.FC = () => {
 
   // Form State
   const [selectedSupplierId, setSelectedSupplierId] = useState(suppliers[0]?.id || '');
-  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [dateArrival, setDateArrival] = useState(new Date().toISOString().slice(0, 10));
+  const [invoiceNumber, setInvoiceNumber] = useState(() => {
+    const s = suppliers[0];
+    return generateAutoSupplierInvoiceNumber(s?.companyName || s?.name || s?.code, new Date().toISOString().slice(0, 10), []);
+  });
   const [containerNumber, setContainerNumber] = useState('');
   const [targetFrigoId, setTargetFrigoId] = useState(frigos[0]?.id || '');
-  const [dateArrival, setDateArrival] = useState(new Date().toISOString().slice(0, 10));
   const [isImport, setIsImport] = useState(true);
+
+  // Auto-generate invoice number when supplier or arrival date changes (only if in create mode)
+  const handleRegenerateInvoiceNumber = (supId?: string, dt?: string) => {
+    const targetSupId = supId || selectedSupplierId;
+    const targetDate = dt || dateArrival;
+    const s = suppliers.find(sup => sup.id === targetSupId);
+    const autoNum = generateAutoSupplierInvoiceNumber(s?.companyName || s?.name || s?.code, targetDate, purchaseInvoices);
+    setInvoiceNumber(autoNum);
+  };
   
   const [customsCostsHT, setCustomsCostsHT] = useState<number | ''>(0);
   const [freightCostsHT, setFreightCostsHT] = useState<number | ''>(0);
@@ -302,39 +315,74 @@ export const ImportInvoiceEntry: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             
             {/* Header Fields Row 1 */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-black text-gray-900 uppercase tracking-wide mb-1.5">
                   FOURNISSEUR *
                 </label>
                 <select
                   value={selectedSupplierId}
-                  onChange={e => setSelectedSupplierId(e.target.value)}
+                  onChange={e => {
+                    setSelectedSupplierId(e.target.value);
+                    if (!editingInvoiceId) handleRegenerateInvoiceNumber(e.target.value, dateArrival);
+                  }}
                   className="w-full carbon-input font-bold text-sm bg-gray-100/80 border-gray-900 h-10"
                 >
                   {suppliers.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.country || 'Local'})</option>
+                    <option key={s.id} value={s.id}>{s.companyName || s.name} ({s.country || 'Local'})</option>
                   ))}
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-black text-gray-900 uppercase tracking-wide mb-1.5">
-                  N° FACTURE FOURNISSEUR *
+                  DATE D'ARRIVÉE / RÉCEPTION *
                 </label>
                 <input
-                  type="text"
+                  type="date"
                   required
-                  placeholder="ex: FAC-SA-2026-991"
-                  value={invoiceNumber}
-                  onChange={e => setInvoiceNumber(e.target.value)}
-                  className="w-full carbon-input font-mono text-sm bg-gray-100/80 border-gray-900 h-10"
+                  value={dateArrival}
+                  onChange={e => {
+                    setDateArrival(e.target.value);
+                    if (!editingInvoiceId) handleRegenerateInvoiceNumber(selectedSupplierId, e.target.value);
+                  }}
+                  className="w-full carbon-input font-mono font-bold text-sm bg-gray-100/80 border-gray-900 h-10"
                 />
               </div>
 
               <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-black text-gray-900 uppercase tracking-wide">
+                    N° FACTURE FOURNISSEUR *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleRegenerateInvoiceNumber(selectedSupplierId, dateArrival)}
+                    className="text-[10px] font-bold text-[#0f62fe] hover:underline flex items-center gap-1 cursor-pointer"
+                    title="Régénérer automatiquement selon le Fournisseur et la Date"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Auto</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    placeholder="ex: MLHMD01-260826"
+                    value={invoiceNumber}
+                    onChange={e => setInvoiceNumber(e.target.value)}
+                    className="w-full carbon-input font-mono font-bold text-sm bg-gray-100/80 border-gray-900 h-10 text-[#0f62fe] pr-16"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded border border-blue-200 pointer-events-none">
+                    AUTO
+                  </span>
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-xs font-black text-gray-900 uppercase tracking-wide mb-1.5">
-                  N° CONTENEUR (SI IMPORTATION)
+                  N° CONTENEUR (SI IMPORT)
                 </label>
                 <input
                   type="text"

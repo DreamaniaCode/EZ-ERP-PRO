@@ -178,6 +178,8 @@ export interface PurchaseImportInvoice {
   notes?: string;
   paymentStatus: 'NON_PAYÉ' | 'PARTIEL' | 'PAYÉ';
   payments?: PurchaseInvoicePayment[];
+  createdAt?: string;
+  timeArrival?: string;
 }
 
 export interface OrderItem {

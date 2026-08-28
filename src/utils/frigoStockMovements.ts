@@ -92,25 +92,49 @@ export function extractDateAndTime(dateStr?: string, fallbackTimestamp?: string 
     return { date: d, time: t, timestampMs: now.getTime() };
   }
 
-  const candidate = dateStr || (fallbackTimestamp ? String(fallbackTimestamp) : '');
+  // 1. Try to extract time / ms from fallbackTimestamp (e.g. ID like 'pur-1787764669971' or ISO date)
+  let fallbackDate: Date | null = null;
+  if (fallbackTimestamp) {
+    const rawStr = String(fallbackTimestamp);
+    const digitsMatch = rawStr.match(/(\d{10,13})/);
+    if (digitsMatch) {
+      const numMs = Number(digitsMatch[1]);
+      if (!isNaN(numMs) && numMs > 1500000000000 && numMs < 3000000000000) {
+        fallbackDate = new Date(numMs);
+      }
+    } else if (rawStr.includes('T') || rawStr.includes(':')) {
+      const tempFb = new Date(rawStr);
+      if (!isNaN(tempFb.getTime())) fallbackDate = tempFb;
+    }
+  }
 
-  // Check if candidate is already in full ISO format or has time
+  // 2. Parse dateStr
   let parsedDate: Date;
-  if (candidate.includes('T') || candidate.includes(' ') || !isNaN(Number(candidate))) {
-    const temp = new Date(candidate);
-    parsedDate = isNaN(temp.getTime()) ? now : temp;
-  } else {
-    // It's like "2026-08-26"
-    const parts = candidate.split('-');
+  if (dateStr && (dateStr.includes('T') || dateStr.includes(' '))) {
+    const temp = new Date(dateStr);
+    parsedDate = isNaN(temp.getTime()) ? (fallbackDate || now) : temp;
+  } else if (dateStr) {
+    const parts = dateStr.split('-');
     if (parts.length === 3) {
       const yr = parseInt(parts[0], 10);
       const mo = parseInt(parts[1], 10) - 1;
       const da = parseInt(parts[2], 10);
-      parsedDate = new Date(yr, mo, da, 10, 0, 0); // Default to 10:00 if no hour
+      if (fallbackDate) {
+        parsedDate = new Date(yr, mo, da, fallbackDate.getHours(), fallbackDate.getMinutes(), fallbackDate.getSeconds());
+      } else {
+        const isToday = now.getFullYear() === yr && now.getMonth() === mo && now.getDate() === da;
+        if (isToday) {
+          parsedDate = new Date(yr, mo, da, now.getHours(), now.getMinutes(), now.getSeconds());
+        } else {
+          parsedDate = new Date(yr, mo, da, 12, 0, 0);
+        }
+      }
     } else {
-      parsedDate = new Date(candidate);
-      if (isNaN(parsedDate.getTime())) parsedDate = now;
+      parsedDate = new Date(dateStr);
+      if (isNaN(parsedDate.getTime())) parsedDate = fallbackDate || now;
     }
+  } else {
+    parsedDate = fallbackDate || now;
   }
 
   // Format in standard French DD/MM/YYYY
@@ -265,7 +289,7 @@ export function compileUnifiedFrigoMovements(params: {
       code: 'FRG',
     };
 
-    const { date, time, timestampMs } = extractDateAndTime(pur.dateArrival);
+    const { date, time, timestampMs } = extractDateAndTime(pur.dateArrival, (pur as any).createdAt || (pur as any).timeArrival || pur.id);
 
     (pur.items || []).forEach((item, itemIdx) => {
       const prd = products.find(p => p.id === item.productId || p.code === item.productCode);
