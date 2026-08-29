@@ -1211,10 +1211,12 @@ EasyERP Pro • Logistics Management`;
       />
 
       {/* Saisie & Création en Masse des BLs Modal */}
-      <MassBLCreationModal
-        isOpen={showMassBLModal}
-        onClose={() => setShowMassBLModal(false)}
-      />
+      {showMassBLModal && (
+        <MassBLCreationModal
+          isOpen={showMassBLModal}
+          onClose={() => setShowMassBLModal(false)}
+        />
+      )}
 
       {/* Delivery History Timeline Modal */}
       {activeHistoryBL && (
