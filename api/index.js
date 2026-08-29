@@ -487,17 +487,76 @@ app.delete("/api/clients/:id", async (req, res) => {
 app.post("/api/clients/merge", async (req, res) => {
   try {
     const { targetClientId, clientIdsToMerge } = req.body;
+    if (!targetClientId || !Array.isArray(clientIdsToMerge)) {
+      return res.status(400).json({ error: "targetClientId et clientIdsToMerge requis" });
+    }
     const target = await prisma.client.findUnique({ where: { id: targetClientId } });
     if (!target) return res.status(404).json({ error: "Client cible introuvable" });
+    const secondariesToMerge = clientIdsToMerge.filter((id) => id && id !== targetClientId);
+    if (secondariesToMerge.length === 0) {
+      return res.json({ success: true, count: 0 });
+    }
+    const secondaryClients = await prisma.client.findMany({
+      where: { id: { in: secondariesToMerge } }
+    });
     await prisma.$transaction(async (tx) => {
-      for (const srcId of clientIdsToMerge) {
-        if (srcId === targetClientId) continue;
-        await tx.client.delete({ where: { id: srcId } }).catch(() => {
+      const updatedData = {};
+      for (const sec of secondaryClients) {
+        if (!target.ice && sec.ice) updatedData.ice = sec.ice;
+        if (!target.phone && sec.phone) updatedData.phone = sec.phone;
+        if (!target.email && sec.email) updatedData.email = sec.email;
+        if (!target.address && sec.address) updatedData.address = sec.address;
+        if (!target.companyName && sec.companyName) updatedData.companyName = sec.companyName;
+      }
+      if (Object.keys(updatedData).length > 0) {
+        await tx.client.update({
+          where: { id: targetClientId },
+          data: updatedData
         });
       }
+      await tx.deliveryNoteBL.updateMany({
+        where: { clientId: { in: secondariesToMerge } },
+        data: {
+          clientId: target.id,
+          clientName: target.name || target.companyName || "Client",
+          clientAddress: target.address || "",
+          clientPhone: target.phone || "",
+          clientEmail: target.email || ""
+        }
+      });
+      await tx.invoice.updateMany({
+        where: { clientId: { in: secondariesToMerge } },
+        data: {
+          clientId: target.id,
+          clientName: target.name || target.companyName || "Client",
+          clientICE: target.ice || "",
+          clientAddress: target.address || ""
+        }
+      });
+      await tx.salesOrder.updateMany({
+        where: { clientId: { in: secondariesToMerge } },
+        data: {
+          clientId: target.id,
+          clientName: target.name || target.companyName || "Client",
+          clientICE: target.ice || "",
+          clientPhone: target.phone || "",
+          clientEmail: target.email || ""
+        }
+      });
+      await tx.chequeEffet.updateMany({
+        where: { partyId: { in: secondariesToMerge } },
+        data: {
+          partyId: target.id,
+          partyName: target.name || target.companyName || "Client"
+        }
+      });
+      await tx.client.deleteMany({
+        where: { id: { in: secondariesToMerge } }
+      });
     });
-    res.json({ success: true });
+    res.json({ success: true, count: secondariesToMerge.length });
   } catch (error) {
+    console.error("Client merge error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -584,10 +643,21 @@ app.post("/api/delivery-notes", async (req, res) => {
     const blData = req.body;
     const bl = await prisma.$transaction(async (tx) => {
       let finalClientId = blData.clientId;
-      if (blData.clientName && blData.clientName.trim()) {
+      if (blData.clientId) {
+        const existingById = await tx.client.findUnique({ where: { id: blData.clientId } });
+        if (existingById) {
+          finalClientId = existingById.id;
+        }
+      }
+      if (!finalClientId && blData.clientName && blData.clientName.trim()) {
         const normName = blData.clientName.trim();
         let existingClient = await tx.client.findFirst({
-          where: { name: { equals: normName, mode: "insensitive" } }
+          where: {
+            OR: [
+              { name: { equals: normName, mode: "insensitive" } },
+              { companyName: { equals: normName, mode: "insensitive" } }
+            ]
+          }
         });
         if (!existingClient) {
           const clientCount = await tx.client.count();

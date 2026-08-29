@@ -204,12 +204,14 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
 
           {activeTab === 'CLIENTS' && (
             <button
-              onClick={() => {
-                const count = deduplicateClients();
-                alert(count > 0 ? `Nettoyage terminé : ${count} client(s) en doublon ont été fusionnés avec succès !` : 'Aucun doublon trouvé dans la base clients.');
+              onClick={async () => {
+                if (window.confirm('Voulez-vous fusionner automatiquement les doublons clients (même nom) sans perdre aucun BL, facture ou historique ?')) {
+                  const count = await deduplicateClients();
+                  alert(count > 0 ? `Nettoyage terminé : ${count} client(s) en doublon ont été fusionnés avec succès sans aucune perte de BL ou facture !` : 'Aucun doublon trouvé dans la base clients.');
+                }
               }}
-              className="bg-amber-600 hover:bg-amber-700 text-white text-xs px-3 py-2 rounded font-bold flex items-center gap-1.5 transition-colors shadow-sm"
-              title="Détecter et fusionner automatiquement les fiches clients ayant le même nom ou raison sociale"
+              className="bg-amber-600 hover:bg-amber-700 text-white text-xs px-3 py-2 rounded font-bold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              title="Détecter et fusionner automatiquement les fiches clients ayant le même nom sans perdre leurs BLs"
             >
               <CheckCircle className="w-4 h-4" />
               Nettoyer Doublons Clients
@@ -945,8 +947,16 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
               <Layers className="w-5 h-5 text-indigo-600" />
               Fusionner les Clients Sélectionnés
             </h3>
+            
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-emerald-950 text-xs flex items-start gap-2">
+              <span className="text-base">🛡️</span>
+              <div className="leading-relaxed">
+                <strong>Garantie 100% Sans Perte :</strong> Tous les <strong>Bons de Livraison (BLs)</strong>, <strong>Factures</strong>, <strong>Commandes</strong> et <strong>Règlements/Chèques</strong> des comptes doublons sont intégralement conservés et rattachés au client principal choisi.
+              </div>
+            </div>
+
             <p className="text-xs text-gray-600 leading-relaxed">
-              Sélectionnez le client principal. Tous les BLs, commandes et créances des comptes en doublon seront fusionnés automatiquement sous ce compte.
+              Sélectionnez ci-dessous le client principal de destination :
             </p>
 
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -962,8 +972,10 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
                       className="text-indigo-600 focus:ring-0 cursor-pointer"
                     />
                     <div>
-                      <div className="font-bold text-xs text-gray-900">{c.name}</div>
-                      <div className="text-[10px] text-gray-500">{c.code} • Solde: {c.currentBalance.toLocaleString()} DH</div>
+                      <div className="font-bold text-xs text-gray-900">{c.name} {c.companyName ? `(${c.companyName})` : ''}</div>
+                      <div className="text-[10px] text-gray-500 font-mono">
+                        {c.code} • ICE: {c.ice || 'Non renseigné'} • Solde: {c.currentBalance.toLocaleString()} DH
+                      </div>
                     </div>
                   </div>
                   {targetMergeClientId === c.id && (
@@ -976,21 +988,21 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
             <div className="flex justify-end gap-3 pt-3 border-t border-gray-200">
               <button 
                 onClick={() => setShowMergeModal(false)}
-                className="px-4 py-2 border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded"
+                className="px-4 py-2 border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded cursor-pointer"
               >
                 Annuler
               </button>
               <button 
-                onClick={() => {
+                onClick={async () => {
                   if (!targetMergeClientId) return;
-                  mergeClients(targetMergeClientId, selectedClientIds);
+                  await mergeClients(targetMergeClientId, selectedClientIds);
                   setSelectedClientIds([]);
                   setShowMergeModal(false);
-                  alert('Fusion des clients réussie ! Tous les BLs et créances ont été regroupés.');
+                  alert('✅ Fusion des clients réussie ! Tous les BLs, Factures et créances ont été regroupés et conservés sans aucune perte.');
                 }}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded shadow-md"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded shadow-md cursor-pointer flex items-center gap-1.5"
               >
-                Confirmer la Fusion
+                <span>Confirmer la Fusion Sans Perte</span>
               </button>
             </div>
           </div>

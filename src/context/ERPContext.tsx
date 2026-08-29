@@ -175,8 +175,8 @@ interface ERPContextType {
   saveInventoryCount: (count: Omit<MultiSiteInventoryCount, 'id' | 'countNumber'>, applyStockAdjust: boolean) => void;
   importExcelBLs: (newBLs: DeliveryNoteBL[]) => void;
   reconcileStocksWithBLs: (targetFrigoId?: string) => { deductedKg: number; blCount: number };
-  deduplicateClients: () => number;
-  mergeClients: (targetClientId: string, clientIdsToMerge: string[]) => void;
+  deduplicateClients: () => Promise<number>;
+  mergeClients: (targetClientId: string, clientIdsToMerge: string[]) => Promise<void>;
   mergeProducts: (targetProductId: string, productIdsToMerge: string[]) => void;
   purgeOrphanStocks: () => number;
 }
@@ -462,79 +462,39 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         localStorage.setItem('erp_stocks', JSON.stringify(pgStocks));
       }
       if (pgMovements && pgMovements.length > 0) setStockMovements(pgMovements);
-      if (pgClients && pgClients.length > 0) {
-        setClients(prev => {
-          const pgIds = new Set(pgClients.map((c: any) => c.id));
-          const localOnly = prev.filter(c => !pgIds.has(c.id));
-          const merged = [...pgClients, ...localOnly];
-          localStorage.setItem('erp_clients', JSON.stringify(merged));
-          return merged;
-        });
+      if (pgClients && Array.isArray(pgClients)) {
+        setClients(pgClients);
+        localStorage.setItem('erp_clients', JSON.stringify(pgClients));
       }
-      if (pgSuppliers && pgSuppliers.length > 0) {
-        setSuppliers(prev => {
-          const pgIds = new Set(pgSuppliers.map((s: any) => s.id));
-          const localOnly = prev.filter(s => !pgIds.has(s.id));
-          const merged = [...pgSuppliers, ...localOnly];
-          localStorage.setItem('erp_suppliers', JSON.stringify(merged));
-          return merged;
-        });
+      if (pgSuppliers && Array.isArray(pgSuppliers)) {
+        setSuppliers(pgSuppliers);
+        localStorage.setItem('erp_suppliers', JSON.stringify(pgSuppliers));
       }
-      if (pgOrders && pgOrders.length > 0) {
-        setOrders(prev => {
-          const pgIds = new Set(pgOrders.map((o: any) => o.id));
-          const localOnly = prev.filter(o => !pgIds.has(o.id));
-          const merged = [...pgOrders, ...localOnly];
-          localStorage.setItem('erp_orders', JSON.stringify(merged));
-          return merged;
-        });
+      if (pgOrders && Array.isArray(pgOrders)) {
+        setOrders(pgOrders);
+        localStorage.setItem('erp_orders', JSON.stringify(pgOrders));
       }
-      if (pgBLs && pgBLs.length > 0) {
-        setDeliveryNotes(prev => {
-          const pgIds = new Set(pgBLs.map((b: any) => b.id));
-          const localOnly = prev.filter(b => !pgIds.has(b.id));
-          const merged = [...pgBLs, ...localOnly];
-          localStorage.setItem('erp_delivery_notes', JSON.stringify(merged));
-          return merged;
-        });
+      if (pgBLs && Array.isArray(pgBLs)) {
+        setDeliveryNotes(pgBLs);
+        localStorage.setItem('erp_delivery_notes', JSON.stringify(pgBLs));
       }
-      if (pgInvoices && pgInvoices.length > 0) {
-        setInvoices(prev => {
-          const pgIds = new Set(pgInvoices.map((inv: any) => inv.id));
-          const localOnly = prev.filter(inv => !pgIds.has(inv.id));
-          const merged = [...pgInvoices, ...localOnly];
-          localStorage.setItem('erp_invoices', JSON.stringify(merged));
-          return merged;
-        });
+      if (pgInvoices && Array.isArray(pgInvoices)) {
+        setInvoices(pgInvoices);
+        localStorage.setItem('erp_invoices', JSON.stringify(pgInvoices));
       }
-      if (pgCheques && pgCheques.length > 0) {
-        setChequesEffets(prev => {
-          const pgIds = new Set(pgCheques.map((c: any) => c.id));
-          const localOnly = prev.filter(c => !pgIds.has(c.id));
-          const merged = [...pgCheques, ...localOnly];
-          localStorage.setItem('erp_cheques', JSON.stringify(merged));
-          return merged;
-        });
+      if (pgCheques && Array.isArray(pgCheques)) {
+        setChequesEffets(pgCheques);
+        localStorage.setItem('erp_cheques', JSON.stringify(pgCheques));
       }
       if (pgTreasury && pgTreasury.length > 0) setTreasuryAccounts(pgTreasury);
-      if (pgExpenses && pgExpenses.length > 0) {
-        setExpenses(prev => {
-          const pgIds = new Set(pgExpenses.map((e: any) => e.id));
-          const localOnly = prev.filter(e => !pgIds.has(e.id));
-          const merged = [...pgExpenses, ...localOnly];
-          localStorage.setItem('erp_expenses', JSON.stringify(merged));
-          return merged;
-        });
+      if (pgExpenses && Array.isArray(pgExpenses)) {
+        setExpenses(pgExpenses);
+        localStorage.setItem('erp_expenses', JSON.stringify(pgExpenses));
       }
-      if (pgPurchases && pgPurchases.length > 0) {
-        setPurchaseInvoices(prev => {
-          const pgIds = new Set(pgPurchases.map((p: any) => p.id));
-          const localOnly = prev.filter(p => !pgIds.has(p.id));
-          const merged = [...pgPurchases, ...localOnly];
-          localStorage.setItem('erp_purchase_invoices', JSON.stringify(merged));
-          localStorage.setItem('erp_purchases', JSON.stringify(merged));
-          return merged;
-        });
+      if (pgPurchases && Array.isArray(pgPurchases)) {
+        setPurchaseInvoices(pgPurchases);
+        localStorage.setItem('erp_purchase_invoices', JSON.stringify(pgPurchases));
+        localStorage.setItem('erp_purchases', JSON.stringify(pgPurchases));
       }
       if (pgInventories && pgInventories.length > 0) setInventoryCounts(pgInventories);
 
@@ -1490,8 +1450,8 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       .catch(err => console.error('Error importing batch BLs:', err));
   };
 
-  // Deduplication & Merging
-  const deduplicateClients = (): number => {
+  // Deduplication & Lossless Client Merging
+  const deduplicateClients = async (): Promise<number> => {
     const groups = new Map<string, Client[]>();
     clients.forEach(c => {
       const key = normalizeName(c.name || c.companyName || '');
@@ -1501,23 +1461,93 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     let count = 0;
-    groups.forEach(clts => {
+    for (const [_, clts] of groups.entries()) {
       if (clts.length > 1) {
-        const primary = clts[0];
-        const secondaries = clts.slice(1).map(c => c.id);
-        api.mergeClients(primary.id, secondaries).catch(() => {});
-        count += secondaries.length;
+        // Choose primary: prefer one with ICE or filled company name or first
+        const primary = clts.find(c => c.ice && c.ice.trim()) || clts[0];
+        const secondaries = clts.filter(c => c.id !== primary.id).map(c => c.id);
+        if (secondaries.length > 0) {
+          await mergeClients(primary.id, secondaries);
+          count += secondaries.length;
+        }
       }
-    });
+    }
 
-    refreshFromDatabase();
+    await refreshFromDatabase();
     return count;
   };
 
-  const mergeClients = (targetClientId: string, clientIdsToMerge: string[]) => {
-    api.mergeClients(targetClientId, clientIdsToMerge)
-      .then(() => refreshFromDatabase())
-      .catch(err => console.error(err));
+  const mergeClients = async (targetClientId: string, clientIdsToMerge: string[]) => {
+    const target = clients.find(c => c.id === targetClientId);
+    if (!target) return;
+    const secondaries = clientIdsToMerge.filter(id => id && id !== targetClientId);
+    if (secondaries.length === 0) return;
+
+    const secSet = new Set(secondaries);
+    const targetName = target.name || target.companyName || 'Client';
+
+    // 1. Optimistic local state update (Lossless: reassign all BLs, Invoices, Orders, Cheques)
+    setClients(prev => {
+      const filtered = prev.filter(c => !secSet.has(c.id));
+      localStorage.setItem('erp_clients', JSON.stringify(filtered));
+      return filtered;
+    });
+
+    setDeliveryNotes(prev => {
+      const updated = prev.map(bl => secSet.has(bl.clientId) ? { 
+        ...bl, 
+        clientId: target.id, 
+        clientName: targetName,
+        clientAddress: target.address || bl.clientAddress,
+        clientPhone: target.phone || bl.clientPhone,
+        clientEmail: target.email || bl.clientEmail,
+      } : bl);
+      localStorage.setItem('erp_delivery_notes', JSON.stringify(updated));
+      return updated;
+    });
+
+    setInvoices(prev => {
+      const updated = prev.map(inv => secSet.has(inv.clientId) ? { 
+        ...inv, 
+        clientId: target.id, 
+        clientName: targetName,
+        clientICE: target.ice || inv.clientICE,
+        clientAddress: target.address || inv.clientAddress,
+      } : inv);
+      localStorage.setItem('erp_invoices', JSON.stringify(updated));
+      return updated;
+    });
+
+    setOrders(prev => {
+      const updated = prev.map(ord => secSet.has(ord.clientId) ? { 
+        ...ord, 
+        clientId: target.id, 
+        clientName: targetName,
+        clientICE: target.ice || ord.clientICE,
+        clientPhone: target.phone || ord.clientPhone,
+        clientEmail: target.email || ord.clientEmail,
+      } : ord);
+      localStorage.setItem('erp_orders', JSON.stringify(updated));
+      return updated;
+    });
+
+    setChequesEffets(prev => {
+      const updated = prev.map(ch => secSet.has(ch.partyId) ? { 
+        ...ch, 
+        partyId: target.id, 
+        partyName: targetName 
+      } : ch);
+      localStorage.setItem('erp_cheques', JSON.stringify(updated));
+      return updated;
+    });
+
+    // 2. Persist to PostgreSQL database
+    try {
+      await api.mergeClients(targetClientId, secondaries);
+      await refreshFromDatabase();
+    } catch (err) {
+      console.error('Error merging clients in API:', err);
+    }
   };
 
   const mergeProducts = (targetProductId: string, productIdsToMerge: string[]) => {
@@ -1744,8 +1774,8 @@ const defaultFallbackContext: ERPContextType = {
   saveInventoryCount: () => {},
   importExcelBLs: () => {},
   reconcileStocksWithBLs: () => ({ deductedKg: 0, blCount: 0 }),
-  deduplicateClients: () => 0,
-  mergeClients: () => {},
+  deduplicateClients: async () => 0,
+  mergeClients: async () => {},
   mergeProducts: () => {},
   purgeOrphanStocks: () => 0,
 };
