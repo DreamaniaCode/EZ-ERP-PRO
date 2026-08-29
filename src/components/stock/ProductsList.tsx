@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
 import { Product, ProductCategory, ColdStorageFrigo } from '../../types';
-import { findMatchingProduct } from '../../utils/productMatcher';
+import { findMatchingProduct, findSimilarProducts, normalizeProductName } from '../../utils/productMatcher';
 import { ExportButtons } from '../common/ExportButtons';
 import { ProductStockHistoryModal } from './ProductStockHistoryModal';
 import { PriceDiagnosticModal } from './PriceDiagnosticModal';
@@ -210,7 +210,13 @@ export const ProductsList: React.FC<ProductsListProps> = ({
   };
 
   const handleDeleteProduct = (prd: Product) => {
-    if (window.confirm(`Voulez-vous vraiment supprimer le produit ${prd.code} - ${prd.name} ?`)) {
+    const prdStock = productStocks.find(p => p.productId === prd.id);
+    const stockKg = prdStock?.totalStockKg || 0;
+    const warningMsg = stockKg > 0
+      ? `⚠️ ATTENTION : Le produit ${prd.code} - "${prd.name}" possède encore ${stockKg.toLocaleString()} Kg en stock dans les entrepôts !\n\nSupprimer ce produit effacera son stock des frigos.\n\nÊtes-vous sûr de vouloir supprimer définitivement ce produit ?`
+      : `Voulez-vous vraiment supprimer le produit ${prd.code} - "${prd.name}" ?`;
+      
+    if (window.confirm(warningMsg)) {
       deleteProduct(prd.id);
     }
   };
@@ -281,6 +287,23 @@ export const ProductsList: React.FC<ProductsListProps> = ({
     return frigos.find(f => f.id === selectedFrigoFilter) || null;
   }, [frigos, selectedFrigoFilter]);
 
+  // Detect duplicate or similar products in the catalog
+  const detectedDuplicateGroups = useMemo(() => {
+    const groups: Array<{ name: string; products: Product[] }> = [];
+    const seen = new Set<string>();
+
+    products.forEach(p => {
+      if (seen.has(p.id)) return;
+      const similars = findSimilarProducts(p.name, products);
+      if (similars.length > 1) {
+        similars.forEach(s => seen.add(s.id));
+        groups.push({ name: p.name, products: similars });
+      }
+    });
+
+    return groups;
+  }, [products]);
+
   const potentialGrossMarginHT = totalConsolidatedValuationSaleHT - totalConsolidatedValuationCostHT;
   const marginPercent = totalConsolidatedValuationCostHT > 0 
     ? Math.round((potentialGrossMarginHT / totalConsolidatedValuationCostHT) * 100) 
@@ -318,6 +341,7 @@ export const ProductsList: React.FC<ProductsListProps> = ({
 
         {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
+
           
           {/* Synchronize Button */}
           <button
@@ -411,6 +435,35 @@ export const ProductsList: React.FC<ProductsListProps> = ({
         </div>
 
       </div>
+
+      {/* Duplicate Detection Alert Banner */}
+      {detectedDuplicateGroups.length > 0 && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl p-3.5 flex items-center justify-between gap-4 text-xs shadow-xs">
+          <div className="flex items-center gap-2.5 text-amber-900">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <span className="font-bold">{detectedDuplicateGroups.length} groupe(s) de doublons ou désignations similaires détectés :</span>
+              <span className="ml-1 text-amber-800">
+                {detectedDuplicateGroups.map(g => `"${g.name}" (${g.products.map(p => p.code).join(', ')})`).join(' • ')}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              const firstGroup = detectedDuplicateGroups[0];
+              if (firstGroup) {
+                setSelectedProductIds(firstGroup.products.map(p => p.id));
+                setTargetMergeProductId(firstGroup.products[0].id);
+                setShowProductMergeModal(true);
+              }
+            }}
+            className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold px-3 py-1.5 rounded-lg shrink-0 flex items-center gap-1.5 shadow-xs cursor-pointer"
+          >
+            <Layers className="w-4 h-4" />
+            <span>Fusionner & Nettoyer</span>
+          </button>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 2. REAL-TIME SYNCHRONIZED KPI CARDS                                      */}

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useERP } from '../../context/ERPContext';
-import { ProductCategory } from '../../types';
-import { Package, Plus, Save, X } from 'lucide-react';
+import { ProductCategory, Product } from '../../types';
+import { findSimilarProducts } from '../../utils/productMatcher';
+import { Package, Plus, Save, X, AlertTriangle } from 'lucide-react';
 
 interface QuickProductModalProps {
   onClose: () => void;
@@ -12,7 +13,7 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
   onClose,
   onProductCreated,
 }) => {
-  const { addProduct } = useERP();
+  const { products, addProduct } = useERP();
 
   const [form, setForm] = useState({
     name: '',
@@ -27,13 +28,9 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
     description: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name) {
-      alert('Veuillez saisir le nom du produit.');
-      return;
-    }
+  const [duplicateWarning, setDuplicateWarning] = useState<Product | null>(null);
 
+  const executeAdd = () => {
     const created = addProduct({
       ...form,
       imageUrl: '',
@@ -44,6 +41,22 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
       onProductCreated(created.id);
     }
     onClose();
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim()) {
+      alert('Veuillez saisir le nom du produit.');
+      return;
+    }
+
+    const similars = findSimilarProducts(form.name, products);
+    if (similars.length > 0 && !duplicateWarning) {
+      setDuplicateWarning(similars[0]);
+      return;
+    }
+
+    executeAdd();
   };
 
   return (
@@ -58,10 +71,10 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-sm uppercase font-mono">Création Rapide de Produit</h3>
-              <p className="text-[11px] text-gray-400">Création instantanée pour ajout direct dans les documents</p>
+              <p className="text-[11px] text-gray-400">Création instantanée avec stock initial vierge (0 Kg)</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white font-bold text-lg px-2">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-white font-bold text-lg px-2 cursor-pointer">✕</button>
         </div>
 
         {/* Form Body */}
@@ -72,7 +85,7 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
             <input
               type="text"
               required
-              placeholder="ex: Dattes Majhoul Premium 1Kg, Dattes Deglet Nour..."
+              placeholder="ex: Dattes Majhoul Premium 1Kg, Frites 2.5KG..."
               value={form.name}
               onChange={e => setForm({ ...form, name: e.target.value })}
               className="w-full carbon-input text-xs font-bold"
@@ -138,11 +151,13 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-gray-700 uppercase mb-1">Poids Carton (Kg) <span className="text-gray-400 text-[10px] font-normal">(Optionnel)</span></label>
+              <label className="block font-bold text-gray-700 uppercase mb-1">Poids Carton (Kg) *</label>
               <input
                 type="number"
-                min={0}
-                placeholder="ex: 10 (Optionnel)"
+                min={0.1}
+                step={0.01}
+                required
+                placeholder="ex: 5"
                 value={form.kgPerCarton || ''}
                 onChange={e => setForm({ ...form, kgPerCarton: Number(e.target.value) })}
                 className="w-full carbon-input text-xs font-mono"
@@ -150,11 +165,13 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
             </div>
 
             <div>
-              <label className="block font-bold text-gray-700 uppercase mb-1">Cartons / Palette <span className="text-gray-400 text-[10px] font-normal">(Optionnel)</span></label>
+              <label className="block font-bold text-gray-700 uppercase mb-1">Cartons / Palette *</label>
               <input
                 type="number"
-                min={0}
-                placeholder="ex: 100 (Optionnel)"
+                min={1}
+                step={1}
+                required
+                placeholder="ex: 100"
                 value={form.cartonsPerPallet || ''}
                 onChange={e => setForm({ ...form, cartonsPerPallet: Number(e.target.value) })}
                 className="w-full carbon-input text-xs font-mono"
@@ -162,19 +179,50 @@ export const QuickProductModal: React.FC<QuickProductModalProps> = ({
             </div>
           </div>
 
+          {/* Duplicate Warning Prompt in Modal */}
+          {duplicateWarning && (
+            <div className="bg-amber-50 border border-amber-300 rounded p-3 space-y-2 text-xs">
+              <div className="flex items-center gap-1.5 text-amber-800 font-bold">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Produit similaire existant : "{duplicateWarning.name}" ({duplicateWarning.code})</span>
+              </div>
+              <p className="text-amber-700 text-[11px]">
+                Êtes-vous sûr de vouloir créer une nouvelle référence au lieu d'utiliser celle existante ?
+              </p>
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setDuplicateWarning(null)}
+                  className="px-2 py-1 bg-white border border-gray-300 rounded text-gray-700 text-[11px] font-semibold"
+                >
+                  Modifier le nom
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDuplicateWarning(null);
+                    executeAdd();
+                  }}
+                  className="px-2 py-1 bg-amber-600 text-white rounded text-[11px] font-bold"
+                >
+                  Continuer
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Submit Footer */}
           <div className="pt-3 border-t border-gray-200 flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded font-semibold text-gray-700 hover:bg-gray-100"
+              className="px-4 py-2 border border-gray-300 rounded font-semibold text-gray-700 hover:bg-gray-100 cursor-pointer"
             >
               Annuler
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-[#0f62fe] hover:bg-blue-700 text-white font-bold rounded flex items-center gap-1.5 shadow"
+              className="px-4 py-2 bg-[#0f62fe] hover:bg-blue-700 text-white font-bold rounded flex items-center gap-1.5 shadow cursor-pointer"
             >
               <Save className="w-4 h-4" />
               Créer & Sélectionner Produit

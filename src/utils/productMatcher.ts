@@ -147,3 +147,49 @@ export const isSameProduct = (
   if (prd1 && prd2 && prd1.id === prd2.id) return true;
   return false;
 };
+
+/**
+ * Normalizes product name for robust duplicate detection (handles 2,5kg vs 2.5kg, frites vs frite, case, accents)
+ */
+export const normalizeProductName = (name?: string): string => {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove accents
+    .replace(/,/g, '.') // convert 2,5 to 2.5
+    .replace(/(\d+)\s*\.\s*(\d+)/g, '$1.$2') // 2 . 5 -> 2.5
+    .replace(/(\d+)\s*(kg|g|t|cl|l|ml)\b/g, '$1$2') // 5 kg -> 5kg
+    .replace(/\b([a-z0-9]+)s\b/g, '$1') // remove plural s: dattes -> datte, frites -> frite
+    .replace(/[^a-z0-9.]/g, '') // strip all non-alphanumeric except dot
+    .trim();
+};
+
+/**
+ * Finds products with duplicate or very similar names
+ */
+export const findSimilarProducts = (
+  targetName: string,
+  products: Product[],
+  excludeId?: string
+): Product[] => {
+  const normTarget = normalizeProductName(targetName);
+  if (!normTarget || normTarget.length < 3) return [];
+
+  return products.filter(p => {
+    if (excludeId && p.id === excludeId) return false;
+    const normP = normalizeProductName(p.name);
+    if (!normP) return false;
+
+    // 1. Exact normalized match (e.g. "Frites 2.5KG" === "frite 2,5kg")
+    if (normP === normTarget) return true;
+
+    // 2. High similarity substring (only if sufficiently long)
+    if (normTarget.length >= 6 && normP.length >= 6) {
+      if (normP.includes(normTarget) || normTarget.includes(normP)) return true;
+    }
+
+    return false;
+  });
+};
+

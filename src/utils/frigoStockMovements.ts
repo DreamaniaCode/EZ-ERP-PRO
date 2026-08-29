@@ -110,7 +110,9 @@ export function extractDateAndTime(dateStr?: string, fallbackTimestamp?: string 
 
   // 2. Parse dateStr
   let parsedDate: Date;
-  const rawDateStr = dateStr instanceof Date ? dateStr.toISOString() : (dateStr ? String(dateStr) : '');
+  const rawDateStr = (dateStr && typeof dateStr === 'object' && (dateStr as any) instanceof Date) 
+    ? (dateStr as unknown as Date).toISOString() 
+    : (dateStr ? String(dateStr) : '');
   if (rawDateStr && (rawDateStr.includes('T') || rawDateStr.includes(' '))) {
     const temp = new Date(rawDateStr);
     parsedDate = isNaN(temp.getTime()) ? (fallbackDate || now) : temp;

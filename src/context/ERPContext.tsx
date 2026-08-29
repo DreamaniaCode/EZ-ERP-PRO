@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
-import { findMatchingProduct } from '../utils/productMatcher';
+import { findMatchingProduct, normalizeProductName, findSimilarProducts } from '../utils/productMatcher';
 import { computeSynchronizedStocks, buildReconciledStockLevels } from '../utils/stockReconciler';
 import {
   Product,
@@ -551,21 +551,57 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ============================================================
   // PRODUCT ACTIONS
   // ============================================================
+  // Category-based SKU prefix generator
+  const getCategorySkuPrefix = (category?: string): string => {
+    switch (category) {
+      case 'Fruits Secs': return 'PRD-SEC-';
+      case 'Huiles & Condiments': return 'PRD-OIL-';
+      case 'Autres Produits Alimentaires': return 'PRD-ALM-';
+      case 'Dattes Locales':
+      case 'Dattes Importées':
+      default:
+        return 'PRD-DAT-';
+    }
+  };
+
+  const generateNextProductCode = (category?: string): string => {
+    const prefix = getCategorySkuPrefix(category);
+    let maxNum = 0;
+    products.forEach(p => {
+      if (p.code && p.code.startsWith(prefix)) {
+        const match = p.code.substring(prefix.length).match(/^(\d+)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxNum) maxNum = num;
+        }
+      }
+    });
+    return `${prefix}${String(maxNum + 1).padStart(3, '0')}`;
+  };
+
   const addProduct = (productData: Omit<Product, 'id' | 'code' | 'kgPerPallet'>): Product => {
-    const existing = products.find(p => p.name.trim().toLowerCase() === productData.name.trim().toLowerCase());
+    // 1. Check normalized equivalent
+    const normName = normalizeProductName(productData.name);
+    const existing = products.find(p => normalizeProductName(p.name) === normName);
     if (existing) {
       return existing;
     }
 
-    const nextCodeNum = products.length + 1;
-    const code = `PRD-DAT-${String(nextCodeNum).padStart(3, '0')}`;
-    const kgPerPallet = (productData.kgPerCarton || 1) * (productData.cartonsPerPallet || 1);
+    const code = generateNextProductCode(productData.category);
+    const kgPerCarton = Number(productData.kgPerCarton) || 5;
+    const cartonsPerPallet = Number(productData.cartonsPerPallet) || 100;
+    const kgPerPallet = (productData.kgPerCarton && productData.cartonsPerPallet)
+      ? (kgPerCarton * cartonsPerPallet)
+      : (productData.kgPerCarton ? kgPerCarton * 100 : 500);
+
     const id = `prd-${Date.now()}`;
 
     const newPrd: Product = {
       ...productData,
       id,
       code,
+      kgPerCarton,
+      cartonsPerPallet,
       kgPerPallet,
     };
 
@@ -583,10 +619,17 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const targetProduct = products.find(p => p.id === id);
     if (!targetProduct) return;
 
-    const updatedProduct = { ...targetProduct, ...updatedFields };
-    if (updatedFields.kgPerCarton || updatedFields.cartonsPerPallet) {
-      updatedProduct.kgPerPallet = (updatedProduct.kgPerCarton || 5) * (updatedProduct.cartonsPerPallet || 100);
-    }
+    const kgPerCarton = updatedFields.kgPerCarton !== undefined ? Number(updatedFields.kgPerCarton) : (targetProduct.kgPerCarton || 5);
+    const cartonsPerPallet = updatedFields.cartonsPerPallet !== undefined ? Number(updatedFields.cartonsPerPallet) : (targetProduct.cartonsPerPallet || 100);
+    const computedKgPerPallet = (kgPerCarton > 0 && cartonsPerPallet > 0) ? (kgPerCarton * cartonsPerPallet) : (targetProduct.kgPerPallet || 500);
+
+    const updatedProduct: Product = { 
+      ...targetProduct, 
+      ...updatedFields,
+      kgPerCarton,
+      cartonsPerPallet,
+      kgPerPallet: computedKgPerPallet,
+    };
 
     setProducts(prev => prev.map(p => p.id === id ? updatedProduct : p));
 
@@ -822,14 +865,14 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Background sync to backend for active stock levels
       for (const stk of reconciled) {
         if (stk.quantityKg > 0 || stk.quantityPallets > 0) {
-          api.adjustStock(
-            stk.frigoId,
-            stk.productId,
-            stk.quantityKg,
-            stk.quantityPallets,
-            currentUser?.name || 'Admin',
-            'Recalcul automatique synchronisé des stocks'
-          ).catch(() => {});
+          api.adjustStock({
+            frigoId: stk.frigoId,
+            productId: stk.productId,
+            newKg: stk.quantityKg,
+            newPallets: stk.quantityPallets,
+            performedBy: currentUser?.name || 'Admin',
+            notes: 'Recalcul automatique synchronisé des stocks'
+          }).catch(() => {});
         }
       }
 

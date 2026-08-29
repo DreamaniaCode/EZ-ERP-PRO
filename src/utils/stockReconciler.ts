@@ -176,6 +176,7 @@ export function computeSynchronizedStocks(params: {
         isMatchingProduct(prd, s.productId)
       );
 
+      const safeKgPerPallet = (kgPerPallet && kgPerPallet >= 20) ? kgPerPallet : (kgPerCarton > 0 ? kgPerCarton * 100 : 500);
       let frigoKg = 0;
       let frigoPallets = 0;
 
@@ -183,13 +184,15 @@ export function computeSynchronizedStocks(params: {
         // Dynamic balance from actual purchases and delivery notes
         const movementBalanceKg = Math.max(0, entriesKg - exitsKg);
         frigoKg = Math.max(movementBalanceKg, explicitStock?.quantityKg || 0);
-        frigoPallets = explicitStock && explicitStock.quantityPallets > 0
+        frigoPallets = (explicitStock && explicitStock.quantityPallets > 0 && explicitStock.quantityPallets <= Math.max(5, Math.ceil(frigoKg / 20)))
           ? explicitStock.quantityPallets
-          : Math.max(1, Math.ceil(frigoKg / kgPerPallet));
+          : (frigoKg > 0 ? Math.max(1, Math.ceil(frigoKg / safeKgPerPallet)) : 0);
       } else if (explicitStock && explicitStock.quantityKg > 0) {
         // No recorded movements, but explicit stock was configured
         frigoKg = explicitStock.quantityKg;
-        frigoPallets = explicitStock.quantityPallets || Math.max(1, Math.ceil(frigoKg / kgPerPallet));
+        frigoPallets = (explicitStock.quantityPallets > 0 && explicitStock.quantityPallets <= Math.max(5, Math.ceil(frigoKg / 20)))
+          ? explicitStock.quantityPallets
+          : (frigoKg > 0 ? Math.max(1, Math.ceil(frigoKg / safeKgPerPallet)) : 0);
       }
 
       const frigoCartons = kgPerCarton > 0 ? Math.round(frigoKg / kgPerCarton) : 0;
@@ -211,17 +214,18 @@ export function computeSynchronizedStocks(params: {
       ? frigoBreakdown.filter(fb => isMatchingFrigo(frigos.find(f => f.id === selectedFrigoId) || frigos[0], fb.frigoId))
       : frigoBreakdown;
 
+    const safeKgPerPallet = (kgPerPallet && kgPerPallet >= 20) ? kgPerPallet : (kgPerCarton > 0 ? kgPerCarton * 100 : 500);
     const totalStockKg = activeBreakdown.reduce((sum, fb) => sum + fb.quantityKg, 0);
     const totalStockPallets = activeBreakdown.reduce((sum, fb) => sum + fb.quantityPallets, 0);
     const totalStockCartons = kgPerCarton > 0 ? Math.round(totalStockKg / kgPerCarton) : 0;
 
     const totalEntriesKg = activeBreakdown.reduce((sum, fb) => sum + fb.entriesKg, 0);
     const totalEntriesCartons = kgPerCarton > 0 ? Math.round(totalEntriesKg / kgPerCarton) : 0;
-    const totalEntriesPallets = Math.ceil(totalEntriesKg / kgPerPallet);
+    const totalEntriesPallets = totalEntriesKg > 0 ? Math.max(1, Math.ceil(totalEntriesKg / safeKgPerPallet)) : 0;
 
     const totalExitsKg = activeBreakdown.reduce((sum, fb) => sum + fb.exitsKg, 0);
     const totalExitsCartons = kgPerCarton > 0 ? Math.round(totalExitsKg / kgPerCarton) : 0;
-    const totalExitsPallets = Math.ceil(totalExitsKg / kgPerPallet);
+    const totalExitsPallets = totalExitsKg > 0 ? Math.max(1, Math.ceil(totalExitsKg / safeKgPerPallet)) : 0;
 
     const totalValuationCostHT = totalStockKg * unitCostHT;
     const totalValuationSaleHT = totalStockKg * sellingPriceHT;
