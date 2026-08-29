@@ -25,6 +25,11 @@ export const InvoicesList: React.FC = () => {
                           inv.clientName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'ALL' || inv.status === statusFilter;
     return matchesSearch && matchesStatus;
+  }).sort((a, b) => {
+    const dateA = a.date || '';
+    const dateB = b.date || '';
+    if (dateA !== dateB) return dateB.localeCompare(dateA);
+    return (b.id || '').localeCompare(a.id || '');
   });
 
 

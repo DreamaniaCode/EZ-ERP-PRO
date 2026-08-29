@@ -36,7 +36,8 @@ import {
   Image as ImageIcon,
   Upload,
   Scale,
-  Receipt
+  Receipt,
+  ArrowUpDown
 } from 'lucide-react';
 import { GenerateInvoiceModal } from '../finance/GenerateInvoiceModal';
 
@@ -103,6 +104,21 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   const [activeWeighingBL, setActiveWeighingBL] = useState<DeliveryNoteBL | null>(null);
   const [showExcelModal, setShowExcelModal] = useState<boolean>(false);
   const [showAllCompanies, setShowAllCompanies] = useState<boolean>(true);
+  const [sortBy, setSortBy] = useState<'DATE_DESC' | 'STATUS_THEN_DATE' | 'DATE_ASC' | 'CLIENT'>('DATE_DESC');
+
+  const STATUS_PRIORITY: Record<string, number> = {
+    'EN_ATTENTE_FRIGO': 1,
+    'EN_COURS': 2,
+    'VALIDE': 3,
+    'CONFIRME': 4,
+    'LIVRE': 5,
+    'LIVRÉ': 5,
+    'APPROUVÉ_FRIGO': 5,
+    'FACTURE': 6,
+    'FACTURÉ': 6,
+    'ANNULE': 7,
+    'ANNULÉ': 7
+  };
 
   // Filter BLs by Active Company, User Role, Frigo, Status, Search
   const filteredBLs = deliveryNotes.filter(bl => {
@@ -171,8 +187,32 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
     return matchesFrigo && matchesStatus && matchesSearch;
   });
 
-  // Sort BLs descending by date & ID (most recent first)
+  // Sort BLs intelligently by Date, Status, or Client (Newest first by default)
   const sortedBLs = [...filteredBLs].sort((a, b) => {
+    if (sortBy === 'STATUS_THEN_DATE') {
+      const pA = STATUS_PRIORITY[a.status] || 99;
+      const pB = STATUS_PRIORITY[b.status] || 99;
+      if (pA !== pB) return pA - pB;
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      if (dateA !== dateB) return dateB.localeCompare(dateA);
+      return (b.id || '').localeCompare(a.id || '');
+    }
+
+    if (sortBy === 'DATE_ASC') {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      if (dateA !== dateB) return dateA.localeCompare(dateB);
+      return (a.id || '').localeCompare(b.id || '');
+    }
+
+    if (sortBy === 'CLIENT') {
+      const clientA = a.clientName || '';
+      const clientB = b.clientName || '';
+      return clientA.localeCompare(clientB);
+    }
+
+    // Default: DATE_DESC (Newest first)
     const dateA = a.date || '';
     const dateB = b.date || '';
     if (dateA !== dateB) {
@@ -564,6 +604,20 @@ EasyERP Pro • Logistics Management`;
               <option value="APPROUVÉ_FRIGO">Approuvé Frigo</option>
               <option value="LIVRÉ">Livré (Signé Client)</option>
               <option value="FACTURÉ">Facturé</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <ArrowUpDown className="w-4 h-4 text-gray-500" />
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as any)}
+              className="carbon-input text-xs font-semibold text-gray-900 bg-gray-50 border-gray-300"
+            >
+              <option value="DATE_DESC">📅 Date la plus récente d'abord (Défaut)</option>
+              <option value="STATUS_THEN_DATE">⚡ Trier par Statut & Date (En attente d'abord)</option>
+              <option value="DATE_ASC">⏳ Date la plus ancienne d'abord</option>
+              <option value="CLIENT">👤 Trier par Client (A → Z)</option>
             </select>
           </div>
 

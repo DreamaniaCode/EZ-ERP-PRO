@@ -90,7 +90,8 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
         item.kgPerCarton = product.kgPerCarton || 10;
         const cartons = Number(item.quantityCartons) || 0;
         item.theoreticalKg = Math.round(cartons * item.kgPerCarton * 100) / 100;
-        item.quantityKg = (item.weighedKg !== undefined && item.weighedKg !== '' && Number(item.weighedKg) > 0) ? Number(item.weighedKg) : item.theoreticalKg;
+        item.quantityKg = item.theoreticalKg;
+        item.weighedKg = item.theoreticalKg > 0 ? item.theoreticalKg : undefined;
         if (product.kgPerPallet) {
           item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
         }
@@ -101,8 +102,14 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
       const newKgPack = Math.max(0.1, Number(value) || 1);
       item.kgPerCarton = newKgPack;
       const cartonsVal = Number(item.quantityCartons) || 0;
-      item.theoreticalKg = Math.round(cartonsVal * newKgPack * 100) / 100;
-      item.quantityKg = (item.weighedKg !== undefined && item.weighedKg !== '' && Number(item.weighedKg) > 0) ? Number(item.weighedKg) : item.theoreticalKg;
+      if (cartonsVal > 0) {
+        item.theoreticalKg = Math.round(cartonsVal * newKgPack * 100) / 100;
+        item.quantityKg = item.theoreticalKg;
+        item.weighedKg = item.theoreticalKg;
+      } else if (item.quantityKg && Number(item.quantityKg) > 0) {
+        item.quantityCartons = Math.round((Number(item.quantityKg) / newKgPack) * 100) / 100;
+        item.theoreticalKg = Number(item.quantityKg);
+      }
       if (product && product.kgPerPallet) {
         item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
       }
@@ -112,34 +119,37 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
       const cartonsVal = Number(value) || 0;
       item.quantityCartons = cartonsVal;
       item.theoreticalKg = Math.round(cartonsVal * currentKgCarton * 100) / 100;
-      item.quantityKg = (item.weighedKg !== undefined && item.weighedKg !== '' && Number(item.weighedKg) > 0) ? Number(item.weighedKg) : item.theoreticalKg;
+      item.quantityKg = item.theoreticalKg;
+      item.weighedKg = cartonsVal > 0 ? item.theoreticalKg : undefined;
+      item.isWeighed = false;
       if (product && product.kgPerPallet) {
         item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
       }
     }
 
-    if (field === 'weighedKg') {
-      const weighedVal = value !== '' ? Number(value) : undefined;
-      item.weighedKg = weighedVal;
-      item.isWeighed = weighedVal !== undefined && weighedVal > 0;
-      const cartonsVal = Number(item.quantityCartons) || 0;
-      item.theoreticalKg = Math.round(cartonsVal * currentKgCarton * 100) / 100;
-      item.quantityKg = (weighedVal !== undefined && weighedVal > 0) ? weighedVal : (item.theoreticalKg || Number(item.quantityKg));
-      if (product && product.kgPerPallet) {
-        item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
-      }
-    }
-
-    if (field === 'quantityKg') {
+    if (field === 'weighedKg' || field === 'quantityKg') {
       const kgVal = Number(value) || 0;
+      item.weighedKg = value !== '' && kgVal > 0 ? kgVal : undefined;
+      item.isWeighed = value !== '' && kgVal > 0;
       item.quantityKg = kgVal;
+      item.theoreticalKg = kgVal;
+      if (currentKgCarton > 0 && kgVal > 0) {
+        // Automatically calculate number of cartons from entered Kg
+        item.quantityCartons = Math.round((kgVal / currentKgCarton) * 100) / 100;
+      } else if (kgVal === 0) {
+        item.quantityCartons = 0;
+      }
       if (product && product.kgPerPallet) {
         item.quantityPallets = Math.ceil(kgVal / product.kgPerPallet);
       }
     }
 
+    if (field === 'unitPriceHT') {
+      item.unitPriceHT = Number(value) || 0;
+    }
+
     // Explicit Calculation by Kilogram: Total HT = Kg * Unit Price HT/Kg (No VAT)
-    item.totalHT = Math.round(Number(item.quantityKg) * Number(item.unitPriceHT) * 100) / 100;
+    item.totalHT = Math.round(Number(item.quantityKg || 0) * Number(item.unitPriceHT || 0) * 100) / 100;
     item.totalTTC = item.totalHT;
 
     newItems[index] = item;
@@ -532,7 +542,11 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                             />
                           </div>
                           <div className="mt-1 text-[10px] text-gray-600 font-mono font-medium">
-                            = {cartons} × {item.kgPerCarton || kgCarton} Kg = <strong className="text-gray-900">{theoreticalKg.toLocaleString()} Kg</strong>
+                            {cartons > 0 ? (
+                              <span>{cartons} colis × {item.kgPerCarton || kgCarton} kg = <strong className="text-gray-900">{theoreticalKg.toLocaleString()} Kg</strong></span>
+                            ) : (
+                              <span className="text-gray-400">1 colis = {item.kgPerCarton || kgCarton} Kg</span>
+                            )}
                           </div>
                         </td>
 

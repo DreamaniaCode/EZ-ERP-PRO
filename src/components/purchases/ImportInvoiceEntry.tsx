@@ -768,6 +768,12 @@ export const ImportInvoiceEntry: React.FC = () => {
                   const matchesSupplier = supplierFilter === 'ALL' || pur.supplierId === supplierFilter;
                   return matchesSearch && matchesStatus && matchesSupplier;
                 })
+                .sort((a, b) => {
+                  const dateA = a.dateArrival || '';
+                  const dateB = b.dateArrival || '';
+                  if (dateA !== dateB) return dateB.localeCompare(dateA);
+                  return (b.id || '').localeCompare(a.id || '');
+                })
                 .map(pur => {
                   const frigoObj = frigos.find(f => f.id === pur.targetFrigoId);
                   const totalCartons = pur.items.reduce((acc, i) => acc + (i.quantityCartons || 0), 0);
