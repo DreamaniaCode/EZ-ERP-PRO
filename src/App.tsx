@@ -86,12 +86,13 @@ const BLSignaturePage = safeLazy(() => import('./components/sales/BLSignaturePag
 const BLPdfPage = safeLazy(() => import('./components/sales/BLPdfPage').then(m => ({ default: m.BLPdfPage })));
 const FrigoOperationsPage = safeLazy(() => import('./components/stock/FrigoOperationsPage').then(m => ({ default: m.FrigoOperationsPage })));
 const ProductStockHistoryPage = safeLazy(() => import('./components/stock/ProductStockHistoryPage').then(m => ({ default: m.ProductStockHistoryPage })));
+const StockRepackagingPage = safeLazy(() => import('./components/stock/StockRepackagingPage').then(m => ({ default: m.StockRepackagingPage })));
 
 // Extended NavTab type with edit sub-views
 export type ExtendedNavTab = NavTab | 
   'PRODUCT_EDIT' | 'CLIENT_EDIT' | 'SUPPLIER_EDIT' | 'FRIGO_EDIT' |
   'BL_EDIT' | 'ORDER_EDIT' | 'EXPENSE_EDIT' | 'CHEQUE_EDIT' |
-  'USERS' | 'IMPORT_BL' | 'BACKUP' | 'BL_SIGN' | 'BL_PDF' | 'FRIGO_OPS' | 'PRODUCT_HISTORY';
+  'USERS' | 'IMPORT_BL' | 'BACKUP' | 'BL_SIGN' | 'BL_PDF' | 'FRIGO_OPS' | 'PRODUCT_HISTORY' | 'STOCK_REPACKAGING';
 
 function LoadingSpinner() {
   return (
@@ -367,6 +368,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
             onEditProduct={(id) => navigateToEdit('PRODUCT_EDIT', id)} 
             onNewProduct={() => navigateToEdit('PRODUCT_EDIT', null)} 
             onViewProductHistory={(id) => navigateToEdit('PRODUCT_HISTORY', id)}
+            onNavigateToRepackaging={(id) => navigateToEdit('STOCK_REPACKAGING', id)}
           />
         );
       case 'PRODUCT_HISTORY':
@@ -376,6 +378,13 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
             onBack={navigateBack} 
             onNavigateToBL={(blId) => navigateToEdit('BL_PDF', blId)}
             onSelectProduct={(id) => setEditingEntityId(id)}
+          />
+        );
+      case 'STOCK_REPACKAGING':
+        return (
+          <StockRepackagingPage 
+            initialFrigoId={editingEntityId} 
+            onBack={navigateBack} 
           />
         );
       case 'DELIVERY_NOTES':
@@ -397,7 +406,11 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
       case 'PURCHASES_IMPORTS':
         return <ImportInvoiceEntry />;
       case 'MULTI_SITE_INVENTORY':
-        return <MultiFrigoInventory />;
+        return (
+          <MultiFrigoInventory 
+            onNavigateToRepackaging={(id) => navigateToEdit('STOCK_REPACKAGING', id)}
+          />
+        );
       case 'INVOICING':
         return <InvoicesList />;
       case 'TREASURY_CHEQUES':

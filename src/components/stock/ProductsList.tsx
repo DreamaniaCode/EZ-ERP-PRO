@@ -38,9 +38,15 @@ interface ProductsListProps {
   onEditProduct?: (id: string) => void;
   onNewProduct?: () => void;
   onViewProductHistory?: (id: string) => void;
+  onNavigateToRepackaging?: (productId?: string) => void;
 }
 
-export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNewProduct, onViewProductHistory }) => {
+export const ProductsList: React.FC<ProductsListProps> = ({ 
+  onEditProduct, 
+  onNewProduct, 
+  onViewProductHistory,
+  onNavigateToRepackaging 
+}) => {
   const { t } = useTranslation();
   const { 
     currentUser,
@@ -378,8 +384,12 @@ export const ProductsList: React.FC<ProductsListProps> = ({ onEditProduct, onNew
           {/* Repackaging & Division Button */}
           <button
             onClick={() => {
-              setRepackagingInitialProduct('');
-              setShowRepackagingModal(true);
+              if (onNavigateToRepackaging) {
+                onNavigateToRepackaging();
+              } else {
+                setRepackagingInitialProduct('');
+                setShowRepackagingModal(true);
+              }
             }}
             className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-semibold text-xs px-3 py-2 rounded-lg transition shadow-xs cursor-pointer"
             title="Diviser / Reconditionner un produit vrac en paquets détail"

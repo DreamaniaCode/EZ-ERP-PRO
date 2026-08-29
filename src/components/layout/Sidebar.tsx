@@ -26,7 +26,8 @@ import {
   LogOut,
   Clock,
   Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  Scissors
 } from 'lucide-react';
 
 export type NavTab = 
@@ -301,6 +302,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               );
             })}
+
+            {/* Direct Reconditionnement Page Button */}
+            {onNavigateExtended && currentUser?.role !== 'RESPONSABLE_FRIGO' && (
+              <button
+                onClick={() => {
+                  onNavigateExtended('STOCK_REPACKAGING');
+                  if (onCloseMobile) onCloseMobile();
+                }}
+                className={`w-full text-start px-3 py-2.5 sm:py-2 rounded-xl transition-all flex items-center justify-between group active:scale-[0.98] ${
+                  (activeTab as any) === 'STOCK_REPACKAGING'
+                    ? 'bg-purple-600 text-white font-bold shadow-md'
+                    : 'text-purple-300 hover:bg-[#262626] hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Scissors className="w-4 h-4 text-purple-400 group-hover:text-white shrink-0" />
+                  <span className="text-xs font-semibold truncate">Reconditionnement</span>
+                </div>
+                {(activeTab as any) === 'STOCK_REPACKAGING' && <ChevronRight className="w-3.5 h-3.5 text-white/80 rtl:rotate-180" />}
+              </button>
+            )}
           </nav>
 
           {/* Sales & Directory Section */}

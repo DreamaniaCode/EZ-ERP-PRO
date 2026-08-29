@@ -29,7 +29,11 @@ import {
   Scissors
 } from 'lucide-react';
 
-export const MultiFrigoInventory: React.FC = () => {
+interface MultiFrigoInventoryProps {
+  onNavigateToRepackaging?: (frigoId?: string) => void;
+}
+
+export const MultiFrigoInventory: React.FC<MultiFrigoInventoryProps> = ({ onNavigateToRepackaging }) => {
   const { 
     frigos, 
     products, 
@@ -394,8 +398,12 @@ export const MultiFrigoInventory: React.FC = () => {
 
           <button
             onClick={() => {
-              setRepackagingInitialProduct('');
-              setShowRepackagingModal(true);
+              if (onNavigateToRepackaging) {
+                onNavigateToRepackaging(selectedFrigoId);
+              } else {
+                setRepackagingInitialProduct('');
+                setShowRepackagingModal(true);
+              }
             }}
             className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-all shadow-sm"
             title="Reconditionner / Diviser un produit vrac/gros (ex: 12KG) en paquets détail (ex: 3KG, 2KG)"
