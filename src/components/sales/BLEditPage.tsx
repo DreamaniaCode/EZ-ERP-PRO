@@ -4,6 +4,7 @@ import { useERP } from '../../context/ERPContext';
 import { ArrowLeft, Save, X, Plus, Trash2, RefreshCw, Sparkles, Truck } from 'lucide-react';
 import { QuickProductModal } from '../stock/QuickProductModal';
 import { SearchableProductSelect } from '../common/SearchableProductSelect';
+import { SearchableClientSelect } from '../common/SearchableClientSelect';
 import { generateWhatsAppBLLink } from '../../utils/whatsappUtils';
 import { useToast } from '../common/CarbonToastContainer';
 
@@ -95,6 +96,17 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
         if (product.kgPerPallet) {
           item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
         }
+      }
+    }
+
+    if (field === 'productName') {
+      item.productName = value;
+    }
+
+    if (field === 'packagingFormat') {
+      item.packagingFormat = value;
+      if (product) {
+        item.productName = `${product.name} (${value})`;
       }
     }
 
@@ -374,18 +386,12 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                 <label className="block text-xs font-bold uppercase text-gray-700 mb-1">
                   {t('sales.client', 'Client Destinataire')} *
                 </label>
-                <select
+                <SearchableClientSelect
+                  clients={clients || []}
                   value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  className="w-full border border-[#e0e0e0] rounded p-2 text-sm focus:ring-2 focus:ring-[#0f62fe] focus:outline-none"
-                >
-                  <option value="">-- Sélectionner un Client --</option>
-                  {clients?.map((client: any) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name} {client.companyName ? `(${client.companyName})` : ''}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setClientId}
+                  placeholder="Sélectionner le bon client..."
+                />
               </div>
 
               <div>
@@ -526,6 +532,19 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                               />
                               <span className="text-[9px] text-gray-500 font-bold">Kg/colis</span>
                             </div>
+                          </div>
+
+                          {/* Custom designation received by client */}
+                          <div className="mt-1.5 flex items-center gap-1.5 bg-gray-50/80 p-1.5 rounded border border-gray-200">
+                            <span className="text-[10px] font-bold text-gray-700 uppercase tracking-tight shrink-0">Nom sur Bon:</span>
+                            <input
+                              type="text"
+                              value={item.productName || ''}
+                              onChange={e => handleItemChange(index, 'productName', e.target.value)}
+                              placeholder="ex: Dattes Deglet Nour 3kg..."
+                              className="w-full text-xs font-bold text-gray-900 border border-gray-300 rounded px-2 py-0.5 bg-white focus:ring-1 focus:ring-[#0f62fe] focus:border-[#0f62fe]"
+                              title="Nom du produit reconditionné qui sera imprimé sur le bon de livraison et la facture du client"
+                            />
                           </div>
                         </td>
 

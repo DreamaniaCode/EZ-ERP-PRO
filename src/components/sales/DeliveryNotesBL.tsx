@@ -376,8 +376,8 @@ EasyERP Pro • Logistics Management`;
 
   const handleCreateBLSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const client = clients.find(c => c.id === newBLData.clientId) || clients[0];
-    const frigo = frigos.find(f => f.id === newBLData.frigoId) || frigos[0];
+    const client = clients.find(c => c.id === newBLData.clientId);
+    const frigo = frigos.find(f => f.id === newBLData.frigoId);
 
     if (!client || !frigo) {
       alert('Veuillez sélectionner un client et un frigo valides.');
