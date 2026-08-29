@@ -236,6 +236,8 @@ export interface DeliveryNoteItem {
   productName: string;
   quantityKg: number;
   quantityCartons?: number;
+  kgPerCarton?: number;
+  packagingFormat?: string;
   theoreticalKg?: number;
   weighedKg?: number;
   isWeighed?: boolean;

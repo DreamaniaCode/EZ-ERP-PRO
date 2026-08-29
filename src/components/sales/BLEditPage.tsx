@@ -76,15 +76,20 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
     const newItems = [...items];
     const item = { ...newItems[index], [field]: value };
     const product = products?.find(p => p.id === item.productId);
-    const kgCarton = product?.kgPerCarton || 10;
+    
+    // Dynamic kgPerCarton / pack weight
+    const currentKgCarton = item.kgPerCarton !== undefined && Number(item.kgPerCarton) > 0 
+      ? Number(item.kgPerCarton) 
+      : (product?.kgPerCarton || 10);
 
     if (field === 'productId') {
       if (product) {
         item.productName = product.name;
         item.productCode = product.code;
         item.unitPriceHT = product.sellingPriceHT || 0;
+        item.kgPerCarton = product.kgPerCarton || 10;
         const cartons = Number(item.quantityCartons) || 0;
-        item.theoreticalKg = cartons * kgCarton;
+        item.theoreticalKg = Math.round(cartons * item.kgPerCarton * 100) / 100;
         item.quantityKg = (item.weighedKg !== undefined && item.weighedKg !== '' && Number(item.weighedKg) > 0) ? Number(item.weighedKg) : item.theoreticalKg;
         if (product.kgPerPallet) {
           item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
@@ -92,10 +97,21 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
       }
     }
 
+    if (field === 'kgPerCarton') {
+      const newKgPack = Math.max(0.1, Number(value) || 1);
+      item.kgPerCarton = newKgPack;
+      const cartonsVal = Number(item.quantityCartons) || 0;
+      item.theoreticalKg = Math.round(cartonsVal * newKgPack * 100) / 100;
+      item.quantityKg = (item.weighedKg !== undefined && item.weighedKg !== '' && Number(item.weighedKg) > 0) ? Number(item.weighedKg) : item.theoreticalKg;
+      if (product && product.kgPerPallet) {
+        item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
+      }
+    }
+
     if (field === 'quantityCartons') {
       const cartonsVal = Number(value) || 0;
       item.quantityCartons = cartonsVal;
-      item.theoreticalKg = cartonsVal * kgCarton;
+      item.theoreticalKg = Math.round(cartonsVal * currentKgCarton * 100) / 100;
       item.quantityKg = (item.weighedKg !== undefined && item.weighedKg !== '' && Number(item.weighedKg) > 0) ? Number(item.weighedKg) : item.theoreticalKg;
       if (product && product.kgPerPallet) {
         item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
@@ -107,7 +123,7 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
       item.weighedKg = weighedVal;
       item.isWeighed = weighedVal !== undefined && weighedVal > 0;
       const cartonsVal = Number(item.quantityCartons) || 0;
-      item.theoreticalKg = cartonsVal * kgCarton;
+      item.theoreticalKg = Math.round(cartonsVal * currentKgCarton * 100) / 100;
       item.quantityKg = (weighedVal !== undefined && weighedVal > 0) ? weighedVal : (item.theoreticalKg || Number(item.quantityKg));
       if (product && product.kgPerPallet) {
         item.quantityPallets = Math.ceil(item.quantityKg / product.kgPerPallet);
@@ -123,7 +139,7 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
     }
 
     // Explicit Calculation by Kilogram: Total HT = Kg * Unit Price HT/Kg (No VAT)
-    item.totalHT = Number(item.quantityKg) * Number(item.unitPriceHT);
+    item.totalHT = Math.round(Number(item.quantityKg) * Number(item.unitPriceHT) * 100) / 100;
     item.totalTTC = item.totalHT;
 
     newItems[index] = item;
@@ -425,9 +441,9 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
               <table className="w-full carbon-table min-w-[580px]">
                 <thead>
                   <tr>
-                    <th>Produit</th>
-                    <th className="w-32">Nbr Cartons</th>
-                    <th className="w-44">Poids Pesé Réel (Kg)</th>
+                    <th>Produit & Format de Vente</th>
+                    <th className="w-40">Colis / Paquets Sortie</th>
+                    <th className="w-48">Poids Total Sortie (Kg)</th>
                     <th className="w-36">Prix Unitaire (DH/Kg)</th>
                     <th className="w-40">Montant Total (DH)</th>
                     <th className="w-12"></th>
@@ -438,16 +454,16 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                     const stk = stocks?.find(s => s.frigoId === frigoId && s.productId === item.productId);
                     const availKg = stk ? stk.quantityKg : 0;
                     const prd = products?.find(p => p.id === item.productId);
-                    const kgCarton = prd?.kgPerCarton || 10;
+                    const kgCarton = item.kgPerCarton || prd?.kgPerCarton || 10;
                     const cartons = Number(item.quantityCartons) || 0;
-                    const theoreticalKg = item.theoreticalKg || (cartons * kgCarton);
+                    const theoreticalKg = item.theoreticalKg !== undefined ? item.theoreticalKg : (cartons * kgCarton);
                     const isWeighed = item.weighedKg !== undefined && item.weighedKg !== '' && Number(item.weighedKg) > 0;
                     const weightDiff = isWeighed ? (Number(item.weighedKg) - theoreticalKg) : 0;
                     const isStockOk = item.quantityKg <= availKg;
 
                     return (
                       <tr key={item.id || index} className={!isStockOk ? 'bg-red-50/70' : ''}>
-                        <td className="min-w-[240px]">
+                        <td className="min-w-[280px]">
                           <SearchableProductSelect
                             products={products || []}
                             value={item.productId}
@@ -456,20 +472,67 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                             frigoId={frigoId}
                             placeholder="Rechercher produit..."
                           />
+
+                          {/* Quick Format & Packaging Selector */}
+                          <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                            <span className="text-[10px] font-bold text-gray-500 uppercase">Format:</span>
+                            {[
+                              { label: '📦 12 Kg', kg: 12, name: 'Caisse 12 KG' },
+                              { label: '🛍️ 3 Kg', kg: 3, name: 'Paquet 3 KG' },
+                              { label: '🛍️ 2 Kg', kg: 2, name: 'Paquet 2 KG' },
+                              { label: '🥡 1 Kg', kg: 1, name: 'Barquette 1 KG' },
+                              { label: '🥡 0.5 Kg', kg: 0.5, name: 'Barquette 500g' },
+                            ].map(fmt => {
+                              const isSelected = item.kgPerCarton === fmt.kg;
+                              return (
+                                <button
+                                  key={fmt.kg}
+                                  type="button"
+                                  onClick={() => {
+                                    handleItemChange(index, 'kgPerCarton', fmt.kg);
+                                    handleItemChange(index, 'packagingFormat', fmt.name);
+                                  }}
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all border ${
+                                    isSelected
+                                      ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
+                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                                  }`}
+                                >
+                                  {fmt.label}
+                                </button>
+                              );
+                            })}
+                            
+                            <div className="flex items-center gap-1 ml-auto">
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0.1"
+                                value={item.kgPerCarton || ''}
+                                onChange={e => handleItemChange(index, 'kgPerCarton', e.target.value)}
+                                placeholder="Kg"
+                                title="Poids unitaire par colis personnalisé (en Kg)"
+                                className="w-12 px-1 py-0.5 text-[10px] font-mono font-bold border border-gray-300 rounded text-center bg-white"
+                              />
+                              <span className="text-[9px] text-gray-500 font-bold">Kg/colis</span>
+                            </div>
+                          </div>
                         </td>
 
                         <td>
-                          <input
-                            type="number"
-                            value={item.quantityCartons || ''}
-                            onChange={(e) => handleItemChange(index, 'quantityCartons', e.target.value)}
-                            className="w-full border border-[#e0e0e0] rounded p-1.5 text-xs font-mono font-bold text-amber-800 focus:ring-1 focus:ring-[#0f62fe]"
-                            min="0"
-                            step="1"
-                            placeholder="Cartons"
-                          />
-                          <div className="mt-0.5 text-[10px] text-gray-500 font-mono">
-                            Théorique: {theoreticalKg.toLocaleString()} Kg
+                          <div className="relative">
+                            <input
+                              type="number"
+                              value={item.quantityCartons || ''}
+                              onChange={(e) => handleItemChange(index, 'quantityCartons', e.target.value)}
+                              className="w-full border border-[#e0e0e0] rounded p-1.5 text-xs font-mono font-bold text-amber-800 focus:ring-1 focus:ring-[#0f62fe]"
+                              min="0"
+                              step="1"
+                              placeholder="Nbr Colis"
+                            />
+                          </div>
+                          <div className="mt-1 text-[10px] text-gray-600 font-mono font-medium">
+                            = {cartons} × {item.kgPerCarton || kgCarton} Kg = <strong className="text-gray-900">{theoreticalKg.toLocaleString()} Kg</strong>
                           </div>
                         </td>
 
@@ -492,7 +555,7 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                           </div>
                           <div className="mt-1 text-[10px] font-mono font-bold flex items-center justify-between">
                             <span className={isStockOk ? 'text-emerald-700' : 'text-red-600 font-extrabold'}>
-                              Stock Dispo: {availKg.toLocaleString()} Kg
+                              Stock Vrac: {availKg.toLocaleString()} Kg
                             </span>
                             {!isStockOk && (
                               <span className="text-red-600 font-bold bg-red-100 px-1 rounded">⚠️ INSUFFISANT</span>
