@@ -277,6 +277,7 @@ export interface CompanyEntity {
 
 export interface DeliveryNoteBL {
   id: string;
+  createdAt?: string;
   companyId?: string; // Active company entity (e.g. STE1 or STE2)
   blNumber: string; // e.g. BL-STE1-2026-0189
   orderId: string;

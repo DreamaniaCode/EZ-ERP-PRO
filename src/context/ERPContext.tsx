@@ -1067,12 +1067,15 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const bl: DeliveryNoteBL = {
       ...blData,
       id: blData.id || `bl-${Date.now()}`,
+      createdAt: blData.createdAt || new Date().toISOString(),
       companyId: targetCompId,
       blNumber,
       stockDecremented: true,
-      frigoEmployeeApproved: false,
-      whatsappSent: false,
-      emailSent: false,
+      frigoEmployeeApproved: blData.frigoEmployeeApproved !== undefined 
+        ? blData.frigoEmployeeApproved 
+        : (blData.status === 'LIVRÉ' || blData.status === 'APPROUVÉ_FRIGO'),
+      whatsappSent: blData.whatsappSent ?? false,
+      emailSent: blData.emailSent ?? false,
       status: blData.status || 'EN_ATTENTE_FRIGO',
       logs: blData.logs || [
         {

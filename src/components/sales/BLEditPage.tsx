@@ -11,15 +11,43 @@ import { useToast } from '../common/CarbonToastContainer';
 export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }> = ({ editId, onBack }) => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
-  const { clients, frigos, products, stocks, deliveryNotes, addBL, updateBL, activeCompanyId, activeCompany, companies } = useERP();
+  const { clients, frigos, products, stocks, deliveryNotes, addBL, updateBL, activeCompanyId, activeCompany, companies, currentUser } = useERP();
   const { notifySuccess, notifyError, notifyWarning } = useToast();
 
   const [companyId, setCompanyId] = useState<string>(activeCompanyId !== 'ALL' ? activeCompanyId : companies[0]?.id || 'STE_1');
   const [clientId, setClientId] = useState('');
   const [frigoId, setFrigoId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [isHistoricalAutoApprove, setIsHistoricalAutoApprove] = useState<boolean>(true);
   const [items, setItems] = useState<any[]>([]);
   const [showQuickProductModal, setShowQuickProductModal] = useState(false);
+
+  // Helper functions for memorizing custom repartition/product names
+  const getSavedRepartitionName = (prdId: string, kgPack?: number): string | null => {
+    if (!prdId) return null;
+    try {
+      const raw = localStorage.getItem('erp_custom_repartition_names');
+      if (!raw) return null;
+      const map = JSON.parse(raw);
+      const key = `${prdId}_${kgPack || 10}`;
+      return map[key] || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const saveRepartitionName = (prdId: string, kgPack: number | undefined, customName: string) => {
+    if (!prdId || !customName || !customName.trim()) return;
+    try {
+      const raw = localStorage.getItem('erp_custom_repartition_names');
+      const map = raw ? JSON.parse(raw) : {};
+      const key = `${prdId}_${kgPack || 10}`;
+      map[key] = customName.trim();
+      localStorage.setItem('erp_custom_repartition_names', JSON.stringify(map));
+    } catch (e) {
+      console.error('Failed to save custom repartition name', e);
+    }
+  };
 
   // Load existing BL data when editId is provided
   useEffect(() => {
@@ -32,7 +60,7 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
         setDate(bl.date || new Date().toISOString().slice(0, 10));
         setItems(bl.items ? bl.items.map((it: any) => {
           const prd = products?.find(p => p.id === it.productId || p.code === it.productCode);
-          const kgCarton = prd?.kgPerCarton || 10;
+          const kgCarton = it.kgPerCarton || prd?.kgPerCarton || 10;
           return {
             ...it,
             quantityKg: Number(it.quantityKg || 0),
@@ -51,13 +79,14 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
     const defaultProduct = products && products.length > 0 ? products[0] : null;
     const initialPrice = defaultProduct ? defaultProduct.sellingPriceHT : 0;
     const kgCarton = defaultProduct?.kgPerCarton || 10;
+    const savedName = defaultProduct ? getSavedRepartitionName(defaultProduct.id, kgCarton) : null;
     
     setItems([
       ...items,
       {
         id: `item-${Date.now()}`,
         productId: defaultProduct ? defaultProduct.id : '',
-        productName: defaultProduct ? defaultProduct.name : '',
+        productName: savedName || (defaultProduct ? defaultProduct.name : ''),
         productCode: defaultProduct ? defaultProduct.code : '',
         quantityKg: 100,
         quantityCartons: Math.round(100 / kgCarton),
@@ -85,7 +114,8 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
 
     if (field === 'productId') {
       if (product) {
-        item.productName = product.name;
+        const savedCustomName = getSavedRepartitionName(product.id, item.kgPerCarton || product.kgPerCarton);
+        item.productName = savedCustomName || product.name;
         item.productCode = product.code;
         item.unitPriceHT = product.sellingPriceHT || 0;
         item.kgPerCarton = product.kgPerCarton || 10;
@@ -101,11 +131,17 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
 
     if (field === 'productName') {
       item.productName = value;
+      if (item.productId && value) {
+        saveRepartitionName(item.productId, item.kgPerCarton, value);
+      }
     }
 
     if (field === 'packagingFormat') {
       item.packagingFormat = value;
-      if (product) {
+      const savedCustomName = getSavedRepartitionName(item.productId, item.kgPerCarton);
+      if (savedCustomName) {
+        item.productName = savedCustomName;
+      } else if (product) {
         item.productName = `${product.name} (${value})`;
       }
     }
@@ -113,6 +149,10 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
     if (field === 'kgPerCarton') {
       const newKgPack = Math.max(0.1, Number(value) || 1);
       item.kgPerCarton = newKgPack;
+      const savedCustomName = getSavedRepartitionName(item.productId, newKgPack);
+      if (savedCustomName) {
+        item.productName = savedCustomName;
+      }
       const cartonsVal = Number(item.quantityCartons) || 0;
       if (cartonsVal > 0) {
         item.theoreticalKg = Math.round(cartonsVal * newKgPack * 100) / 100;
@@ -215,6 +255,16 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
       }
     }
 
+    // Check if auto-approved (historical past BL or explicit checkbox)
+    const isPastDate = Boolean(date && date < new Date().toISOString().slice(0, 10));
+    const shouldAutoApprove = isHistoricalAutoApprove || isPastDate;
+
+    // Save custom repartition names in memory for next BLs
+    items.forEach(it => {
+      if (it.productId && it.productName) {
+        saveRepartitionName(it.productId, it.kgPerCarton, it.productName);
+      }
+    });
 
     const payload = {
       clientId,
@@ -233,41 +283,48 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
       totalTTC
     };
 
-
     if (editId) {
       if (updateBL) {
         updateBL(editId, { ...payload, companyId });
+        notifySuccess('Bon de Livraison mis à jour avec succès !', 'BL Enregistré');
       }
     } else {
       if (addBL) {
         const chosenComp = companies.find(c => c.id === companyId) || activeCompany || companies[0];
         const prefix = chosenComp?.blPrefix || 'BL';
         const blNumber = `${prefix}-2026-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-        const newBL = {
+        const newBL: any = {
           ...payload,
           id: `bl-${Date.now()}`,
+          createdAt: new Date().toISOString(),
           companyId: companyId || chosenComp?.id || 'STE_1',
           blNumber,
           orderId: '',
           orderNumber: '',
-          status: 'EN_ATTENTE_FRIGO' as const,
-
-          frigoEmployeeApproved: false,
-          whatsappSent: false,
+          status: shouldAutoApprove ? ('LIVRÉ' as const) : ('EN_ATTENTE_FRIGO' as const),
+          frigoEmployeeApproved: shouldAutoApprove,
+          frigoApprovedBy: shouldAutoApprove ? (currentUser?.name || 'Validation Rétroactive') : undefined,
+          frigoApprovedAt: shouldAutoApprove ? (date ? `${date}T12:00:00.000Z` : new Date().toISOString()) : undefined,
+          stockDecremented: true,
+          signedByName: shouldAutoApprove ? (selectedClient ? (selectedClient.name || selectedClient.companyName) : 'Client') : undefined,
+          signedAt: shouldAutoApprove ? (date ? `${date}T12:00:00.000Z` : new Date().toISOString()) : undefined,
+          whatsappSent: shouldAutoApprove,
           emailSent: false,
           logs: [{
             id: `log-${Date.now()}`,
             timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
-            action: 'Création manuelle du Bon de Livraison',
-            author: 'Système'
+            action: shouldAutoApprove ? 'Création et Validation Rétroactive directe (Bon Historique)' : 'Création manuelle du Bon de Livraison',
+            author: currentUser?.name || 'Système'
           }]
         };
         addBL(newBL);
-        notifySuccess(`Bon de Livraison ${blNumber} créé avec succès !`, 'BL Enregistré');
+        notifySuccess(`Bon de Livraison ${blNumber} ${shouldAutoApprove ? 'validé et enregistré' : 'créé'} avec succès !`, 'BL Enregistré');
 
-        const waLink = generateWhatsAppBLLink(newBL, selectedFrigo?.whatsappGroup);
-        if (window.confirm(`Bon de Livraison ${blNumber} créé avec succès !\n\nVoulez-vous transmettre l'ordre de chargement au groupe WhatsApp du frigo "${selectedFrigo?.name}" dès maintenant ?`)) {
-          window.open(waLink, '_blank');
+        if (!shouldAutoApprove) {
+          const waLink = generateWhatsAppBLLink(newBL, selectedFrigo?.whatsappGroup);
+          if (window.confirm(`Bon de Livraison ${blNumber} créé avec succès !\n\nVoulez-vous transmettre l'ordre de chargement au groupe WhatsApp du frigo "${selectedFrigo?.name}" dès maintenant ?`)) {
+            window.open(waLink, '_blank');
+          }
         }
       }
     }
@@ -421,6 +478,20 @@ export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }>
                   className="w-full border border-[#e0e0e0] rounded p-2 text-sm focus:ring-2 focus:ring-[#0f62fe] focus:outline-none font-mono"
                 />
               </div>
+            </div>
+
+            {/* Historical Auto-Approval Toggle */}
+            <div className="mt-4 flex items-center gap-3 p-3 rounded-xl bg-emerald-50/80 border border-emerald-300">
+              <input
+                type="checkbox"
+                id="isHistoricalAutoApprove"
+                checked={isHistoricalAutoApprove}
+                onChange={(e) => setIsHistoricalAutoApprove(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 rounded focus:ring-0 cursor-pointer"
+              />
+              <label htmlFor="isHistoricalAutoApprove" className="text-xs text-emerald-950 font-semibold cursor-pointer select-none">
+                ⚡ <b>Approbation Directe / Bon Historique</b> : Valider et déduire le stock immédiatement sans attendre le protocole Frigo & Signature
+              </label>
             </div>
           </div>
 

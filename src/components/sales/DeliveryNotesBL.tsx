@@ -104,7 +104,7 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   const [activeWeighingBL, setActiveWeighingBL] = useState<DeliveryNoteBL | null>(null);
   const [showExcelModal, setShowExcelModal] = useState<boolean>(false);
   const [showAllCompanies, setShowAllCompanies] = useState<boolean>(true);
-  const [sortBy, setSortBy] = useState<'DATE_DESC' | 'STATUS_THEN_DATE' | 'DATE_ASC' | 'CLIENT'>('DATE_DESC');
+  const [sortBy, setSortBy] = useState<'CREATED_DESC' | 'DATE_DESC' | 'STATUS_THEN_DATE' | 'DATE_ASC' | 'CLIENT'>('CREATED_DESC');
 
   const STATUS_PRIORITY: Record<string, number> = {
     'EN_ATTENTE_FRIGO': 1,
@@ -187,12 +187,40 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
     return matchesFrigo && matchesStatus && matchesSearch;
   });
 
-  // Sort BLs intelligently by Date, Status, or Client (Newest first by default)
+  // Sort BLs intelligently by Creation Date (default), Expedition Date, Status, or Client
   const sortedBLs = [...filteredBLs].sort((a, b) => {
+    if (sortBy === 'CREATED_DESC') {
+      const getNumericTime = (item: DeliveryNoteBL) => {
+        if (item.createdAt) {
+          const t = new Date(item.createdAt).getTime();
+          if (!isNaN(t)) return t;
+        }
+        if (item.id && item.id.startsWith('bl-')) {
+          const num = Number(item.id.replace(/\D/g, ''));
+          if (!isNaN(num) && num > 0) return num;
+        }
+        return 0;
+      };
+
+      const timeA = getNumericTime(a);
+      const timeB = getNumericTime(b);
+      if (timeA && timeB && timeA !== timeB) {
+        return timeB - timeA;
+      }
+      return (b.id || '').localeCompare(a.id || '');
+    }
+
     if (sortBy === 'STATUS_THEN_DATE') {
       const pA = STATUS_PRIORITY[a.status] || 99;
       const pB = STATUS_PRIORITY[b.status] || 99;
       if (pA !== pB) return pA - pB;
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      if (dateA !== dateB) return dateB.localeCompare(dateA);
+      return (b.id || '').localeCompare(a.id || '');
+    }
+
+    if (sortBy === 'DATE_DESC') {
       const dateA = a.date || '';
       const dateB = b.date || '';
       if (dateA !== dateB) return dateB.localeCompare(dateA);
@@ -212,12 +240,6 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
       return clientA.localeCompare(clientB);
     }
 
-    // Default: DATE_DESC (Newest first)
-    const dateA = a.date || '';
-    const dateB = b.date || '';
-    if (dateA !== dateB) {
-      return dateB.localeCompare(dateA);
-    }
     return (b.id || '').localeCompare(a.id || '');
   });
 
@@ -614,9 +636,10 @@ EasyERP Pro • Logistics Management`;
               onChange={e => setSortBy(e.target.value as any)}
               className="carbon-input text-xs font-semibold text-gray-900 bg-gray-50 border-gray-300"
             >
-              <option value="DATE_DESC">📅 Date la plus récente d'abord (Défaut)</option>
+              <option value="CREATED_DESC">🆕 Dernier BL saisi / créé d'abord (Défaut)</option>
+              <option value="DATE_DESC">📅 Date d'expédition (Plus récente d'abord)</option>
               <option value="STATUS_THEN_DATE">⚡ Trier par Statut & Date (En attente d'abord)</option>
-              <option value="DATE_ASC">⏳ Date la plus ancienne d'abord</option>
+              <option value="DATE_ASC">⏳ Date d'expédition (Plus ancienne d'abord)</option>
               <option value="CLIENT">👤 Trier par Client (A → Z)</option>
             </select>
           </div>
