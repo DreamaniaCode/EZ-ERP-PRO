@@ -36,9 +36,15 @@ interface FrigoDetailPageProps {
   frigoId: string;
   onBack: () => void;
   onViewProductHistory?: (productId: string) => void;
+  onViewClient?: (clientId: string) => void;
 }
 
-export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBack, onViewProductHistory }) => {
+export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ 
+  frigoId, 
+  onBack, 
+  onViewProductHistory,
+  onViewClient
+}) => {
   const { 
     frigos, 
     stocks, 
@@ -489,14 +495,39 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ frigoId, onBac
                 </tr>
               </thead>
               <tbody>
-                {Object.values(clientVolumeMap).map((cl, idx) => (
-                  <tr key={idx}>
-                    <td className="font-bold text-gray-900">{cl.name}</td>
-                    <td className="text-center font-mono font-bold text-blue-700">{cl.count} BLs</td>
-                    <td className="text-right font-mono font-bold text-emerald-700">{cl.kg.toLocaleString()} Kg</td>
-                    <td className="text-right font-mono font-bold text-gray-900">{cl.totalHT.toLocaleString()} DH</td>
-                  </tr>
-                ))}
+                {Object.values(clientVolumeMap).map((cl, idx) => {
+                  const clientObj = clients.find(c => c.id === cl.clientId || (c.name && cl.name && c.name.toLowerCase().trim() === cl.name.toLowerCase().trim()));
+                  const targetClientId = cl.clientId || clientObj?.id;
+                  return (
+                    <tr key={idx} className="hover:bg-amber-50/40 transition-colors">
+                      <td>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-gray-900">{cl.name}</span>
+                            {clientObj?.code && (
+                              <span className="font-mono text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">
+                                {clientObj.code}
+                              </span>
+                            )}
+                          </div>
+                          {onViewClient && targetClientId && (
+                            <button
+                              onClick={() => onViewClient(targetClientId)}
+                              className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 hover:underline px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors"
+                              title="Ouvrir le dossier client"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span>Fiche Client</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="text-center font-mono font-bold text-blue-700">{cl.count} BLs</td>
+                      <td className="text-right font-mono font-bold text-emerald-700">{cl.kg.toLocaleString()} Kg</td>
+                      <td className="text-right font-mono font-bold text-gray-900">{cl.totalHT.toLocaleString()} DH</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -438,6 +438,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
             onNewFrigo={() => navigateToEdit('FRIGO_EDIT', null)} 
             initialFrigoId={editingEntityId}
             onViewProductHistory={(id) => navigateToEdit('PRODUCT_HISTORY', id)}
+            onViewClient={(id) => navigateToEdit('CLIENT_EDIT', id)}
           />
         );
 

@@ -58,6 +58,7 @@ interface FrigoManagementProps {
   onNewFrigo?: () => void;
   onViewFrigoDetail?: (id: string) => void;
   onViewProductHistory?: (productId: string) => void;
+  onViewClient?: (clientId: string) => void;
   initialFrigoId?: string | null;
 }
 
@@ -66,6 +67,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
   onNewFrigo, 
   onViewFrigoDetail,
   onViewProductHistory, 
+  onViewClient,
   initialFrigoId 
 }) => {
   const { 
@@ -460,6 +462,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
         frigoId={selectedFrigoDetailId}
         onBack={() => setSelectedFrigoDetailId(null)}
         onViewProductHistory={onViewProductHistory}
+        onViewClient={onViewClient}
       />
     );
   }

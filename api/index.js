@@ -771,16 +771,17 @@ app.post("/api/delivery-notes", async (req, res) => {
   try {
     const blData = req.body;
     const bl = await prisma.$transaction(async (tx) => {
-      let finalClientId = blData.clientId;
+      let finalClientId = null;
+      let existingClient = null;
       if (blData.clientId) {
-        const existingById = await tx.client.findUnique({ where: { id: blData.clientId } });
-        if (existingById) {
-          finalClientId = existingById.id;
+        existingClient = await tx.client.findUnique({ where: { id: blData.clientId } });
+        if (existingClient) {
+          finalClientId = existingClient.id;
         }
       }
       if (!finalClientId && blData.clientName && blData.clientName.trim()) {
         const normName = blData.clientName.trim();
-        let existingClient = await tx.client.findFirst({
+        existingClient = await tx.client.findFirst({
           where: {
             OR: [
               { name: { equals: normName, mode: "insensitive" } },
@@ -789,12 +790,26 @@ app.post("/api/delivery-notes", async (req, res) => {
           }
         });
         if (!existingClient) {
-          const clientCount = await tx.client.count();
+          const allClients = await tx.client.findMany({ select: { code: true } });
+          let maxNum = 0;
+          for (const c of allClients) {
+            const match = c.code?.match(/\d+/);
+            if (match) {
+              const n = parseInt(match[0], 10);
+              if (n > maxNum) maxNum = n;
+            }
+          }
+          const newCode = `CLT-${String(maxNum + 1).padStart(3, "0")}`;
+          const newId = blData.clientId || `clt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
           existingClient = await tx.client.create({
             data: {
-              code: `CLT-${String(clientCount + 1).padStart(3, "0")}`,
+              id: newId,
+              code: newCode,
               name: normName,
               companyName: normName,
+              phone: blData.clientPhone || "",
+              email: blData.clientEmail || "",
+              address: blData.clientAddress || "",
               city: "Casablanca",
               creditLimit: 3e5,
               currentBalance: Number(blData.totalTTC) || 0
