@@ -149,6 +149,7 @@ interface ERPContextType {
   updateOrder: (orderId: string, orderData: Partial<SalesOrder>) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   addBL: (blData: DeliveryNoteBL) => void;
+  addBatchBLs: (bls: DeliveryNoteBL[]) => Promise<{ importedCount: number; bls: DeliveryNoteBL[] }>;
   updateBL: (id: string, updatedData: Partial<DeliveryNoteBL>) => void;
   deleteBL: (id: string) => void;
   approveFrigoBL: (blId: string, employeeName: string) => void;
@@ -1071,6 +1072,35 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       .catch(err => console.error('Error saving BL to PostgreSQL:', err));
   };
 
+  const addBatchBLs = async (newBLs: DeliveryNoteBL[]) => {
+    const nextBLs = [...newBLs, ...deliveryNotes];
+    setDeliveryNotes(nextBLs);
+    localStorage.setItem('erp_delivery_notes', JSON.stringify(nextBLs));
+
+    const { productStocks } = computeSynchronizedStocks({
+      products,
+      frigos,
+      stocks,
+      purchaseInvoices,
+      deliveryNotes: nextBLs,
+      inventoryCounts,
+      stockMovements,
+      selectedFrigoId: 'ALL'
+    });
+    const reconciled = buildReconciledStockLevels(productStocks);
+    setStocks(reconciled);
+    localStorage.setItem('erp_stocks', JSON.stringify(reconciled));
+
+    try {
+      const res = await api.importBatchBLs(newBLs);
+      await refreshFromDatabase();
+      return res;
+    } catch (err) {
+      console.error('Error saving batch BLs to PostgreSQL:', err);
+      throw err;
+    }
+  };
+
   const updateBL = (id: string, updatedData: Partial<DeliveryNoteBL>) => {
     const nextBLs = deliveryNotes.map(b => b.id === id ? { ...b, ...updatedData } : b);
     setDeliveryNotes(nextBLs);
@@ -1681,6 +1711,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateOrder,
     updateOrderStatus,
     addBL,
+    addBatchBLs,
     updateBL,
     deleteBL,
     approveFrigoBL,
@@ -1818,6 +1849,7 @@ const defaultFallbackContext: ERPContextType = {
   updateOrder: () => {},
   updateOrderStatus: () => {},
   addBL: () => {},
+  addBatchBLs: async () => ({ importedCount: 0, bls: [] }),
   updateBL: () => {},
   deleteBL: () => {},
   approveFrigoBL: () => {},

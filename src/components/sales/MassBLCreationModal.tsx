@@ -57,6 +57,7 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
     activeCompanyId, 
     activeCompany, 
     addBL, 
+    addBatchBLs,
     deliveryNotes, 
     currentUser 
   } = useERP();
@@ -109,6 +110,7 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
   const [globalDate, setGlobalDate] = useState<string>(todayStr);
   const [globalFrigoId, setGlobalFrigoId] = useState<string>(defaultFrigoId);
   const [globalCompanyId, setGlobalCompanyId] = useState<string>(defaultCompId);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
@@ -150,85 +152,54 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
     setRows(next);
   };
 
-  // Remove row
-  const handleRemoveRow = (index: number) => {
+  // Delete row
+  const handleDeleteRow = (index: number) => {
     if (rows.length <= 1) {
-      notifyWarning('Vous devez conserver au moins une ligne dans la saisie.');
+      notifyWarning('La grille doit contenir au moins une ligne.');
       return;
     }
-    setRows(rows.filter((_, i) => i !== index));
-  };
-
-  // Update specific row field with bidirectional calculation
-  const handleRowChange = (index: number, field: keyof MassBLRow, value: any) => {
     const next = [...rows];
-    const row = { ...next[index], [field]: value };
-    const prd = products.find(p => p.id === row.productId);
-    const kgPack = row.kgPerCarton > 0 ? row.kgPerCarton : (prd?.kgPerCarton || 10);
-
-    if (field === 'productId') {
-      if (prd) {
-        row.productCode = prd.code;
-        row.kgPerCarton = prd.kgPerCarton || 10;
-        row.unitPriceHT = prd.sellingPriceHT || 0;
-        const savedCustomName = getSavedRepartitionName(prd.id, row.kgPerCarton);
-        row.productName = savedCustomName || prd.name;
-        row.quantityKg = Math.round(row.quantityCartons * row.kgPerCarton * 100) / 100;
-        row.totalHT = Math.round(row.quantityKg * row.unitPriceHT * 100) / 100;
-      }
-    }
-
-    if (field === 'kgPerCarton') {
-      const newKg = Math.max(0.1, Number(value) || 1);
-      row.kgPerCarton = newKg;
-      const savedCustomName = getSavedRepartitionName(row.productId, newKg);
-      if (savedCustomName) row.productName = savedCustomName;
-      if (row.quantityCartons > 0) {
-        row.quantityKg = Math.round(row.quantityCartons * newKg * 100) / 100;
-      } else if (row.quantityKg > 0) {
-        row.quantityCartons = Math.round((row.quantityKg / newKg) * 100) / 100;
-      }
-      row.totalHT = Math.round(row.quantityKg * row.unitPriceHT * 100) / 100;
-    }
-
-    if (field === 'quantityCartons') {
-      const cartons = Number(value) || 0;
-      row.quantityCartons = cartons;
-      row.quantityKg = Math.round(cartons * kgPack * 100) / 100;
-      row.totalHT = Math.round(row.quantityKg * row.unitPriceHT * 100) / 100;
-    }
-
-    if (field === 'quantityKg') {
-      const kg = Number(value) || 0;
-      row.quantityKg = kg;
-      row.quantityCartons = Math.round((kg / kgPack) * 100) / 100;
-      row.totalHT = Math.round(kg * row.unitPriceHT * 100) / 100;
-    }
-
-    if (field === 'unitPriceHT') {
-      const price = Number(value) || 0;
-      row.unitPriceHT = price;
-      row.totalHT = Math.round(row.quantityKg * price * 100) / 100;
-    }
-
-    next[index] = row;
+    next.splice(index, 1);
     setRows(next);
   };
 
-  // Quick Apply to all rows
+  // Update specific row field
+  const handleUpdateRow = (index: number, updates: Partial<MassBLRow>) => {
+    const next = [...rows];
+    const current = next[index];
+    if (!current) return;
+
+    const merged = { ...current, ...updates };
+
+    // Auto-compute weights and totals
+    if (updates.quantityCartons !== undefined || updates.kgPerCarton !== undefined) {
+      merged.quantityKg = (Number(merged.quantityCartons) || 0) * (Number(merged.kgPerCarton) || 0);
+      merged.totalHT = (Number(merged.quantityKg) || 0) * (Number(merged.unitPriceHT) || 0);
+    } else if (updates.quantityKg !== undefined || updates.unitPriceHT !== undefined) {
+      merged.totalHT = (Number(merged.quantityKg) || 0) * (Number(merged.unitPriceHT) || 0);
+    }
+
+    next[index] = merged;
+    setRows(next);
+  };
+
+  // Global batch setters
   const handleApplyGlobalDate = () => {
+    if (!globalDate) return;
     setRows(rows.map(r => ({ ...r, date: globalDate })));
-    notifySuccess(`Date "${globalDate}" appliquée à toutes les lignes.`);
+    notifySuccess(`Date ${globalDate} appliquée à toutes les lignes.`);
   };
 
   const handleApplyGlobalFrigo = () => {
+    if (!globalFrigoId) return;
     setRows(rows.map(r => ({ ...r, frigoId: globalFrigoId })));
-    notifySuccess('Frigo d\'expédition appliqué à toutes les lignes.');
+    notifySuccess(`Frigo appliqué à toutes les lignes.`);
   };
 
   const handleApplyGlobalCompany = () => {
+    if (!globalCompanyId) return;
     setRows(rows.map(r => ({ ...r, companyId: globalCompanyId })));
-    notifySuccess('Société émettrice appliquée à toutes les lignes.');
+    notifySuccess(`Société appliquée à toutes les lignes.`);
   };
 
   // Calculations
@@ -237,7 +208,9 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
   const totalHTAll = rows.reduce((sum, r) => sum + Number(r.totalHT || 0), 0);
 
   // Validate and submit mass BL creation
-  const handleValidateAndSubmit = () => {
+  const handleValidateAndSubmit = async () => {
+    if (isSubmitting) return;
+
     // 1. Validation
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
@@ -259,88 +232,116 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
       }
     }
 
-    let createdCount = 0;
-    const nowTime = Date.now();
+    setIsSubmitting(true);
+    try {
+      const nowTime = Date.now();
 
-    rows.forEach((r, idx) => {
-      const client = clients.find(c => c.id === r.clientId);
-      const frigo = frigos.find(f => f.id === r.frigoId);
-      const prd = products.find(p => p.id === r.productId);
-      const comp = companies.find(c => c.id === r.companyId) || activeCompany || companies[0];
-      const prefix = comp?.blPrefix || 'BL';
-      const blSeq = deliveryNotes.length + createdCount + 1;
-      const blNumber = `${prefix}-2026-${String(blSeq).padStart(4, '0')}`;
-
-      const isPastDate = Boolean(r.date && r.date < todayStr);
-      const autoApprove = isHistoricalAutoApprove || isPastDate;
-
-      const itemPallets = prd && prd.kgPerPallet ? Math.ceil(r.quantityKg / prd.kgPerPallet) : 1;
-
-      const newBL: any = {
-        id: `bl-${nowTime + idx}`,
-        createdAt: new Date(nowTime + idx * 1000).toISOString(),
-        companyId: r.companyId,
-        blNumber,
-        orderId: '',
-        orderNumber: '',
-        clientId: r.clientId,
-        clientName: client ? (client.name || client.companyName) : 'Client',
-        clientAddress: client?.address || '',
-        clientPhone: client?.phone || '',
-        clientEmail: client?.email || '',
-        frigoId: r.frigoId,
-        frigoName: frigo ? frigo.name : 'Frigo Principal',
-        date: r.date,
-        items: [
-          {
-            productId: r.productId,
-            productCode: r.productCode || (prd?.code || 'PRD-000'),
-            productName: r.productName || (prd?.name || 'Produit'),
-            quantityKg: r.quantityKg,
-            quantityCartons: r.quantityCartons,
-            kgPerCarton: r.kgPerCarton,
-            packagingFormat: `${r.kgPerCarton} Kg`,
-            theoreticalKg: r.quantityKg,
-            weighedKg: r.quantityKg,
-            isWeighed: autoApprove,
-            quantityPallets: itemPallets,
-            unitPriceHT: r.unitPriceHT,
-            totalHT: r.totalHT,
+      // Scan max sequence numbers for each prefix
+      const prefixMaxMap = new Map<string, number>();
+      deliveryNotes.forEach(b => {
+        const parts = (b.blNumber || '').split('-');
+        if (parts.length >= 3) {
+          const prefix = parts.slice(0, -1).join('-'); // e.g. "BL-MLHMD-2026" or "BL-2026"
+          const lastNum = parseInt(parts[parts.length - 1], 10);
+          if (!isNaN(lastNum)) {
+            const cur = prefixMaxMap.get(prefix) || 0;
+            if (lastNum > cur) prefixMaxMap.set(prefix, lastNum);
           }
-        ],
-        totalKg: r.quantityKg,
-        totalCartons: r.quantityCartons,
-        totalPallets: itemPallets,
-        totalHT: r.totalHT,
-        totalTTC: r.totalHT,
-        status: autoApprove ? 'LIVRÉ' : 'EN_ATTENTE_FRIGO',
-        stockDecremented: true,
-        frigoEmployeeApproved: autoApprove,
-        frigoApprovedBy: autoApprove ? (currentUser?.name || 'Saisie en Masse') : undefined,
-        frigoApprovedAt: autoApprove ? (r.date ? `${r.date}T12:00:00.000Z` : new Date().toISOString()) : undefined,
-        signedByName: autoApprove ? (client ? (client.name || client.companyName) : 'Client') : undefined,
-        signedAt: autoApprove ? (r.date ? `${r.date}T12:00:00.000Z` : new Date().toISOString()) : undefined,
-        whatsappSent: autoApprove,
-        emailSent: false,
-        logs: [
-          {
-            id: `log-${Date.now()}-${idx}`,
-            timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
-            action: autoApprove 
-              ? 'Création rapide en masse & Validation automatique rétroactive' 
-              : 'Création rapide en masse du Bon de Livraison',
-            author: currentUser?.name || 'Saisie en Masse'
-          }
-        ]
-      };
+        }
+      });
 
-      addBL(newBL);
-      createdCount++;
-    });
+      const blsToCreate: any[] = [];
 
-    notifySuccess(`✅ ${createdCount} Bon(s) de Livraison créé(s) avec succès en masse !`, 'Succès Saisie en Masse');
-    if (onSuccess) onSuccess();
-    onClose();
+      rows.forEach((r, idx) => {
+        const client = clients.find(c => c.id === r.clientId);
+        const frigo = frigos.find(f => f.id === r.frigoId);
+        const prd = products.find(p => p.id === r.productId);
+        const comp = companies.find(c => c.id === r.companyId) || activeCompany || companies[0];
+        const prefix = comp?.blPrefix || 'BL';
+        const yearPrefix = `${prefix}-2026`;
+        
+        const currentMax = prefixMaxMap.get(yearPrefix) || (deliveryNotes.length + idx);
+        const nextSeq = currentMax + 1;
+        prefixMaxMap.set(yearPrefix, nextSeq);
+
+        const blNumber = `${yearPrefix}-${String(nextSeq).padStart(4, '0')}`;
+
+        const isPastDate = Boolean(r.date && r.date < todayStr);
+        const autoApprove = isHistoricalAutoApprove || isPastDate;
+
+        const itemPallets = prd && prd.kgPerPallet ? Math.ceil(r.quantityKg / prd.kgPerPallet) : 1;
+
+        const newBL: any = {
+          id: `bl-${nowTime + idx}`,
+          createdAt: new Date(nowTime + idx * 1000).toISOString(),
+          companyId: r.companyId,
+          blNumber,
+          orderId: '',
+          orderNumber: '',
+          clientId: r.clientId,
+          clientName: client ? (client.name || client.companyName) : 'Client',
+          clientAddress: client?.address || '',
+          clientPhone: client?.phone || '',
+          clientEmail: client?.email || '',
+          frigoId: r.frigoId,
+          frigoName: frigo ? frigo.name : 'Frigo Principal',
+          date: r.date,
+          items: [
+            {
+              productId: r.productId,
+              productCode: r.productCode || (prd?.code || 'PRD-000'),
+              productName: r.productName || (prd?.name || 'Produit'),
+              quantityKg: r.quantityKg,
+              quantityCartons: r.quantityCartons,
+              kgPerCarton: r.kgPerCarton,
+              packagingFormat: `${r.kgPerCarton} Kg`,
+              theoreticalKg: r.quantityKg,
+              weighedKg: r.quantityKg,
+              isWeighed: autoApprove,
+              quantityPallets: itemPallets,
+              unitPriceHT: r.unitPriceHT,
+              totalHT: r.totalHT,
+            }
+          ],
+          totalKg: r.quantityKg,
+          totalCartons: r.quantityCartons,
+          totalPallets: itemPallets,
+          totalHT: r.totalHT,
+          totalTTC: r.totalHT,
+          status: autoApprove ? 'LIVRÉ' : 'EN_ATTENTE_FRIGO',
+          stockDecremented: true,
+          frigoEmployeeApproved: autoApprove,
+          frigoApprovedBy: autoApprove ? (currentUser?.name || 'Saisie en Masse') : undefined,
+          frigoApprovedAt: autoApprove ? (r.date ? `${r.date}T12:00:00.000Z` : new Date().toISOString()) : undefined,
+          signedByName: autoApprove ? (client ? (client.name || client.companyName) : 'Client') : undefined,
+          signedAt: autoApprove ? (r.date ? `${r.date}T12:00:00.000Z` : new Date().toISOString()) : undefined,
+          whatsappSent: autoApprove,
+          emailSent: false,
+          logs: [
+            {
+              id: `log-${Date.now()}-${idx}`,
+              timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
+              action: autoApprove 
+                ? 'Création rapide en masse & Validation automatique rétroactive' 
+                : 'Création rapide en masse du Bon de Livraison',
+              author: currentUser?.name || 'Saisie en Masse'
+            }
+          ]
+        };
+
+        blsToCreate.push(newBL);
+      });
+
+      await addBatchBLs(blsToCreate);
+      notifySuccess(`✅ ${blsToCreate.length} Bon(s) de Livraison créé(s) avec succès en masse !`, 'Succès Saisie en Masse');
+      if (onSuccess) onSuccess();
+      onClose();
+    } catch (err: any) {
+      console.error('Error during mass BL creation:', err);
+      notifyError(`Erreur lors de la création en masse : ${err.message || 'Une erreur est survenue'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -717,12 +718,22 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
 
           <button
             type="button"
+            disabled={isSubmitting}
             onClick={handleValidateAndSubmit}
-            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-xl text-xs transition flex items-center gap-2 shadow-lg cursor-pointer"
+            className={`px-6 py-2.5 ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 cursor-pointer'} text-white font-bold rounded-xl text-xs transition flex items-center gap-2 shadow-lg`}
           >
-            <Sparkles className="w-4 h-4" />
-            <span>⚡ Valider et Créer les {rows.length} Bon(s) de Livraison</span>
-            <ArrowRight className="w-4 h-4" />
+            {isSubmitting ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Création de {rows.length} BLs en cours...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>⚡ Valider et Créer les {rows.length} Bon(s) de Livraison</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </div>
 

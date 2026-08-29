@@ -1043,66 +1043,120 @@ app.post('/api/delivery-notes/import-batch', async (req, res) => {
     
     const result = await prisma.$transaction(async (tx) => {
       const createdBLs = [];
-      for (const blData of bls) {
-        if (!blData.blNumber) continue;
-        const existing = await tx.deliveryNoteBL.findUnique({ where: { blNumber: blData.blNumber } });
-        if (!existing) {
-          const created = await tx.deliveryNoteBL.create({ data: blData });
-          createdBLs.push(created);
+      // Get all existing clients for fast in-memory lookup and code generation
+      const allClients = await tx.client.findMany();
+      let maxClientNum = 0;
+      allClients.forEach(c => {
+        const match = (c.code || '').match(/CLT-(\d+)/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxClientNum) maxClientNum = num;
+        }
+      });
 
-          // Decrement stock for this imported BL
-          if (blData.frigoId && Array.isArray(blData.items)) {
-            for (const item of blData.items) {
-              if (!item.productId) continue;
-              const kg = Number(item.quantityKg) || 0;
-              const pallets = Number(item.quantityPallets) || 0;
+      // Get existing BL numbers to guarantee absolute uniqueness
+      const existingBLRecords = await tx.deliveryNoteBL.findMany({ select: { blNumber: true } });
+      const existingBLNumbers = new Set(existingBLRecords.map(b => b.blNumber));
 
-              const existingStock = await tx.frigoStockLevel.findUnique({
+      for (let i = 0; i < bls.length; i++) {
+        const blData = { ...bls[i] };
+        if (!blData.blNumber) {
+          blData.blNumber = `BL-BATCH-${Date.now()}-${i + 1}`;
+        }
+
+        // Ensure blNumber is 100% unique in DB
+        let finalBlNumber = blData.blNumber;
+        if (existingBLNumbers.has(finalBlNumber)) {
+          finalBlNumber = `${blData.blNumber}-${Date.now().toString().slice(-4)}${i + 1}`;
+        }
+        existingBLNumbers.add(finalBlNumber);
+        blData.blNumber = finalBlNumber;
+
+        // Auto-resolve or auto-create client
+        let finalClientId = blData.clientId;
+        if (blData.clientName && blData.clientName.trim()) {
+          const cleanName = blData.clientName.trim();
+          let matchedClient = allClients.find(c => 
+            (finalClientId && c.id === finalClientId) ||
+            c.name.trim().toLowerCase() === cleanName.toLowerCase() ||
+            c.companyName.trim().toLowerCase() === cleanName.toLowerCase()
+          );
+
+          if (!matchedClient) {
+            maxClientNum++;
+            const newCode = `CLT-${String(maxClientNum).padStart(3, '0')}`;
+            matchedClient = await tx.client.create({
+              data: {
+                code: newCode,
+                name: cleanName,
+                companyName: cleanName,
+                city: 'Casablanca',
+                creditLimit: 300000,
+                currentBalance: 0,
+              }
+            });
+            allClients.push(matchedClient);
+          }
+          finalClientId = matchedClient.id;
+        }
+
+        blData.clientId = finalClientId || blData.clientId || '';
+
+        const created = await tx.deliveryNoteBL.create({ data: blData });
+        createdBLs.push(created);
+
+        // Decrement stock for this imported BL
+        if (blData.frigoId && Array.isArray(blData.items)) {
+          for (const item of blData.items) {
+            if (!item.productId) continue;
+            const kg = Number(item.quantityKg) || 0;
+            const pallets = Number(item.quantityPallets) || 0;
+
+            const existingStock = await tx.frigoStockLevel.findUnique({
+              where: {
+                frigoId_productId: {
+                  frigoId: blData.frigoId,
+                  productId: item.productId,
+                }
+              }
+            });
+
+            if (existingStock) {
+              await tx.frigoStockLevel.update({
                 where: {
                   frigoId_productId: {
                     frigoId: blData.frigoId,
                     productId: item.productId,
                   }
+                },
+                data: {
+                  quantityKg: Math.max(0, existingStock.quantityKg - kg),
+                  quantityPallets: Math.max(0, existingStock.quantityPallets - pallets),
                 }
               });
-
-              if (existingStock) {
-                await tx.frigoStockLevel.update({
-                  where: {
-                    frigoId_productId: {
-                      frigoId: blData.frigoId,
-                      productId: item.productId,
-                    }
-                  },
-                  data: {
-                    quantityKg: Math.max(0, existingStock.quantityKg - kg),
-                    quantityPallets: Math.max(0, existingStock.quantityPallets - pallets),
-                  }
-                });
-              } else {
-                await tx.frigoStockLevel.create({
-                  data: {
-                    frigoId: blData.frigoId,
-                    productId: item.productId,
-                    quantityKg: 0,
-                    quantityPallets: 0,
-                  }
-                });
-              }
-
-              await tx.productStockMovement.create({
+            } else {
+              await tx.frigoStockLevel.create({
                 data: {
-                  productId: item.productId,
                   frigoId: blData.frigoId,
-                  type: 'SORTIE',
-                  quantityKg: kg,
-                  quantityPallets: pallets,
-                  performedBy: 'Import Excel BL',
-                  referenceDoc: blData.blNumber,
-                  notes: `Sortie Import Excel BL ${blData.blNumber} - Client: ${blData.clientName || ''}`,
+                  productId: item.productId,
+                  quantityKg: 0,
+                  quantityPallets: 0,
                 }
               });
             }
+
+            await tx.productStockMovement.create({
+              data: {
+                productId: item.productId,
+                frigoId: blData.frigoId,
+                type: 'SORTIE',
+                quantityKg: kg,
+                quantityPallets: pallets,
+                performedBy: 'Saisie / Import BL en Masse',
+                referenceDoc: blData.blNumber,
+                notes: `Sortie BL ${blData.blNumber} - Client: ${blData.clientName || ''}`,
+              }
+            });
           }
         }
       }
