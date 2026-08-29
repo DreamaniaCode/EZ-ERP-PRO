@@ -649,6 +649,131 @@ app.post('/api/clients/merge', async (req, res) => {
   }
 });
 
+function smartNormalizeClientName(name: string): string {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\/\.\,\-\_\#\@\(\)\:\;]/g, ' ')
+    .replace(/\b(el|al|le|la|bel|ben|si|sidi)\b/gi, '')
+    .replace(/kh/g, 'k')
+    .replace(/gh/g, 'g')
+    .replace(/ou/g, 'u')
+    .replace(/oo/g, 'u')
+    .replace(/aa/g, 'a')
+    .replace(/ee/g, 'i')
+    .replace(/q/g, 'k')
+    .replace(/g/g, 'k')
+    .replace(/h/g, '')
+    .replace(/(.)\1+/g, '$1')
+    .replace(/t\b/g, '')
+    .replace(/\s+e\b/g, '')
+    .replace(/e\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+app.post('/api/clients/deduplicate-all', async (req, res) => {
+  try {
+    const allClients = await prisma.client.findMany({ orderBy: { createdAt: 'asc' } });
+    const groups = new Map<string, any[]>();
+
+    for (const c of allClients) {
+      const norm = smartNormalizeClientName(c.name || c.companyName || '');
+      if (!norm) continue;
+      if (!groups.has(norm)) groups.set(norm, []);
+      groups.get(norm)!.push(c);
+    }
+
+    let totalMerged = 0;
+    const mergeDetails: string[] = [];
+
+    for (const [groupName, clts] of groups.entries()) {
+      if (clts.length <= 1) continue;
+
+      // Pick primary: one with ICE, phone, or earliest created
+      const primary = clts.find(c => c.ice && c.ice.trim()) || clts[0];
+      const secondaries = clts.filter(c => c.id !== primary.id);
+      const secondaryIds = secondaries.map(c => c.id);
+
+      await prisma.$transaction(async (tx) => {
+        // 1. Merge metadata into primary
+        const updatedData: any = {};
+        for (const sec of secondaries) {
+          if (!primary.ice && sec.ice) updatedData.ice = sec.ice;
+          if (!primary.phone && sec.phone) updatedData.phone = sec.phone;
+          if (!primary.email && sec.email) updatedData.email = sec.email;
+          if (!primary.address && sec.address) updatedData.address = sec.address;
+          if (!primary.companyName && sec.companyName) updatedData.companyName = sec.companyName;
+        }
+        if (Object.keys(updatedData).length > 0) {
+          await tx.client.update({
+            where: { id: primary.id },
+            data: updatedData
+          });
+        }
+
+        // 2. Reassign all BLs
+        await tx.deliveryNoteBL.updateMany({
+          where: { clientId: { in: secondaryIds } },
+          data: {
+            clientId: primary.id,
+            clientName: primary.name || primary.companyName || 'Client',
+            clientAddress: primary.address || '',
+            clientPhone: primary.phone || '',
+            clientEmail: primary.email || ''
+          }
+        });
+
+        // 3. Reassign all Invoices
+        await tx.invoice.updateMany({
+          where: { clientId: { in: secondaryIds } },
+          data: {
+            clientId: primary.id,
+            clientName: primary.name || primary.companyName || 'Client',
+            clientICE: primary.ice || '',
+            clientAddress: primary.address || ''
+          }
+        });
+
+        // 4. Reassign all SalesOrders
+        await tx.salesOrder.updateMany({
+          where: { clientId: { in: secondaryIds } },
+          data: {
+            clientId: primary.id,
+            clientName: primary.name || primary.companyName || 'Client',
+            clientICE: primary.ice || '',
+            clientPhone: primary.phone || '',
+            clientEmail: primary.email || ''
+          }
+        });
+
+        // 5. Reassign all ChequesEffets
+        await tx.chequeEffet.updateMany({
+          where: { partyId: { in: secondaryIds } },
+          data: {
+            partyId: primary.id,
+            partyName: primary.name || primary.companyName || 'Client'
+          }
+        });
+
+        // 6. Delete duplicate client records
+        await tx.client.deleteMany({
+          where: { id: { in: secondaryIds } }
+        });
+      });
+
+      totalMerged += secondaryIds.length;
+      mergeDetails.push(`Fusion de ${clts.length} comptes "${primary.name}" -> Principal: ${primary.code}`);
+    }
+
+    res.json({ success: true, count: totalMerged, details: mergeDetails });
+  } catch (error: any) {
+    console.error('Deduplicate all error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/suppliers', async (req, res) => {
   try {
     const suppliers = await prisma.supplier.findMany({ orderBy: { name: 'asc' } });

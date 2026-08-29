@@ -104,6 +104,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ targetClientId, clientIdsToMerge }),
     }),
+  deduplicateAllClients: () =>
+    request<{ success: boolean; count: number; details: string[] }>('/clients/deduplicate-all', {
+      method: 'POST',
+    }),
 
   // Suppliers
   getSuppliers: () => request<Supplier[]>('/suppliers'),

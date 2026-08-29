@@ -1452,29 +1452,35 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Deduplication & Lossless Client Merging
   const deduplicateClients = async (): Promise<number> => {
-    const groups = new Map<string, Client[]>();
-    clients.forEach(c => {
-      const key = normalizeName(c.name || c.companyName || '');
-      if (!key) return;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(c);
-    });
+    try {
+      const res = await api.deduplicateAllClients();
+      await refreshFromDatabase();
+      return res.count || 0;
+    } catch (e) {
+      console.warn('API deduplicate error, running local fallback:', e);
+      const groups = new Map<string, Client[]>();
+      clients.forEach(c => {
+        const key = normalizeName(c.name || c.companyName || '');
+        if (!key) return;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(c);
+      });
 
-    let count = 0;
-    for (const [_, clts] of groups.entries()) {
-      if (clts.length > 1) {
-        // Choose primary: prefer one with ICE or filled company name or first
-        const primary = clts.find(c => c.ice && c.ice.trim()) || clts[0];
-        const secondaries = clts.filter(c => c.id !== primary.id).map(c => c.id);
-        if (secondaries.length > 0) {
-          await mergeClients(primary.id, secondaries);
-          count += secondaries.length;
+      let count = 0;
+      for (const [_, clts] of groups.entries()) {
+        if (clts.length > 1) {
+          const primary = clts.find(c => c.ice && c.ice.trim()) || clts[0];
+          const secondaries = clts.filter(c => c.id !== primary.id).map(c => c.id);
+          if (secondaries.length > 0) {
+            await mergeClients(primary.id, secondaries);
+            count += secondaries.length;
+          }
         }
       }
-    }
 
-    await refreshFromDatabase();
-    return count;
+      await refreshFromDatabase();
+      return count;
+    }
   };
 
   const mergeClients = async (targetClientId: string, clientIdsToMerge: string[]) => {
