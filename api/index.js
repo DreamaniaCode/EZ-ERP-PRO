@@ -459,9 +459,31 @@ app.get("/api/clients", async (req, res) => {
 });
 app.post("/api/clients", async (req, res) => {
   try {
-    const client = await prisma.client.create({ data: req.body });
+    const data = { ...req.body };
+    let needsNewCode = !data.code;
+    if (data.code) {
+      const existing = await prisma.client.findUnique({ where: { code: data.code } });
+      if (existing) needsNewCode = true;
+    }
+    if (needsNewCode) {
+      const allClients = await prisma.client.findMany({ select: { code: true } });
+      let maxNum = 0;
+      for (const c of allClients) {
+        const match = c.code?.match(/\d+/);
+        if (match) {
+          const n = parseInt(match[0], 10);
+          if (n > maxNum) maxNum = n;
+        }
+      }
+      data.code = `CLT-${String(maxNum + 1).padStart(3, "0")}`;
+    }
+    if (!data.id) {
+      data.id = `clt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    }
+    const client = await prisma.client.create({ data });
     res.json(client);
   } catch (error) {
+    console.error("Error creating client in API:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -655,9 +677,31 @@ app.get("/api/suppliers", async (req, res) => {
 });
 app.post("/api/suppliers", async (req, res) => {
   try {
-    const supplier = await prisma.supplier.create({ data: req.body });
+    const data = { ...req.body };
+    let needsNewCode = !data.code;
+    if (data.code) {
+      const existing = await prisma.supplier.findUnique({ where: { code: data.code } });
+      if (existing) needsNewCode = true;
+    }
+    if (needsNewCode) {
+      const allSuppliers = await prisma.supplier.findMany({ select: { code: true } });
+      let maxNum = 0;
+      for (const s of allSuppliers) {
+        const match = s.code?.match(/\d+/);
+        if (match) {
+          const n = parseInt(match[0], 10);
+          if (n > maxNum) maxNum = n;
+        }
+      }
+      data.code = `FRS-${String(maxNum + 1).padStart(3, "0")}`;
+    }
+    if (!data.id) {
+      data.id = `frs-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    }
+    const supplier = await prisma.supplier.create({ data });
     res.json(supplier);
   } catch (error) {
+    console.error("Error creating supplier in API:", error);
     res.status(500).json({ error: error.message });
   }
 });

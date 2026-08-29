@@ -1274,49 +1274,111 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ============================================================
   // CLIENTS & SUPPLIERS
   // ============================================================
-  const addClient = (clientData: Omit<Client, 'id' | 'code' | 'currentBalance'>) => {
-    const count = clients.length + 1;
-    const code = `CLT-${String(count).padStart(3, '0')}`;
+  const addClient = async (clientData: Omit<Client, 'id' | 'code' | 'currentBalance'>) => {
+    let maxNum = 0;
+    clients.forEach(c => {
+      const match = c.code?.match(/\d+/);
+      if (match) {
+        const n = parseInt(match[0], 10);
+        if (n > maxNum) maxNum = n;
+      }
+    });
+    const code = `CLT-${String(maxNum + 1).padStart(3, '0')}`;
     const newClient: Client = {
       ...clientData,
-      id: `clt-${Date.now()}`,
+      id: `clt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       code,
       currentBalance: 0,
     };
-    setClients(prev => [newClient, ...prev]);
-    api.createClient(newClient).catch(err => console.error(err));
+    setClients(prev => {
+      const next = [newClient, ...prev];
+      localStorage.setItem('erp_clients', JSON.stringify(next));
+      return next;
+    });
+
+    try {
+      const saved = await api.createClient(newClient);
+      if (saved && saved.id) {
+        setClients(prev => {
+          const updated = prev.map(c => c.id === newClient.id ? saved : c);
+          localStorage.setItem('erp_clients', JSON.stringify(updated));
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.error('Error creating client in API:', err);
+    }
   };
 
   const updateClient = (id: string, clientData: Partial<Client>) => {
-    setClients(prev => prev.map(c => c.id === id ? { ...c, ...clientData } : c));
+    setClients(prev => {
+      const next = prev.map(c => c.id === id ? { ...c, ...clientData } : c);
+      localStorage.setItem('erp_clients', JSON.stringify(next));
+      return next;
+    });
     api.updateClient(id, clientData).catch(err => console.error(err));
   };
 
   const deleteClient = (id: string) => {
-    setClients(prev => prev.filter(c => c.id !== id));
+    setClients(prev => {
+      const next = prev.filter(c => c.id !== id);
+      localStorage.setItem('erp_clients', JSON.stringify(next));
+      return next;
+    });
     api.deleteClient(id).catch(err => console.error(err));
   };
 
-  const addSupplier = (supplierData: Omit<Supplier, 'id' | 'code' | 'currentBalance'>) => {
-    const count = suppliers.length + 1;
-    const code = `FRS-${String(count).padStart(3, '0')}`;
+  const addSupplier = async (supplierData: Omit<Supplier, 'id' | 'code' | 'currentBalance'>) => {
+    let maxNum = 0;
+    suppliers.forEach(s => {
+      const match = s.code?.match(/\d+/);
+      if (match) {
+        const n = parseInt(match[0], 10);
+        if (n > maxNum) maxNum = n;
+      }
+    });
+    const code = `FRS-${String(maxNum + 1).padStart(3, '0')}`;
     const newSupplier: Supplier = {
       ...supplierData,
-      id: `frs-${Date.now()}`,
+      id: `frs-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       code,
       currentBalance: 0,
     };
-    setSuppliers(prev => [newSupplier, ...prev]);
-    api.createSupplier(newSupplier).catch(err => console.error(err));
+    setSuppliers(prev => {
+      const next = [newSupplier, ...prev];
+      localStorage.setItem('erp_suppliers', JSON.stringify(next));
+      return next;
+    });
+
+    try {
+      const saved = await api.createSupplier(newSupplier);
+      if (saved && saved.id) {
+        setSuppliers(prev => {
+          const updated = prev.map(s => s.id === newSupplier.id ? saved : s);
+          localStorage.setItem('erp_suppliers', JSON.stringify(updated));
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.error('Error creating supplier in API:', err);
+    }
   };
 
   const updateSupplier = (id: string, supplierData: Partial<Supplier>) => {
-    setSuppliers(prev => prev.map(s => s.id === id ? { ...s, ...supplierData } : s));
+    setSuppliers(prev => {
+      const next = prev.map(s => s.id === id ? { ...s, ...supplierData } : s);
+      localStorage.setItem('erp_suppliers', JSON.stringify(next));
+      return next;
+    });
     api.updateSupplier(id, supplierData).catch(err => console.error(err));
   };
 
   const deleteSupplier = (id: string) => {
-    setSuppliers(prev => prev.filter(s => s.id !== id));
+    setSuppliers(prev => {
+      const next = prev.filter(s => s.id !== id);
+      localStorage.setItem('erp_suppliers', JSON.stringify(next));
+      return next;
+    });
     api.deleteSupplier(id).catch(err => console.error(err));
   };
 
