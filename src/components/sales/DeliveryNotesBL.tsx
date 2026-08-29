@@ -42,7 +42,6 @@ import {
   Sparkles
 } from 'lucide-react';
 import { GenerateInvoiceModal } from '../finance/GenerateInvoiceModal';
-import { MassBLCreationModal } from './MassBLCreationModal';
 
 
 interface DeliveryNotesBLProps {
@@ -53,6 +52,7 @@ interface DeliveryNotesBLProps {
   onEditFrigo?: (id: string) => void;
   onSignBL?: (id: string) => void;
   onViewBLPdf?: (id: string) => void;
+  onMassBL?: () => void;
 }
 
 export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({ 
@@ -62,7 +62,8 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   onEditProduct,
   onEditFrigo,
   onSignBL,
-  onViewBLPdf
+  onViewBLPdf,
+  onMassBL
 }) => {
   const { t } = useTranslation();
   const { 
@@ -106,7 +107,7 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   const [activeHistoryBL, setActiveHistoryBL] = useState<DeliveryNoteBL | null>(null);
   const [activeWeighingBL, setActiveWeighingBL] = useState<DeliveryNoteBL | null>(null);
   const [showExcelModal, setShowExcelModal] = useState<boolean>(false);
-  const [showMassBLModal, setShowMassBLModal] = useState<boolean>(false);
+
   const [showAllCompanies, setShowAllCompanies] = useState<boolean>(true);
   const [sortBy, setSortBy] = useState<'CREATED_DESC' | 'DATE_DESC' | 'STATUS_THEN_DATE' | 'DATE_ASC' | 'CLIENT'>('CREATED_DESC');
 
@@ -565,7 +566,7 @@ EasyERP Pro • Logistics Management`;
           </button>
 
           <button
-            onClick={() => setShowMassBLModal(true)}
+            onClick={() => onMassBL?.()}
             className="px-3.5 py-2 bg-linear-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white text-xs font-bold rounded flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
             title="Saisir et créer plusieurs bons de livraison en une seule fois (idéal pour anciens bons ou livraisons multiples)"
           >
@@ -1210,13 +1211,7 @@ EasyERP Pro • Logistics Management`;
         onConfirmGenerate={handleConfirmGenerateInvoice}
       />
 
-      {/* Saisie & Création en Masse des BLs Modal */}
-      {showMassBLModal && (
-        <MassBLCreationModal
-          isOpen={showMassBLModal}
-          onClose={() => setShowMassBLModal(false)}
-        />
-      )}
+
 
       {/* Delivery History Timeline Modal */}
       {activeHistoryBL && (

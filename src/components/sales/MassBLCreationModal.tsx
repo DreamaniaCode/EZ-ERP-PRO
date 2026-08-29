@@ -16,6 +16,7 @@ import {
   Calendar, 
   AlertTriangle,
   ArrowRight,
+  ArrowLeft,
   RefreshCw,
   FileSpreadsheet,
   Clipboard,
@@ -38,18 +39,15 @@ interface MassBLRow {
   totalHT: number;
 }
 
-interface MassBLCreationModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  initialClientId?: string;
-  onSuccess?: () => void;
+// ====== FULL PAGE VERSION ======
+interface MassBLCreationPageProps {
+  initialClientId?: string | null;
+  onBack: () => void;
 }
 
-export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
-  isOpen,
-  onClose,
+export const MassBLCreationPage: React.FC<MassBLCreationPageProps> = ({
   initialClientId,
-  onSuccess,
+  onBack,
 }) => {
   const { 
     clients, 
@@ -115,54 +113,8 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
   const [globalCompanyId, setGlobalCompanyId] = useState<string>(defaultCompId);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // 1. Check for draft in localStorage on mount
-  const [draftInfo, setDraftInfo] = useState<{ count: number; savedAt: string; rows: MassBLRow[] } | null>(() => {
-    try {
-      const raw = localStorage.getItem('erp_mass_bl_draft');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
-          return {
-            count: parsed.rows.length,
-            savedAt: parsed.savedAt ? new Date(parsed.savedAt).toLocaleTimeString() : '',
-            rows: parsed.rows
-          };
-        }
-      }
-    } catch {}
-    return null;
-  });
-
   const [showPasteModal, setShowPasteModal] = useState<boolean>(false);
   const [pastedText, setPastedText] = useState<string>('');
-
-  // Auto-save draft on rows change
-  React.useEffect(() => {
-    if (rows && rows.length > 0) {
-      try {
-        localStorage.setItem('erp_mass_bl_draft', JSON.stringify({
-          savedAt: new Date().toISOString(),
-          initialClientId,
-          rows
-        }));
-      } catch (e) {}
-    }
-  }, [rows, initialClientId]);
-
-  const handleRestoreDraft = () => {
-    if (draftInfo && draftInfo.rows.length > 0) {
-      setRows(draftInfo.rows);
-      notifySuccess(`✅ Brouillon de ${draftInfo.count} lignes restauré avec succès !`);
-      setDraftInfo(null);
-    }
-  };
-
-  const handleDismissDraft = () => {
-    setDraftInfo(null);
-    try {
-      localStorage.removeItem('erp_mass_bl_draft');
-    } catch {}
-  };
 
   // Add new row
   const handleAddRow = () => {
@@ -189,7 +141,7 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
     setRows([...rows, newRow]);
   };
 
-  // Bulk generate N rows (e.g. 40 BLs)
+  // Bulk generate N rows
   const handleBulkGenerate = (count: number) => {
     const baseRow = rows[0] || createInitialRow();
     const generated: MassBLRow[] = [];
@@ -424,7 +376,7 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
       deliveryNotes.forEach(b => {
         const parts = (b.blNumber || '').split('-');
         if (parts.length >= 3) {
-          const prefix = parts.slice(0, -1).join('-'); // e.g. "BL-MLHMD-2026" or "BL-2026"
+          const prefix = parts.slice(0, -1).join('-');
           const lastNum = parseInt(parts[parts.length - 1], 10);
           if (!isNaN(lastNum)) {
             const cur = prefixMaxMap.get(prefix) || 0;
@@ -517,8 +469,9 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
 
       await addBatchBLs(blsToCreate);
       notifySuccess(`✅ ${blsToCreate.length} Bon(s) de Livraison créé(s) avec succès en masse !`, 'Succès Saisie en Masse');
-      if (onSuccess) onSuccess();
-      onClose();
+      // Clear draft on success
+      try { localStorage.removeItem('erp_mass_bl_draft'); } catch {}
+      onBack();
     } catch (err: any) {
       console.error('Error during mass BL creation:', err);
       notifyError(`Erreur lors de la création en masse : ${err.message || 'Une erreur est survenue'}`);
@@ -527,470 +480,414 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
     }
   };
 
-  // Keyboard shortcut: Escape to close
-  React.useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !showPasteModal) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, showPasteModal, onClose]);
-
-  if (!isOpen) return null;
-
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !showPasteModal) {
-          onClose();
-        }
-      }}
-    >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[95vh] flex flex-col overflow-hidden border border-gray-300">
-        
-        {/* Modal Header */}
-        <div className="bg-[#161616] text-white px-6 py-4 flex justify-between items-center border-b border-[#393939] shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-amber-600 to-amber-400 flex items-center justify-center text-white font-black shadow-md">
-              <Layers className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold uppercase tracking-wider text-white">
-                  Saisie & Création en Masse des BLs
-                </h2>
-                <span className="bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-amber-400/30">
-                  {rows.length} BL(s) dans la grille
-                </span>
-              </div>
-              <p className="text-xs text-gray-400 font-mono">
-                Idéal pour saisir rapidement vos anciens bons d'expédition ou multiples livraisons
-              </p>
-            </div>
+    <div className="space-y-0 -m-2.5 sm:-m-4 md:-m-6">
+      {/* Page Header */}
+      <div className="bg-[#161616] text-white px-6 py-4 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition cursor-pointer"
+            title="Retour"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-amber-600 to-amber-400 flex items-center justify-center text-white font-black shadow-md">
+            <Layers className="w-5 h-5" />
           </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition"
-              title="Fermer"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
-
-        {/* Global Toolbar Bar */}
-        <div className="bg-gray-50 border-b border-gray-200 px-6 py-3 shrink-0 flex flex-wrap items-center justify-between gap-4 text-xs font-mono">
-          <div className="flex items-center gap-4 flex-wrap">
-            
-            {/* Global Date Batch Apply */}
-            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 shadow-2xs">
-              <Calendar className="w-3.5 h-3.5 text-gray-500" />
-              <span className="text-[11px] font-bold text-gray-600">Date par défaut:</span>
-              <input
-                type="date"
-                value={globalDate}
-                onChange={e => setGlobalDate(e.target.value)}
-                className="text-xs font-bold text-gray-900 border-0 p-0 focus:ring-0 bg-transparent"
-              />
-              <button
-                type="button"
-                onClick={handleApplyGlobalDate}
-                className="ml-1 text-[10px] bg-gray-100 hover:bg-gray-200 px-1.5 py-0.5 rounded text-blue-700 font-bold"
-                title="Appliquer cette date à toutes les lignes"
-              >
-                Appliquer à tous
-              </button>
-            </div>
-
-            {/* Global Frigo Batch Apply */}
-            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 shadow-2xs">
-              <Building2 className="w-3.5 h-3.5 text-gray-500" />
-              <span className="text-[11px] font-bold text-gray-600">Frigo par défaut:</span>
-              <select
-                value={globalFrigoId}
-                onChange={e => setGlobalFrigoId(e.target.value)}
-                className="text-xs font-bold text-gray-900 border-0 p-0 focus:ring-0 bg-transparent"
-              >
-                {frigos.map(f => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={handleApplyGlobalFrigo}
-                className="ml-1 text-[10px] bg-gray-100 hover:bg-gray-200 px-1.5 py-0.5 rounded text-blue-700 font-bold"
-                title="Appliquer ce frigo à toutes les lignes"
-              >
-                Appliquer à tous
-              </button>
-            </div>
-
-            {/* Global Company Batch Apply */}
-            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 shadow-2xs">
-              <span className="text-[11px] font-bold text-gray-600">Société:</span>
-              <select
-                value={globalCompanyId}
-                onChange={e => setGlobalCompanyId(e.target.value)}
-                className="text-xs font-bold text-gray-900 border-0 p-0 focus:ring-0 bg-transparent"
-              >
-                {companies.map(c => (
-                  <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={handleApplyGlobalCompany}
-                className="ml-1 text-[10px] bg-gray-100 hover:bg-gray-200 px-1.5 py-0.5 rounded text-blue-700 font-bold"
-                title="Appliquer cette société à toutes les lignes"
-              >
-                Appliquer à tous
-              </button>
-            </div>
-
-          </div>
-
-          {/* Historical Auto-Approval Checkbox */}
-          <label className="flex items-center gap-2 bg-emerald-50 text-emerald-950 px-3 py-1.5 rounded-lg border border-emerald-300 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={isHistoricalAutoApprove}
-              onChange={e => setIsHistoricalAutoApprove(e.target.checked)}
-              className="w-4 h-4 text-emerald-600 rounded focus:ring-0 cursor-pointer"
-            />
-            <span className="text-xs font-bold">
-              ⚡ Valider directement (Bons Historiques livrés sans protocole Frigo)
-            </span>
-          </label>
-
-          {/* Excel Paste & Quick Generator Actions */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowPasteModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
-              title="Copier un tableau Excel et le coller ici en 1 clic"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>📋 Coller depuis Excel</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleBulkGenerate(40)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
-              title="Générer instantanément 40 lignes de BL prêtes à valider"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>⚡ Générer 40 lignes</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Draft Recovery Banner */}
-        {draftInfo && (
-          <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center justify-between gap-4 text-xs animate-in fade-in">
-            <div className="flex items-center gap-2 text-amber-900 font-bold">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>
-                Un brouillon précédent de <strong>{draftInfo.count} lignes</strong> a été retrouvé ({draftInfo.savedAt ? `sauvegardé à ${draftInfo.savedAt}` : 'sauvegardé automatiquement'}).
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold uppercase tracking-wider text-white">
+                Saisie & Création en Masse des BLs
+              </h2>
+              <span className="bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-amber-400/30">
+                {rows.length} BL(s) dans la grille
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleRestoreDraft}
-                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded text-xs transition cursor-pointer shadow-xs"
-              >
-                Restaurer le brouillon ({draftInfo.count} lignes)
-              </button>
-              <button
-                type="button"
-                onClick={handleDismissDraft}
-                className="px-2.5 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded text-xs transition cursor-pointer"
-              >
-                Ignorer
-              </button>
-            </div>
+            <p className="text-xs text-gray-400 font-mono">
+              Idéal pour saisir rapidement vos anciens bons d'expédition ou multiples livraisons
+            </p>
           </div>
-        )}
+        </div>
+      </div>
 
-        {/* Scrollable Table Area */}
-        <div className="flex-1 overflow-x-auto overflow-y-auto p-4">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-100 text-gray-700 font-mono text-[11px] uppercase tracking-wider border-b border-gray-300">
-                <th className="p-2.5 w-12 text-center">N°</th>
-                <th className="p-2.5 w-32">Date</th>
-                <th className="p-2.5 min-w-[220px]">Client Destinataire *</th>
-                <th className="p-2.5 w-40">Frigo Origine *</th>
-                <th className="p-2.5 min-w-[260px]">Produit & Format *</th>
-                <th className="p-2.5 w-28 text-center bg-blue-50/50">Stock Dispo</th>
-                <th className="p-2.5 w-24 text-center">Colis</th>
-                <th className="p-2.5 w-28 text-center bg-amber-50/50">Total Kg *</th>
-                <th className="p-2.5 w-24 text-right">Prix HT/Kg</th>
-                <th className="p-2.5 w-28 text-right font-bold text-gray-900">Total HT</th>
-                <th className="p-2.5 w-20 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 text-xs">
-              {rows.map((row, index) => {
-                const prd = products.find(p => p.id === row.productId);
-                const currentStock = stocks.find(s => s.frigoId === row.frigoId && s.productId === row.productId);
-                const availKg = currentStock ? currentStock.quantityKg : 0;
-                const isStockSufficient = availKg >= row.quantityKg;
+      {/* Global Toolbar Bar */}
+      <div className="bg-gray-50 border-b border-gray-200 px-6 py-3 flex flex-wrap items-center justify-between gap-4 text-xs font-mono">
+        <div className="flex items-center gap-4 flex-wrap">
+          
+          {/* Global Date Batch Apply */}
+          <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 shadow-2xs">
+            <Calendar className="w-3.5 h-3.5 text-gray-500" />
+            <span className="text-[11px] font-bold text-gray-600">Date par défaut:</span>
+            <input
+              type="date"
+              value={globalDate}
+              onChange={e => setGlobalDate(e.target.value)}
+              className="text-xs font-bold text-gray-900 border-0 p-0 focus:ring-0 bg-transparent"
+            />
+            <button
+              type="button"
+              onClick={handleApplyGlobalDate}
+              className="ml-1 text-[10px] bg-gray-100 hover:bg-gray-200 px-1.5 py-0.5 rounded text-blue-700 font-bold"
+              title="Appliquer cette date à toutes les lignes"
+            >
+              Appliquer à tous
+            </button>
+          </div>
 
-                return (
-                  <tr 
-                    key={row.id} 
-                    className={`hover:bg-blue-50/30 transition-colors ${!isStockSufficient ? 'bg-red-50/40' : ''}`}
-                  >
-                    {/* Index */}
-                    <td className="p-2 text-center font-mono font-bold text-gray-400">
-                      #{index + 1}
-                    </td>
+          {/* Global Frigo Batch Apply */}
+          <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 shadow-2xs">
+            <Building2 className="w-3.5 h-3.5 text-gray-500" />
+            <span className="text-[11px] font-bold text-gray-600">Frigo par défaut:</span>
+            <select
+              value={globalFrigoId}
+              onChange={e => setGlobalFrigoId(e.target.value)}
+              className="text-xs font-bold text-gray-900 border-0 p-0 focus:ring-0 bg-transparent"
+            >
+              {frigos.map(f => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleApplyGlobalFrigo}
+              className="ml-1 text-[10px] bg-gray-100 hover:bg-gray-200 px-1.5 py-0.5 rounded text-blue-700 font-bold"
+              title="Appliquer ce frigo à toutes les lignes"
+            >
+              Appliquer à tous
+            </button>
+          </div>
 
-                    {/* Date */}
-                    <td className="p-2">
-                      <input
-                        type="date"
-                        value={row.date}
-                        onChange={e => handleRowChange(index, 'date', e.target.value)}
-                        className="w-full p-1.5 border border-gray-300 rounded font-mono text-xs font-bold text-gray-800 bg-white"
-                      />
-                    </td>
+          {/* Global Company Batch Apply */}
+          <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 shadow-2xs">
+            <span className="text-[11px] font-bold text-gray-600">Société:</span>
+            <select
+              value={globalCompanyId}
+              onChange={e => setGlobalCompanyId(e.target.value)}
+              className="text-xs font-bold text-gray-900 border-0 p-0 focus:ring-0 bg-transparent"
+            >
+              {companies.map(c => (
+                <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleApplyGlobalCompany}
+              className="ml-1 text-[10px] bg-gray-100 hover:bg-gray-200 px-1.5 py-0.5 rounded text-blue-700 font-bold"
+              title="Appliquer cette société à toutes les lignes"
+            >
+              Appliquer à tous
+            </button>
+          </div>
 
-                    {/* Client */}
-                    <td className="p-2">
-                      <SearchableClientSelect
-                        clients={clients}
-                        value={row.clientId}
-                        onChange={val => handleRowChange(index, 'clientId', val)}
-                        placeholder="Choisir le client..."
-                      />
-                    </td>
+        </div>
 
-                    {/* Frigo */}
-                    <td className="p-2">
-                      <select
-                        value={row.frigoId}
-                        onChange={e => handleRowChange(index, 'frigoId', e.target.value)}
-                        className="w-full p-1.5 border border-gray-300 rounded text-xs font-bold text-gray-800 bg-white"
-                      >
-                        {frigos.map(f => (
-                          <option key={f.id} value={f.id}>{f.name}</option>
-                        ))}
-                      </select>
-                    </td>
+        {/* Historical Auto-Approval Checkbox */}
+        <label className="flex items-center gap-2 bg-emerald-50 text-emerald-950 px-3 py-1.5 rounded-lg border border-emerald-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={isHistoricalAutoApprove}
+            onChange={e => setIsHistoricalAutoApprove(e.target.checked)}
+            className="w-4 h-4 text-emerald-600 rounded focus:ring-0 cursor-pointer"
+          />
+          <span className="text-xs font-bold">
+            ⚡ Valider directement (Bons Historiques livrés sans protocole Frigo)
+          </span>
+        </label>
 
-                    {/* Product & Format */}
-                    <td className="p-2">
-                      <SearchableProductSelect
-                        products={products}
-                        value={row.productId}
-                        onChange={val => handleRowChange(index, 'productId', val)}
-                        stocks={stocks}
-                        frigoId={row.frigoId}
-                        placeholder="Choisir le produit..."
-                      />
+        {/* Excel Paste & Quick Generator Actions */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowPasteModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+            title="Copier un tableau Excel et le coller ici en 1 clic"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>📋 Coller depuis Excel</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleBulkGenerate(40)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+            title="Générer instantanément 40 lignes de BL prêtes à valider"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>⚡ Générer 40 lignes</span>
+          </button>
+        </div>
+      </div>
 
-                      {/* Format quick buttons & custom name */}
-                      <div className="mt-1 flex items-center gap-1 flex-wrap">
-                        {[
-                          { label: '12k', kg: 12 },
-                          { label: '3k', kg: 3 },
-                          { label: '2k', kg: 2 },
-                          { label: '1k', kg: 1 },
-                          { label: '0.5k', kg: 0.5 },
-                        ].map(fmt => (
-                          <button
-                            key={fmt.kg}
-                            type="button"
-                            onClick={() => handleRowChange(index, 'kgPerCarton', fmt.kg)}
-                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition ${
-                              row.kgPerCarton === fmt.kg 
-                                ? 'bg-blue-600 text-white border-blue-700' 
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                            }`}
-                          >
-                            {fmt.label}
-                          </button>
-                        ))}
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0.1"
-                          value={row.kgPerCarton || ''}
-                          onChange={e => handleRowChange(index, 'kgPerCarton', e.target.value)}
-                          className="w-11 px-1 py-0.5 text-[9px] font-mono font-bold text-center border border-gray-300 rounded bg-white"
-                          title="Kg par colis"
-                        />
-                      </div>
+      {/* Table Area */}
+      <div className="overflow-x-auto p-4">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-gray-100 text-gray-700 font-mono text-[11px] uppercase tracking-wider border-b border-gray-300">
+              <th className="p-2.5 w-12 text-center">N°</th>
+              <th className="p-2.5 w-32">Date</th>
+              <th className="p-2.5 min-w-[220px]">Client Destinataire *</th>
+              <th className="p-2.5 w-40">Frigo Origine *</th>
+              <th className="p-2.5 min-w-[260px]">Produit & Format *</th>
+              <th className="p-2.5 w-28 text-center bg-blue-50/50">Stock Dispo</th>
+              <th className="p-2.5 w-24 text-center">Colis</th>
+              <th className="p-2.5 w-28 text-center bg-amber-50/50">Total Kg *</th>
+              <th className="p-2.5 w-24 text-right">Prix HT/Kg</th>
+              <th className="p-2.5 w-28 text-right font-bold text-gray-900">Total HT</th>
+              <th className="p-2.5 w-20 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 text-xs">
+            {rows.map((row, index) => {
+              const prd = products.find(p => p.id === row.productId);
+              const currentStock = stocks.find(s => s.frigoId === row.frigoId && s.productId === row.productId);
+              const availKg = currentStock ? currentStock.quantityKg : 0;
+              const isStockSufficient = availKg >= row.quantityKg;
 
-                      <div className="mt-1">
-                        <input
-                          type="text"
-                          value={row.productName}
-                          onChange={e => handleRowChange(index, 'productName', e.target.value)}
-                          placeholder="Nom sur Bon (ex: Dattes 3kg)..."
-                          className="w-full text-[10px] font-bold text-gray-800 border border-gray-200 rounded px-1.5 py-0.5 bg-gray-50/80 focus:bg-white focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-                    </td>
+              return (
+                <tr 
+                  key={row.id} 
+                  className={`hover:bg-blue-50/30 transition-colors ${!isStockSufficient ? 'bg-red-50/40' : ''}`}
+                >
+                  {/* Index */}
+                  <td className="p-2 text-center font-mono font-bold text-gray-400">
+                    #{index + 1}
+                  </td>
 
-                    {/* Stock available live */}
-                    <td className="p-2 text-center font-mono">
-                      <div className={`px-2 py-1 rounded font-bold text-[11px] ${
-                        availKg <= 0
-                          ? 'bg-red-100 text-red-800 border border-red-300'
-                          : availKg < row.quantityKg
-                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                          : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                      }`}>
-                        {availKg.toLocaleString()} Kg
-                      </div>
-                      <div className="text-[9px] text-gray-500 mt-0.5">
-                        {isStockSufficient ? '🟢 Dispo' : '🔴 Insuffisant'}
-                      </div>
-                    </td>
+                  {/* Date */}
+                  <td className="p-2">
+                    <input
+                      type="date"
+                      value={row.date}
+                      onChange={e => handleRowChange(index, 'date', e.target.value)}
+                      className="w-full p-1.5 border border-gray-300 rounded font-mono text-xs font-bold text-gray-800 bg-white"
+                    />
+                  </td>
 
-                    {/* Quantity Colis */}
-                    <td className="p-2">
+                  {/* Client */}
+                  <td className="p-2">
+                    <SearchableClientSelect
+                      clients={clients}
+                      value={row.clientId}
+                      onChange={val => handleRowChange(index, 'clientId', val)}
+                      placeholder="Choisir le client..."
+                    />
+                  </td>
+
+                  {/* Frigo */}
+                  <td className="p-2">
+                    <select
+                      value={row.frigoId}
+                      onChange={e => handleRowChange(index, 'frigoId', e.target.value)}
+                      className="w-full p-1.5 border border-gray-300 rounded text-xs font-bold text-gray-800 bg-white"
+                    >
+                      {frigos.map(f => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  </td>
+
+                  {/* Product & Format */}
+                  <td className="p-2">
+                    <SearchableProductSelect
+                      products={products}
+                      value={row.productId}
+                      onChange={val => handleRowChange(index, 'productId', val)}
+                      stocks={stocks}
+                      frigoId={row.frigoId}
+                      placeholder="Choisir le produit..."
+                    />
+
+                    {/* Format quick buttons & custom name */}
+                    <div className="mt-1 flex items-center gap-1 flex-wrap">
+                      {[
+                        { label: '12k', kg: 12 },
+                        { label: '3k', kg: 3 },
+                        { label: '2k', kg: 2 },
+                        { label: '1k', kg: 1 },
+                        { label: '0.5k', kg: 0.5 },
+                      ].map(fmt => (
+                        <button
+                          key={fmt.kg}
+                          type="button"
+                          onClick={() => handleRowChange(index, 'kgPerCarton', fmt.kg)}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition ${
+                            row.kgPerCarton === fmt.kg 
+                              ? 'bg-blue-600 text-white border-blue-700' 
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                          }`}
+                        >
+                          {fmt.label}
+                        </button>
+                      ))}
                       <input
                         type="number"
-                        min="0"
-                        step="1"
-                        value={row.quantityCartons || ''}
-                        onChange={e => handleRowChange(index, 'quantityCartons', e.target.value)}
-                        className="w-full p-1.5 text-center border border-gray-300 rounded font-mono font-bold text-amber-800 bg-white"
-                        placeholder="Colis"
-                      />
-                    </td>
-
-                    {/* Quantity Kg */}
-                    <td className="p-2 bg-amber-50/30">
-                      <input
-                        type="number"
-                        min="0"
                         step="0.1"
-                        value={row.quantityKg || ''}
-                        onChange={e => handleRowChange(index, 'quantityKg', e.target.value)}
-                        className="w-full p-1.5 text-center border border-amber-300 rounded font-mono font-bold text-gray-900 bg-white"
-                        placeholder="Kg"
+                        min="0.1"
+                        value={row.kgPerCarton || ''}
+                        onChange={e => handleRowChange(index, 'kgPerCarton', e.target.value)}
+                        className="w-11 px-1 py-0.5 text-[9px] font-mono font-bold text-center border border-gray-300 rounded bg-white"
+                        title="Kg par colis"
                       />
-                    </td>
+                    </div>
 
-                    {/* Unit Price */}
-                    <td className="p-2">
+                    <div className="mt-1">
                       <input
-                        type="number"
-                        min="0"
-                        step="0.5"
-                        value={row.unitPriceHT || ''}
-                        onChange={e => handleRowChange(index, 'unitPriceHT', e.target.value)}
-                        className="w-full p-1.5 text-right border border-gray-300 rounded font-mono text-xs font-semibold text-gray-800 bg-white"
-                        placeholder="Prix"
+                        type="text"
+                        value={row.productName}
+                        onChange={e => handleRowChange(index, 'productName', e.target.value)}
+                        placeholder="Nom sur Bon (ex: Dattes 3kg)..."
+                        className="w-full text-[10px] font-bold text-gray-800 border border-gray-200 rounded px-1.5 py-0.5 bg-gray-50/80 focus:bg-white focus:ring-1 focus:ring-blue-500"
                       />
-                    </td>
+                    </div>
+                  </td>
 
-                    {/* Total HT */}
-                    <td className="p-2 text-right font-mono font-bold text-gray-900 text-xs">
-                      {row.totalHT.toLocaleString()} DH
-                    </td>
+                  {/* Stock available live */}
+                  <td className="p-2 text-center font-mono">
+                    <div className={`px-2 py-1 rounded font-bold text-[11px] ${
+                      availKg <= 0
+                        ? 'bg-red-100 text-red-800 border border-red-300'
+                        : availKg < row.quantityKg
+                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                        : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    }`}>
+                      {availKg.toLocaleString()} Kg
+                    </div>
+                    <div className="text-[9px] text-gray-500 mt-0.5">
+                      {isStockSufficient ? '🟢 Dispo' : '🔴 Insuffisant'}
+                    </div>
+                  </td>
 
-                    {/* Row Actions */}
-                    <td className="p-2 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleDuplicateRow(index)}
-                          className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
-                          title="Dupliquer cette ligne"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveRow(index)}
-                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
-                          title="Supprimer cette ligne"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  {/* Quantity Colis */}
+                  <td className="p-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={row.quantityCartons || ''}
+                      onChange={e => handleRowChange(index, 'quantityCartons', e.target.value)}
+                      className="w-full p-1.5 text-center border border-gray-300 rounded font-mono font-bold text-amber-800 bg-white"
+                      placeholder="Colis"
+                    />
+                  </td>
 
-        {/* Add Row Bar */}
-        <div className="px-6 py-2 bg-gray-50 border-t border-b border-gray-200 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleAddRow}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0f62fe] hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Ajouter une ligne de BL</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDuplicateRow(rows.length - 1)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-xs font-bold transition cursor-pointer"
-            >
-              <Copy className="w-3.5 h-3.5" />
-              <span>Dupliquer dernière ligne</span>
-            </button>
-          </div>
+                  {/* Quantity Kg */}
+                  <td className="p-2 bg-amber-50/30">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={row.quantityKg || ''}
+                      onChange={e => handleRowChange(index, 'quantityKg', e.target.value)}
+                      className="w-full p-1.5 text-center border border-amber-300 rounded font-mono font-bold text-gray-900 bg-white"
+                      placeholder="Kg"
+                    />
+                  </td>
 
-          {/* Quick Summary Counts */}
-          <div className="flex items-center gap-4 text-xs font-mono font-bold text-gray-700">
-            <span>Total Lignes : <strong className="text-gray-900">{rows.length} BLs</strong></span>
-            <span>Total Colis : <strong className="text-amber-800">{totalCartonsAll.toLocaleString()}</strong></span>
-            <span>Poids Total : <strong className="text-blue-700">{totalKgAll.toLocaleString()} Kg</strong></span>
-            <span>Montant Global HT : <strong className="text-emerald-700">{totalHTAll.toLocaleString()} DH</strong></span>
-          </div>
-        </div>
+                  {/* Unit Price */}
+                  <td className="p-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={row.unitPriceHT || ''}
+                      onChange={e => handleRowChange(index, 'unitPriceHT', e.target.value)}
+                      className="w-full p-1.5 text-right border border-gray-300 rounded font-mono text-xs font-semibold text-gray-800 bg-white"
+                      placeholder="Prix"
+                    />
+                  </td>
 
-        {/* Modal Footer Actions */}
-        <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between gap-4 shrink-0">
+                  {/* Total HT */}
+                  <td className="p-2 text-right font-mono font-bold text-gray-900 text-xs">
+                    {row.totalHT.toLocaleString()} DH
+                  </td>
+
+                  {/* Row Actions */}
+                  <td className="p-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicateRow(index)}
+                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
+                        title="Dupliquer cette ligne"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveRow(index)}
+                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                        title="Supprimer cette ligne"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Add Row Bar */}
+      <div className="px-6 py-2 bg-gray-50 border-t border-b border-gray-200 flex items-center justify-between">
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={onClose}
-            className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs transition cursor-pointer"
+            onClick={handleAddRow}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0f62fe] hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
           >
-            Annuler
+            <Plus className="w-4 h-4" />
+            <span>Ajouter une ligne de BL</span>
           </button>
-
           <button
             type="button"
-            disabled={isSubmitting}
-            onClick={handleValidateAndSubmit}
-            className={`px-6 py-2.5 ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 cursor-pointer'} text-white font-bold rounded-xl text-xs transition flex items-center gap-2 shadow-lg`}
+            onClick={() => handleDuplicateRow(rows.length - 1)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-xs font-bold transition cursor-pointer"
           >
-            {isSubmitting ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Création de {rows.length} BLs en cours...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                <span>⚡ Valider et Créer les {rows.length} Bon(s) de Livraison</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
+            <Copy className="w-3.5 h-3.5" />
+            <span>Dupliquer dernière ligne</span>
           </button>
         </div>
 
+        {/* Quick Summary Counts */}
+        <div className="flex items-center gap-4 text-xs font-mono font-bold text-gray-700">
+          <span>Total Lignes : <strong className="text-gray-900">{rows.length} BLs</strong></span>
+          <span>Total Colis : <strong className="text-amber-800">{totalCartonsAll.toLocaleString()}</strong></span>
+          <span>Poids Total : <strong className="text-blue-700">{totalKgAll.toLocaleString()} Kg</strong></span>
+          <span>Montant Global HT : <strong className="text-emerald-700">{totalHTAll.toLocaleString()} DH</strong></span>
+        </div>
+      </div>
+
+      {/* Footer Actions */}
+      <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between gap-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs transition cursor-pointer"
+        >
+          ← Retour
+        </button>
+
+        <button
+          type="button"
+          disabled={isSubmitting}
+          onClick={handleValidateAndSubmit}
+          className={`px-6 py-2.5 ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 cursor-pointer'} text-white font-bold rounded-xl text-xs transition flex items-center gap-2 shadow-lg`}
+        >
+          {isSubmitting ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>Création de {rows.length} BLs en cours...</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4" />
+              <span>⚡ Valider et Créer les {rows.length} Bon(s) de Livraison</span>
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
+        </button>
       </div>
 
       {/* Excel Paste Popup Dialog */}

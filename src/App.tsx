@@ -87,12 +87,13 @@ const BLPdfPage = safeLazy(() => import('./components/sales/BLPdfPage').then(m =
 const FrigoOperationsPage = safeLazy(() => import('./components/stock/FrigoOperationsPage').then(m => ({ default: m.FrigoOperationsPage })));
 const ProductStockHistoryPage = safeLazy(() => import('./components/stock/ProductStockHistoryPage').then(m => ({ default: m.ProductStockHistoryPage })));
 const StockRepackagingPage = safeLazy(() => import('./components/stock/StockRepackagingPage').then(m => ({ default: m.StockRepackagingPage })));
+const MassBLCreationPage = safeLazy(() => import('./components/sales/MassBLCreationModal').then(m => ({ default: m.MassBLCreationPage })));
 
 // Extended NavTab type with edit sub-views
 export type ExtendedNavTab = NavTab | 
   'PRODUCT_EDIT' | 'CLIENT_EDIT' | 'SUPPLIER_EDIT' | 'FRIGO_EDIT' |
   'BL_EDIT' | 'ORDER_EDIT' | 'EXPENSE_EDIT' | 'CHEQUE_EDIT' |
-  'USERS' | 'IMPORT_BL' | 'BACKUP' | 'BL_SIGN' | 'BL_PDF' | 'FRIGO_OPS' | 'PRODUCT_HISTORY' | 'STOCK_REPACKAGING';
+  'USERS' | 'IMPORT_BL' | 'BACKUP' | 'BL_SIGN' | 'BL_PDF' | 'FRIGO_OPS' | 'PRODUCT_HISTORY' | 'STOCK_REPACKAGING' | 'MASS_BL';
 
 function LoadingSpinner() {
   return (
@@ -398,6 +399,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
             onEditFrigo={(id) => navigateToEdit('FRIGO_EDIT', id)}
             onSignBL={(id) => navigateToEdit('BL_SIGN', id)}
             onViewBLPdf={(id) => navigateToEdit('BL_PDF', id)}
+            onMassBL={() => navigateToEdit('MASS_BL', null)}
           />
         );
       case 'CLIENTS':
@@ -458,6 +460,10 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
               setBlInitialClientId(clientId);
               navigateToEdit('BL_EDIT', null);
             }}
+            onMassBL={(clientId) => {
+              setBlInitialClientId(clientId);
+              navigateToEdit('MASS_BL', clientId);
+            }}
           />
         );
       case 'SUPPLIER_EDIT':
@@ -495,6 +501,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
         return <BackupRestore />;
       case 'FRIGO_OPS':
         return <FrigoOperationsPage initialFrigoId={editingEntityId} onBack={navigateBack} />;
+      case 'MASS_BL':
+        return <MassBLCreationPage initialClientId={editingEntityId} onBack={navigateBack} />;
 
       default:
         return <DashboardOverview onNavigate={(tab: NavTab) => setNavTab(tab)} />;

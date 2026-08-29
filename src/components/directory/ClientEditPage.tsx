@@ -41,7 +41,6 @@ import {
 import { ChequeEffet, DeliveryNoteBL, Invoice, Client } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
 import { InvoicePdfDocument } from '../pdf/InvoicePdfDocument';
-import { MassBLCreationModal } from '../sales/MassBLCreationModal';
 import { generateWhatsAppInvoiceLink, generateWhatsAppBLLink } from '../../utils/whatsappUtils';
 
 interface ClientEditPageProps {
@@ -49,13 +48,15 @@ interface ClientEditPageProps {
   onBack: () => void;
   onViewBLPdf?: (blId: string) => void;
   onNewBL?: (clientId: string) => void;
+  onMassBL?: (clientId: string) => void;
 }
 
 export const ClientEditPage: React.FC<ClientEditPageProps> = ({ 
   editId, 
   onBack,
   onViewBLPdf,
-  onNewBL
+  onNewBL,
+  onMassBL
 }) => {
   const { t } = useTranslation();
   const { 
@@ -80,7 +81,7 @@ export const ClientEditPage: React.FC<ClientEditPageProps> = ({
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [showMassBLModal, setShowMassBLModal] = useState<boolean>(false);
+
   const [blSearchTerm, setBlSearchTerm] = useState('');
   const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
@@ -1355,7 +1356,9 @@ export const ClientEditPage: React.FC<ClientEditPageProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => setShowMassBLModal(true)}
+                        onClick={() => {
+                          if (onMassBL && client) onMassBL(client.id);
+                        }}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
                         title="Saisir plusieurs bons de livraison pour ce client en une seule fois"
                       >
@@ -2049,17 +2052,6 @@ export const ClientEditPage: React.FC<ClientEditPageProps> = ({
             />
           </div>
         </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* MODAL 4: Saisie & Création en Masse des BLs                   */}
-      {/* ============================================================ */}
-      {showMassBLModal && (
-        <MassBLCreationModal
-          isOpen={showMassBLModal}
-          onClose={() => setShowMassBLModal(false)}
-          initialClientId={client?.id}
-        />
       )}
 
     </div>
