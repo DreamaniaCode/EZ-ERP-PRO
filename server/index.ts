@@ -1044,7 +1044,34 @@ app.get('/api/invoices', async (req, res) => {
 
 app.post('/api/invoices', async (req, res) => {
   try {
-    const invoice = await prisma.invoice.create({ data: req.body });
+    const inv = req.body;
+    const sanitized: any = {
+      companyId: inv.companyId || 'STE_1',
+      invoiceNumber: inv.invoiceNumber || `FAC-${Date.now()}`,
+      orderId: inv.orderId || '',
+      blId: inv.blId || '',
+      clientId: inv.clientId || '',
+      clientName: inv.clientName || '',
+      clientICE: inv.clientICE || '',
+      clientAddress: inv.clientAddress || '',
+      date: inv.date ? String(inv.date).slice(0, 10) : new Date().toISOString().slice(0, 10),
+      dueDate: inv.dueDate ? String(inv.dueDate).slice(0, 10) : new Date().toISOString().slice(0, 10),
+      items: inv.items || [],
+      totalHT: Number(inv.totalHT) || 0,
+      totalVAT: Number(inv.totalVAT) || 0,
+      totalTTC: Number(inv.totalTTC) || 0,
+      amountPaid: Number(inv.amountPaid) || 0,
+      remainingAmount: inv.remainingAmount !== undefined ? Number(inv.remainingAmount) : ((Number(inv.totalTTC) || 0) - (Number(inv.amountPaid) || 0)),
+      status: inv.status || 'BROUILLON',
+      paymentMethod: inv.paymentMethod || '',
+    };
+    if (inv.id) sanitized.id = inv.id;
+
+    const invoice = await prisma.invoice.upsert({
+      where: { invoiceNumber: sanitized.invoiceNumber },
+      create: sanitized,
+      update: sanitized,
+    });
     res.json(invoice);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -1053,9 +1080,30 @@ app.post('/api/invoices', async (req, res) => {
 
 app.put('/api/invoices/:id', async (req, res) => {
   try {
+    const inv = req.body;
+    const sanitized: any = {};
+    if (inv.companyId !== undefined) sanitized.companyId = inv.companyId;
+    if (inv.invoiceNumber !== undefined) sanitized.invoiceNumber = inv.invoiceNumber;
+    if (inv.orderId !== undefined) sanitized.orderId = inv.orderId;
+    if (inv.blId !== undefined) sanitized.blId = inv.blId;
+    if (inv.clientId !== undefined) sanitized.clientId = inv.clientId;
+    if (inv.clientName !== undefined) sanitized.clientName = inv.clientName;
+    if (inv.clientICE !== undefined) sanitized.clientICE = inv.clientICE;
+    if (inv.clientAddress !== undefined) sanitized.clientAddress = inv.clientAddress;
+    if (inv.date !== undefined) sanitized.date = String(inv.date).slice(0, 10);
+    if (inv.dueDate !== undefined) sanitized.dueDate = String(inv.dueDate).slice(0, 10);
+    if (inv.items !== undefined) sanitized.items = inv.items;
+    if (inv.totalHT !== undefined) sanitized.totalHT = Number(inv.totalHT) || 0;
+    if (inv.totalVAT !== undefined) sanitized.totalVAT = Number(inv.totalVAT) || 0;
+    if (inv.totalTTC !== undefined) sanitized.totalTTC = Number(inv.totalTTC) || 0;
+    if (inv.amountPaid !== undefined) sanitized.amountPaid = Number(inv.amountPaid) || 0;
+    if (inv.remainingAmount !== undefined) sanitized.remainingAmount = Number(inv.remainingAmount) || 0;
+    if (inv.status !== undefined) sanitized.status = inv.status;
+    if (inv.paymentMethod !== undefined) sanitized.paymentMethod = inv.paymentMethod;
+
     const invoice = await prisma.invoice.update({
       where: { id: req.params.id },
-      data: req.body,
+      data: sanitized,
     });
     res.json(invoice);
   } catch (error: any) {
@@ -1275,12 +1323,38 @@ app.get('/api/purchases', async (req, res) => {
 
 app.post('/api/purchases', async (req, res) => {
   try {
-    const purchaseData = req.body;
-    const purchase = await prisma.$transaction(async (tx) => {
-      const created = await tx.purchaseImportInvoice.create({ data: purchaseData });
+    const p = req.body;
+    const sanitizedData: any = {
+      invoiceNumber: p.invoiceNumber || `PUR-${Date.now()}`,
+      supplierId: p.supplierId || '',
+      supplierName: p.supplierName || '',
+      dateArrival: p.dateArrival ? String(p.dateArrival).slice(0, 10) : new Date().toISOString().slice(0, 10),
+      targetFrigoId: p.targetFrigoId || '',
+      isImport: !!p.isImport,
+      containerNumber: p.containerNumber || '',
+      customsCostsHT: Number(p.customsCostsHT) || 0,
+      freightCostsHT: Number(p.freightCostsHT) || 0,
+      totalProductsHT: Number(p.totalProductsHT) || 0,
+      totalLandedCostHT: Number(p.totalLandedCostHT) || 0,
+      paidAmount: Number(p.paidAmount) || 0,
+      remainingBalance: p.remainingBalance !== undefined ? Number(p.remainingBalance) : ((Number(p.totalLandedCostHT) || 0) - (Number(p.paidAmount) || 0)),
+      items: p.items || [],
+      notes: p.notes || '',
+      paymentStatus: p.paymentStatus || 'NON_PAYÉ',
+      payments: p.payments || [],
+      timeArrival: p.timeArrival || '',
+    };
+    if (p.id) sanitizedData.id = p.id;
 
-      if (purchaseData.targetFrigoId && Array.isArray(purchaseData.items)) {
-        for (const item of purchaseData.items) {
+    const purchase = await prisma.$transaction(async (tx) => {
+      const created = await tx.purchaseImportInvoice.upsert({
+        where: { invoiceNumber: sanitizedData.invoiceNumber },
+        create: sanitizedData,
+        update: sanitizedData,
+      });
+
+      if (sanitizedData.targetFrigoId && Array.isArray(sanitizedData.items)) {
+        for (const item of sanitizedData.items) {
           if (!item.productId) continue;
           const kg = Number(item.quantityKg) || 0;
           const pallets = Number(item.quantityPallets) || 0;
@@ -1288,12 +1362,12 @@ app.post('/api/purchases', async (req, res) => {
           await tx.frigoStockLevel.upsert({
             where: {
               frigoId_productId: {
-                frigoId: purchaseData.targetFrigoId,
+                frigoId: sanitizedData.targetFrigoId,
                 productId: item.productId,
               }
             },
             create: {
-              frigoId: purchaseData.targetFrigoId,
+              frigoId: sanitizedData.targetFrigoId,
               productId: item.productId,
               quantityKg: kg,
               quantityPallets: pallets,
@@ -1307,13 +1381,13 @@ app.post('/api/purchases', async (req, res) => {
           await tx.productStockMovement.create({
             data: {
               productId: item.productId,
-              frigoId: purchaseData.targetFrigoId,
+              frigoId: sanitizedData.targetFrigoId,
               type: 'ENTREE',
               quantityKg: kg,
               quantityPallets: pallets,
               performedBy: 'Achat / Réception',
-              referenceDoc: purchaseData.invoiceNumber || 'Facture Achat',
-              notes: `Arrivée Achat/Import - Fournisseur: ${purchaseData.supplierName || ''}`,
+              referenceDoc: sanitizedData.invoiceNumber || 'Facture Achat',
+              notes: `Arrivée Achat/Import - Fournisseur: ${sanitizedData.supplierName || ''}`,
             }
           });
         }
@@ -1331,9 +1405,30 @@ app.post('/api/purchases', async (req, res) => {
 
 app.put('/api/purchases/:id', async (req, res) => {
   try {
+    const p = req.body;
+    const sanitizedData: any = {};
+    if (p.invoiceNumber !== undefined) sanitizedData.invoiceNumber = p.invoiceNumber;
+    if (p.supplierId !== undefined) sanitizedData.supplierId = p.supplierId;
+    if (p.supplierName !== undefined) sanitizedData.supplierName = p.supplierName;
+    if (p.dateArrival !== undefined) sanitizedData.dateArrival = String(p.dateArrival).slice(0, 10);
+    if (p.targetFrigoId !== undefined) sanitizedData.targetFrigoId = p.targetFrigoId;
+    if (p.isImport !== undefined) sanitizedData.isImport = !!p.isImport;
+    if (p.containerNumber !== undefined) sanitizedData.containerNumber = p.containerNumber;
+    if (p.customsCostsHT !== undefined) sanitizedData.customsCostsHT = Number(p.customsCostsHT) || 0;
+    if (p.freightCostsHT !== undefined) sanitizedData.freightCostsHT = Number(p.freightCostsHT) || 0;
+    if (p.totalProductsHT !== undefined) sanitizedData.totalProductsHT = Number(p.totalProductsHT) || 0;
+    if (p.totalLandedCostHT !== undefined) sanitizedData.totalLandedCostHT = Number(p.totalLandedCostHT) || 0;
+    if (p.paidAmount !== undefined) sanitizedData.paidAmount = Number(p.paidAmount) || 0;
+    if (p.remainingBalance !== undefined) sanitizedData.remainingBalance = Number(p.remainingBalance) || 0;
+    if (p.items !== undefined) sanitizedData.items = p.items;
+    if (p.notes !== undefined) sanitizedData.notes = p.notes;
+    if (p.paymentStatus !== undefined) sanitizedData.paymentStatus = p.paymentStatus;
+    if (p.payments !== undefined) sanitizedData.payments = p.payments;
+    if (p.timeArrival !== undefined) sanitizedData.timeArrival = p.timeArrival;
+
     const purchase = await prisma.purchaseImportInvoice.update({
       where: { id: req.params.id },
-      data: req.body,
+      data: sanitizedData,
     });
     res.json(purchase);
   } catch (error: any) {

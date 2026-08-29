@@ -219,6 +219,7 @@ model PurchaseImportInvoice {
   notes             String?  @default("")
   paymentStatus     String   @default("NON_PAYÉ")
   payments          Json?
+  timeArrival       String?  @default("")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

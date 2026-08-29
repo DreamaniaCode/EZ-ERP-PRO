@@ -463,35 +463,82 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       if (pgMovements && pgMovements.length > 0) setStockMovements(pgMovements);
       if (pgClients && pgClients.length > 0) {
-        setClients(pgClients);
-        localStorage.setItem('erp_clients', JSON.stringify(pgClients));
+        setClients(prev => {
+          const pgIds = new Set(pgClients.map((c: any) => c.id));
+          const localOnly = prev.filter(c => !pgIds.has(c.id));
+          const merged = [...pgClients, ...localOnly];
+          localStorage.setItem('erp_clients', JSON.stringify(merged));
+          return merged;
+        });
       }
       if (pgSuppliers && pgSuppliers.length > 0) {
-        setSuppliers(pgSuppliers);
-        localStorage.setItem('erp_suppliers', JSON.stringify(pgSuppliers));
+        setSuppliers(prev => {
+          const pgIds = new Set(pgSuppliers.map((s: any) => s.id));
+          const localOnly = prev.filter(s => !pgIds.has(s.id));
+          const merged = [...pgSuppliers, ...localOnly];
+          localStorage.setItem('erp_suppliers', JSON.stringify(merged));
+          return merged;
+        });
       }
       if (pgOrders && pgOrders.length > 0) {
-        setOrders(pgOrders);
-        localStorage.setItem('erp_orders', JSON.stringify(pgOrders));
+        setOrders(prev => {
+          const pgIds = new Set(pgOrders.map((o: any) => o.id));
+          const localOnly = prev.filter(o => !pgIds.has(o.id));
+          const merged = [...pgOrders, ...localOnly];
+          localStorage.setItem('erp_orders', JSON.stringify(merged));
+          return merged;
+        });
       }
       if (pgBLs && pgBLs.length > 0) {
-        setDeliveryNotes(pgBLs);
-        localStorage.setItem('erp_delivery_notes', JSON.stringify(pgBLs));
+        setDeliveryNotes(prev => {
+          const pgIds = new Set(pgBLs.map((b: any) => b.id));
+          const localOnly = prev.filter(b => !pgIds.has(b.id));
+          const merged = [...pgBLs, ...localOnly];
+          localStorage.setItem('erp_delivery_notes', JSON.stringify(merged));
+          return merged;
+        });
       }
       if (pgInvoices && pgInvoices.length > 0) {
-        setInvoices(pgInvoices);
-        localStorage.setItem('erp_invoices', JSON.stringify(pgInvoices));
+        setInvoices(prev => {
+          const pgIds = new Set(pgInvoices.map((inv: any) => inv.id));
+          const localOnly = prev.filter(inv => !pgIds.has(inv.id));
+          const merged = [...pgInvoices, ...localOnly];
+          localStorage.setItem('erp_invoices', JSON.stringify(merged));
+          return merged;
+        });
       }
       if (pgCheques && pgCheques.length > 0) {
-        setChequesEffets(pgCheques);
-        localStorage.setItem('erp_cheques', JSON.stringify(pgCheques));
+        setChequesEffets(prev => {
+          const pgIds = new Set(pgCheques.map((c: any) => c.id));
+          const localOnly = prev.filter(c => !pgIds.has(c.id));
+          const merged = [...pgCheques, ...localOnly];
+          localStorage.setItem('erp_cheques', JSON.stringify(merged));
+          return merged;
+        });
       }
       if (pgTreasury && pgTreasury.length > 0) setTreasuryAccounts(pgTreasury);
-      if (pgExpenses && pgExpenses.length > 0) setExpenses(pgExpenses);
-      if (pgPurchases && pgPurchases.length > 0) setPurchaseInvoices(pgPurchases);
+      if (pgExpenses && pgExpenses.length > 0) {
+        setExpenses(prev => {
+          const pgIds = new Set(pgExpenses.map((e: any) => e.id));
+          const localOnly = prev.filter(e => !pgIds.has(e.id));
+          const merged = [...pgExpenses, ...localOnly];
+          localStorage.setItem('erp_expenses', JSON.stringify(merged));
+          return merged;
+        });
+      }
+      if (pgPurchases && pgPurchases.length > 0) {
+        setPurchaseInvoices(prev => {
+          const pgIds = new Set(pgPurchases.map((p: any) => p.id));
+          const localOnly = prev.filter(p => !pgIds.has(p.id));
+          const merged = [...pgPurchases, ...localOnly];
+          localStorage.setItem('erp_purchase_invoices', JSON.stringify(merged));
+          localStorage.setItem('erp_purchases', JSON.stringify(merged));
+          return merged;
+        });
+      }
       if (pgInventories && pgInventories.length > 0) setInventoryCounts(pgInventories);
 
-      console.log('✅ Synchronized with PostgreSQL database.');
+      console.log('✅ Synchronized with PostgreSQL database (Lossless merge active).');
     } catch (err) {
       console.warn('API sync notice:', err);
     }
