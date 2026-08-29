@@ -110,11 +110,12 @@ export function extractDateAndTime(dateStr?: string, fallbackTimestamp?: string 
 
   // 2. Parse dateStr
   let parsedDate: Date;
-  if (dateStr && (dateStr.includes('T') || dateStr.includes(' '))) {
-    const temp = new Date(dateStr);
+  const rawDateStr = dateStr instanceof Date ? dateStr.toISOString() : (dateStr ? String(dateStr) : '');
+  if (rawDateStr && (rawDateStr.includes('T') || rawDateStr.includes(' '))) {
+    const temp = new Date(rawDateStr);
     parsedDate = isNaN(temp.getTime()) ? (fallbackDate || now) : temp;
-  } else if (dateStr) {
-    const parts = dateStr.split('-');
+  } else if (rawDateStr) {
+    const parts = rawDateStr.split('-');
     if (parts.length === 3) {
       const yr = parseInt(parts[0], 10);
       const mo = parseInt(parts[1], 10) - 1;
@@ -130,7 +131,7 @@ export function extractDateAndTime(dateStr?: string, fallbackTimestamp?: string 
         }
       }
     } else {
-      parsedDate = new Date(dateStr);
+      parsedDate = new Date(rawDateStr);
       if (isNaN(parsedDate.getTime())) parsedDate = fallbackDate || now;
     }
   } else {
@@ -186,14 +187,23 @@ export function compileUnifiedFrigoMovements(params: {
 
   const isFrigoMatch = (fId?: string, fName?: string) => {
     if (!targetFrigoId || targetFrigoId === 'ALL') return true;
-    if (fId === targetFrigoId) return true;
-    if (!fId && frigos.length === 1 && frigos[0].id === targetFrigoId) return true;
+    if (!fId && !fName) return false;
     const targetFrigo = frigos.find(f => f.id === targetFrigoId);
     if (!targetFrigo) return false;
-    if (fId === targetFrigo.code || fId === targetFrigo.name) return true;
-    if (fName && targetFrigo.name && fName.trim().toLowerCase() === targetFrigo.name.trim().toLowerCase()) return true;
-    if (fId && targetFrigo.id && fId.trim().toLowerCase() === targetFrigo.id.trim().toLowerCase()) return true;
-    if (targetFrigo.name && fId && fId.toLowerCase().includes('ain rabat') && targetFrigo.name.toLowerCase().includes('ain rabat')) return true;
+    const cleanTargetId = (targetFrigo.id || '').toLowerCase().trim();
+    const cleanTargetCode = (targetFrigo.code || '').toLowerCase().trim();
+    const cleanTargetName = (targetFrigo.name || '').toLowerCase().trim();
+    const baseTargetName = cleanTargetName.replace(/\(.*?\)/g, '').trim();
+
+    if (fId) {
+      const cId = fId.toLowerCase().trim();
+      if (cId === cleanTargetId || cId === cleanTargetCode || cId === cleanTargetName || cId === baseTargetName) return true;
+    }
+    if (fName) {
+      const cName = fName.toLowerCase().trim();
+      const baseName = cName.replace(/\(.*?\)/g, '').trim();
+      if (cName === cleanTargetName || (baseName && baseTargetName && baseName === baseTargetName) || cName === cleanTargetId) return true;
+    }
     return false;
   };
 
@@ -211,9 +221,12 @@ export function compileUnifiedFrigoMovements(params: {
   deliveryNotes.forEach(bl => {
     if (!isFrigoMatch(bl.frigoId, bl.frigoName)) return;
 
-    const frigoObj = frigos.find(f => f.id === bl.frigoId || f.name === bl.frigoName) || {
-      id: bl.frigoId || 'frigo-1',
-      name: bl.frigoName || 'Entrepôt Quai',
+    const frigoObj = frigos.find(f => 
+      (bl.frigoId && (f.id === bl.frigoId || f.code === bl.frigoId)) || 
+      (bl.frigoName && f.name.toLowerCase().trim() === bl.frigoName.toLowerCase().trim())
+    ) || {
+      id: bl.frigoId || '',
+      name: bl.frigoName || 'Entrepôt Inconnu',
       code: 'FRG',
     };
 
@@ -283,9 +296,11 @@ export function compileUnifiedFrigoMovements(params: {
   purchaseInvoices.forEach(pur => {
     if (!isFrigoMatch(pur.targetFrigoId)) return;
 
-    const frigoObj = frigos.find(f => f.id === pur.targetFrigoId) || {
-      id: pur.targetFrigoId || 'frigo-1',
-      name: 'Entrepôt Réception',
+    const frigoObj = frigos.find(f => 
+      (pur.targetFrigoId && (f.id === pur.targetFrigoId || f.code === pur.targetFrigoId))
+    ) || {
+      id: pur.targetFrigoId || '',
+      name: 'Entrepôt Inconnu',
       code: 'FRG',
     };
 

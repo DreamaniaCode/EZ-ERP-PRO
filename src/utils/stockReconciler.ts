@@ -52,33 +52,49 @@ export interface ProductSynchronizedStock {
  */
 export function isMatchingFrigo(frigo: ColdStorageFrigo, targetIdOrName?: string): boolean {
   if (!targetIdOrName) return false;
-  const target = targetIdOrName.toLowerCase().trim();
-  return (
-    frigo.id.toLowerCase() === target ||
-    frigo.code.toLowerCase() === target ||
-    frigo.name.toLowerCase() === target ||
-    frigo.name.toLowerCase().includes(target) ||
-    target.includes(frigo.name.toLowerCase())
-  );
+  const cleanTarget = targetIdOrName.toLowerCase().trim();
+  const cleanId = (frigo.id || '').toLowerCase().trim();
+  const cleanCode = (frigo.code || '').toLowerCase().trim();
+  const cleanName = (frigo.name || '').toLowerCase().trim();
+
+  // 1. Strict match by ID or Code
+  if (cleanId === cleanTarget || cleanCode === cleanTarget) return true;
+  
+  // 2. Exact match by Full Name
+  if (cleanName === cleanTarget) return true;
+
+  // 3. Match normalized short name without parenthetical details (e.g. "zahi", "noorfri", "el madina")
+  const baseName = cleanName.replace(/\(.*?\)/g, '').trim();
+  const baseTarget = cleanTarget.replace(/\(.*?\)/g, '').trim();
+  if (baseName && baseTarget && baseName === baseTarget) return true;
+
+  return false;
 }
 
 /**
  * Normalizes product matching across ID, Code, and Name
  */
 export function isMatchingProduct(product: Product, targetIdOrCode?: string, targetName?: string): boolean {
+  const pId = (product.id || '').toLowerCase().trim();
+  const pCode = (product.code || '').toLowerCase().trim();
+  const pName = (product.name || '').toLowerCase().trim();
+
+  // 1. If ID or Code is provided, match by ID or Code
   if (targetIdOrCode) {
     const target = targetIdOrCode.toLowerCase().trim();
-    if (product.id.toLowerCase() === target || product.code.toLowerCase() === target) {
+    if (pId === target || pCode === target) {
       return true;
     }
   }
-  if (targetName) {
+
+  // 2. Exact name match (only if no targetIdOrCode was provided, or as exact fallback)
+  if (!targetIdOrCode && targetName) {
     const cleanTargetName = targetName.toLowerCase().trim();
-    const cleanPName = product.name.toLowerCase().trim();
-    if (cleanPName === cleanTargetName || cleanPName.includes(cleanTargetName)) {
+    if (cleanTargetName && pName === cleanTargetName) {
       return true;
     }
   }
+
   return false;
 }
 
