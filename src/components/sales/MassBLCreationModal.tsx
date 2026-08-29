@@ -16,7 +16,10 @@ import {
   Calendar, 
   AlertTriangle,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  FileSpreadsheet,
+  Clipboard,
+  UploadCloud
 } from 'lucide-react';
 
 interface MassBLRow {
@@ -112,7 +115,54 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
   const [globalCompanyId, setGlobalCompanyId] = useState<string>(defaultCompId);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  if (!isOpen) return null;
+  // 1. Check for draft in localStorage on mount
+  const [draftInfo, setDraftInfo] = useState<{ count: number; savedAt: string; rows: MassBLRow[] } | null>(() => {
+    try {
+      const raw = localStorage.getItem('erp_mass_bl_draft');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
+          return {
+            count: parsed.rows.length,
+            savedAt: parsed.savedAt ? new Date(parsed.savedAt).toLocaleTimeString() : '',
+            rows: parsed.rows
+          };
+        }
+      }
+    } catch {}
+    return null;
+  });
+
+  const [showPasteModal, setShowPasteModal] = useState<boolean>(false);
+  const [pastedText, setPastedText] = useState<string>('');
+
+  // Auto-save draft on rows change
+  React.useEffect(() => {
+    if (rows && rows.length > 0) {
+      try {
+        localStorage.setItem('erp_mass_bl_draft', JSON.stringify({
+          savedAt: new Date().toISOString(),
+          initialClientId,
+          rows
+        }));
+      } catch (e) {}
+    }
+  }, [rows, initialClientId]);
+
+  const handleRestoreDraft = () => {
+    if (draftInfo && draftInfo.rows.length > 0) {
+      setRows(draftInfo.rows);
+      notifySuccess(`✅ Brouillon de ${draftInfo.count} lignes restauré avec succès !`);
+      setDraftInfo(null);
+    }
+  };
+
+  const handleDismissDraft = () => {
+    setDraftInfo(null);
+    try {
+      localStorage.removeItem('erp_mass_bl_draft');
+    } catch {}
+  };
 
   // Add new row
   const handleAddRow = () => {
@@ -139,6 +189,101 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
     setRows([...rows, newRow]);
   };
 
+  // Bulk generate N rows (e.g. 40 BLs)
+  const handleBulkGenerate = (count: number) => {
+    const baseRow = rows[0] || createInitialRow();
+    const generated: MassBLRow[] = [];
+    const nowTime = Date.now();
+    for (let i = 0; i < count; i++) {
+      generated.push({
+        ...baseRow,
+        id: `mrow-${nowTime}-${i}-${Math.random().toString(36).substr(2, 4)}`,
+        clientId: initialClientId || baseRow.clientId || (clients[0]?.id || ''),
+        frigoId: globalFrigoId || baseRow.frigoId || defaultFrigoId,
+        companyId: globalCompanyId || baseRow.companyId || defaultCompId,
+        date: globalDate || baseRow.date || todayStr,
+      });
+    }
+    setRows(generated);
+    notifySuccess(`⚡ ${count} lignes de BL générées instantanément !`);
+  };
+
+  // Process Pasted Text from Excel / Spreadsheet
+  const handleProcessPastedText = () => {
+    if (!pastedText.trim()) return;
+    const lines = pastedText.split(/\r?\n/).filter(l => l.trim().length > 0);
+    const newRows: MassBLRow[] = [];
+    const nowTime = Date.now();
+    
+    lines.forEach((line, idx) => {
+      const cols = line.split(/\t|;|,/).map(c => c.trim()).filter(c => c.length > 0);
+      if (cols.length === 0) return;
+
+      let rowDate = globalDate || todayStr;
+      let targetProduct = products[0];
+      let rowQtyKg = 100;
+      let rowCartons = 10;
+      let rowPrice = targetProduct?.sellingPriceHT || 0;
+      let rowKgPack = targetProduct?.kgPerCarton || 10;
+      let rowCustomName = '';
+
+      cols.forEach(col => {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(col)) {
+          rowDate = col;
+        } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(col)) {
+          const [d, m, y] = col.split('/');
+          rowDate = `${y}-${m}-${d}`;
+        } else if (/^\d+(\.\d+)?$/.test(col)) {
+          const num = parseFloat(col);
+          if (num > 50) {
+            rowQtyKg = num;
+          } else if (num > 0 && num <= 50) {
+            rowPrice = num;
+          }
+        } else if (col.length > 2) {
+          const found = products.find(p => 
+            p.name.toLowerCase().includes(col.toLowerCase()) || 
+            p.code.toLowerCase().includes(col.toLowerCase())
+          );
+          if (found) {
+            targetProduct = found;
+            rowKgPack = found.kgPerCarton || 10;
+            if (rowPrice === 0) rowPrice = found.sellingPriceHT || 0;
+          } else {
+            rowCustomName = col;
+          }
+        }
+      });
+
+      rowCartons = Math.ceil(rowQtyKg / (rowKgPack || 10));
+
+      newRows.push({
+        id: `mrow-${nowTime}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+        date: rowDate,
+        companyId: globalCompanyId || defaultCompId,
+        clientId: initialClientId || (clients[0]?.id || ''),
+        frigoId: globalFrigoId || defaultFrigoId,
+        productId: targetProduct?.id || (products[0]?.id || ''),
+        productName: rowCustomName || targetProduct?.name || 'Produit',
+        productCode: targetProduct?.code || '',
+        kgPerCarton: rowKgPack,
+        quantityCartons: rowCartons,
+        quantityKg: rowQtyKg,
+        unitPriceHT: rowPrice,
+        totalHT: rowQtyKg * rowPrice,
+      });
+    });
+
+    if (newRows.length > 0) {
+      setRows(newRows);
+      notifySuccess(`✅ ${newRows.length} lignes importées depuis Excel / Presse-papier !`);
+      setShowPasteModal(false);
+      setPastedText('');
+    } else {
+      notifyError('Impossible d\'extraire les lignes. Vérifiez votre texte copié.');
+    }
+  };
+
   // Duplicate specific row
   const handleDuplicateRow = (index: number) => {
     const target = rows[index];
@@ -163,23 +308,61 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
     setRows(next);
   };
 
-  // Update specific row field
-  const handleUpdateRow = (index: number, updates: Partial<MassBLRow>) => {
+  const handleRemoveRow = handleDeleteRow;
+
+  // Update specific row field with bidirectional calculation
+  const handleRowChange = (index: number, field: keyof MassBLRow, value: any) => {
     const next = [...rows];
-    const current = next[index];
-    if (!current) return;
+    const row = { ...next[index], [field]: value };
+    const prd = products.find(p => p.id === row.productId);
+    const kgPack = row.kgPerCarton > 0 ? row.kgPerCarton : (prd?.kgPerCarton || 10);
 
-    const merged = { ...current, ...updates };
-
-    // Auto-compute weights and totals
-    if (updates.quantityCartons !== undefined || updates.kgPerCarton !== undefined) {
-      merged.quantityKg = (Number(merged.quantityCartons) || 0) * (Number(merged.kgPerCarton) || 0);
-      merged.totalHT = (Number(merged.quantityKg) || 0) * (Number(merged.unitPriceHT) || 0);
-    } else if (updates.quantityKg !== undefined || updates.unitPriceHT !== undefined) {
-      merged.totalHT = (Number(merged.quantityKg) || 0) * (Number(merged.unitPriceHT) || 0);
+    if (field === 'productId') {
+      if (prd) {
+        row.productCode = prd.code;
+        row.kgPerCarton = prd.kgPerCarton || 10;
+        row.unitPriceHT = prd.sellingPriceHT || 0;
+        const savedCustomName = getSavedRepartitionName(prd.id, row.kgPerCarton);
+        row.productName = savedCustomName || prd.name;
+        row.quantityKg = Math.round((Number(row.quantityCartons) || 0) * row.kgPerCarton * 100) / 100;
+        row.totalHT = Math.round(row.quantityKg * row.unitPriceHT * 100) / 100;
+      }
     }
 
-    next[index] = merged;
+    if (field === 'kgPerCarton') {
+      const newKg = Math.max(0.1, Number(value) || 1);
+      row.kgPerCarton = newKg;
+      const savedCustomName = getSavedRepartitionName(row.productId, newKg);
+      if (savedCustomName) row.productName = savedCustomName;
+      if (Number(row.quantityCartons) > 0) {
+        row.quantityKg = Math.round((Number(row.quantityCartons) || 0) * newKg * 100) / 100;
+      } else if (Number(row.quantityKg) > 0) {
+        row.quantityCartons = Math.round(((Number(row.quantityKg) || 0) / newKg) * 100) / 100;
+      }
+      row.totalHT = Math.round((Number(row.quantityKg) || 0) * (Number(row.unitPriceHT) || 0) * 100) / 100;
+    }
+
+    if (field === 'quantityCartons') {
+      const cartons = Number(value) || 0;
+      row.quantityCartons = cartons;
+      row.quantityKg = Math.round(cartons * kgPack * 100) / 100;
+      row.totalHT = Math.round(row.quantityKg * (Number(row.unitPriceHT) || 0) * 100) / 100;
+    }
+
+    if (field === 'quantityKg') {
+      const kg = Number(value) || 0;
+      row.quantityKg = kg;
+      row.quantityCartons = Math.round((kg / kgPack) * 100) / 100;
+      row.totalHT = Math.round(kg * (Number(row.unitPriceHT) || 0) * 100) / 100;
+    }
+
+    if (field === 'unitPriceHT') {
+      const price = Number(value) || 0;
+      row.unitPriceHT = price;
+      row.totalHT = Math.round((Number(row.quantityKg) || 0) * price * 100) / 100;
+    }
+
+    next[index] = row;
     setRows(next);
   };
 
@@ -463,7 +646,57 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
               ⚡ Valider directement (Bons Historiques livrés sans protocole Frigo)
             </span>
           </label>
+
+          {/* Excel Paste & Quick Generator Actions */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowPasteModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+              title="Copier un tableau Excel et le coller ici en 1 clic"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>📋 Coller depuis Excel</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBulkGenerate(40)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+              title="Générer instantanément 40 lignes de BL prêtes à valider"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>⚡ Générer 40 lignes</span>
+            </button>
+          </div>
         </div>
+
+        {/* Draft Recovery Banner */}
+        {draftInfo && (
+          <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center justify-between gap-4 text-xs animate-in fade-in">
+            <div className="flex items-center gap-2 text-amber-900 font-bold">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                Un brouillon précédent de <strong>{draftInfo.count} lignes</strong> a été retrouvé ({draftInfo.savedAt ? `sauvegardé à ${draftInfo.savedAt}` : 'sauvegardé automatiquement'}).
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleRestoreDraft}
+                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded text-xs transition cursor-pointer shadow-xs"
+              >
+                Restaurer le brouillon ({draftInfo.count} lignes)
+              </button>
+              <button
+                type="button"
+                onClick={handleDismissDraft}
+                className="px-2.5 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded text-xs transition cursor-pointer"
+              >
+                Ignorer
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Scrollable Table Area */}
         <div className="flex-1 overflow-x-auto overflow-y-auto p-4">
@@ -738,6 +971,66 @@ export const MassBLCreationModal: React.FC<MassBLCreationModalProps> = ({
         </div>
 
       </div>
+
+      {/* Excel Paste Popup Dialog */}
+      {showPasteModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-gray-300">
+            <div className="bg-[#161616] text-white px-6 py-4 flex justify-between items-center border-b border-[#393939]">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-bold text-sm uppercase tracking-wider text-white">
+                  Coller les lignes depuis Excel / Presse-papier
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPasteModal(false)}
+                className="p-1 text-gray-400 hover:text-white rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-gray-600">
+                Copiez vos lignes depuis un classeur Excel, Google Sheets ou un tableau texte (Ctrl+C), puis collez-les (Ctrl+V) dans la zone ci-dessous. Le système détectera automatiquement les dates, produits, quantités et prix.
+              </p>
+
+              <textarea
+                rows={10}
+                value={pastedText}
+                onChange={e => setPastedText(e.target.value)}
+                placeholder={`Exemple de copier-coller depuis Excel:\n2026-08-26\tArrousse sahara 5kg\t400\t11\n2026-08-27\tDatte Algérienne Sibort 5 KG\t800\t20\n...`}
+                className="w-full p-3 border border-gray-300 rounded-xl font-mono text-xs text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-xs text-gray-500 font-mono">
+                  {pastedText.split(/\r?\n/).filter(l => l.trim().length > 0).length} ligne(s) détectée(s)
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowPasteModal(false)}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg text-xs"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleProcessPastedText}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-2 shadow-md"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Importer dans la grille</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
