@@ -25,15 +25,58 @@ export const SearchableProductSelect: React.FC<SearchableProductSelectProps> = (
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const selectedProduct = products.find(p => p.id === value || p.code === value);
 
-  // Close dropdown on outside click
+  const updatePosition = () => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUpwards = spaceBelow < 300 && rect.top > 300;
+      
+      const width = Math.max(rect.width, 360);
+      let left = rect.left;
+      if (left + width > window.innerWidth - 16) {
+        left = window.innerWidth - width - 16;
+      }
+      if (left < 16) left = 16;
+
+      setDropdownStyle({
+        position: 'fixed',
+        top: openUpwards ? `${Math.max(10, rect.top - 290)}px` : `${rect.bottom + 4}px`,
+        left: `${left}px`,
+        width: `${width}px`,
+        zIndex: 999999,
+      });
+    }
+  };
+
+  // Recalculate position when open or on scroll/resize
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+      const handleScrollOrResize = () => updatePosition();
+      window.addEventListener('scroll', handleScrollOrResize, true);
+      window.addEventListener('resize', handleScrollOrResize);
+      return () => {
+        window.removeEventListener('scroll', handleScrollOrResize, true);
+        window.removeEventListener('resize', handleScrollOrResize);
+      };
+    }
+  }, [isOpen]);
+
+  // Close dropdown on outside click (allowing interaction with the dropdown itself and its scrollbars)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setIsOpen(false);
         setSearchQuery('');
       }
@@ -120,9 +163,14 @@ export const SearchableProductSelect: React.FC<SearchableProductSelectProps> = (
         </div>
       </div>
 
-      {/* Search & Suggestions Floating Dropdown */}
+      {/* Floating Dropdown using Fixed coordinates to escape any overflow constraints */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white border-2 border-gray-900 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 min-w-[280px]">
+        <div
+          ref={dropdownRef}
+          style={dropdownStyle}
+          className="bg-white border-2 border-gray-900 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+          onMouseDown={e => e.stopPropagation()}
+        >
           
           {/* Integrated Search Input Header */}
           <div className="p-2 bg-gray-50 border-b border-gray-200">
@@ -149,8 +197,8 @@ export const SearchableProductSelect: React.FC<SearchableProductSelectProps> = (
             </div>
           </div>
 
-          {/* Product Items List */}
-          <div className="max-h-60 overflow-y-auto divide-y divide-gray-100">
+          {/* Product Items List with smooth internal scrollbar */}
+          <div className="max-h-64 overflow-y-auto divide-y divide-gray-100 overscroll-contain">
             {filteredProducts.length > 0 ? (
               filteredProducts.map(prd => {
                 const isSelected = prd.id === value || prd.code === value;
