@@ -111,6 +111,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
+  const [blInitialClientId, setBlInitialClientId] = useState<string | null>(null);
   const [previousTab, setPreviousTab] = useState<ExtendedNavTab>('DASHBOARD');
   const { frigos, deliveryNotes, currentUser, setCurrentUser } = useERP();
 
@@ -400,7 +401,18 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
           />
         );
       case 'CLIENTS':
-        return <ClientsSuppliers initialTab="CLIENTS" onViewBLPdf={(bl) => setActivePdfBL(bl)} onEditClient={(id) => navigateToEdit('CLIENT_EDIT', id)} onNewClient={() => navigateToEdit('CLIENT_EDIT', null)} />;
+        return (
+          <ClientsSuppliers 
+            initialTab="CLIENTS" 
+            onViewBLPdf={(bl) => setActivePdfBL(bl)} 
+            onEditClient={(id) => navigateToEdit('CLIENT_EDIT', id)} 
+            onNewClient={() => navigateToEdit('CLIENT_EDIT', null)} 
+            onNewBL={(clientId) => {
+              setBlInitialClientId(clientId);
+              navigateToEdit('BL_EDIT', null);
+            }}
+          />
+        );
       case 'SALES_ORDERS':
         return <SalesOrders onEditOrder={(id) => navigateToEdit('ORDER_EDIT', id)} onNewOrder={() => navigateToEdit('ORDER_EDIT', null)} />;
       case 'PURCHASES_IMPORTS':
@@ -436,13 +448,32 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
       case 'PRODUCT_EDIT':
         return <ProductEditPage editId={editingEntityId} onBack={navigateBack} />;
       case 'CLIENT_EDIT':
-        return <ClientEditPage editId={editingEntityId} onBack={navigateBack} onViewBLPdf={(blId) => navigateToEdit('BL_PDF', blId)} />;
+        return (
+          <ClientEditPage 
+            editId={editingEntityId} 
+            onBack={navigateBack} 
+            onViewBLPdf={(blId) => navigateToEdit('BL_PDF', blId)} 
+            onNewBL={(clientId) => {
+              setBlInitialClientId(clientId);
+              navigateToEdit('BL_EDIT', null);
+            }}
+          />
+        );
       case 'SUPPLIER_EDIT':
         return <SupplierEditPage editId={editingEntityId} onBack={navigateBack} />;
       case 'FRIGO_EDIT':
         return <FrigoEditPage editId={editingEntityId} onBack={navigateBack} />;
       case 'BL_EDIT':
-        return <BLEditPage editId={editingEntityId} onBack={navigateBack} />;
+        return (
+          <BLEditPage 
+            editId={editingEntityId} 
+            initialClientId={blInitialClientId} 
+            onBack={() => {
+              setBlInitialClientId(null);
+              navigateBack();
+            }} 
+          />
+        );
       case 'ORDER_EDIT':
         return <OrderEditPage editId={editingEntityId} onBack={navigateBack} />;
       case 'EXPENSE_EDIT':

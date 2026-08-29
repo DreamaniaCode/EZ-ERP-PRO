@@ -4,7 +4,7 @@ import { useERP } from '../../context/ERPContext';
 import { Client, Supplier, DeliveryNoteBL } from '../../types';
 import { ClientDetailModal } from './ClientDetailModal';
 import { ExportButtons } from '../common/ExportButtons';
-import { Users, Plus, Search, Building, Phone, Mail, FileText, CheckCircle, Eye, AlertTriangle, Edit, Trash2, Layers } from 'lucide-react';
+import { Users, Plus, Search, Building, Phone, Mail, FileText, CheckCircle, Eye, AlertTriangle, Edit, Trash2, Layers, Truck } from 'lucide-react';
 
 interface ClientsSuppliersProps {
   initialTab?: 'CLIENTS' | 'SUPPLIERS';
@@ -13,6 +13,7 @@ interface ClientsSuppliersProps {
   onNewClient?: () => void;
   onEditSupplier?: (id: string) => void;
   onNewSupplier?: () => void;
+  onNewBL?: (clientId: string) => void;
 }
 
 export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({ 
@@ -21,7 +22,8 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
   onEditClient,
   onNewClient,
   onEditSupplier,
-  onNewSupplier 
+  onNewSupplier,
+  onNewBL
 }) => {
   const { t } = useTranslation();
   const { clients, suppliers, invoices, addClient, deleteClient, addSupplier, updateSupplier, deleteSupplier, deduplicateClients, mergeClients } = useERP();
@@ -373,26 +375,38 @@ export const ClientsSuppliers: React.FC<ClientsSuppliersProps> = ({
                         )}
                       </td>
                       <td onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 py-3">
-                        <button
-                          onClick={() => {
-                            if (onEditClient) onEditClient(c.id);
-                            else setSelectedClient(c);
-                          }}
-                          className="px-2.5 py-1 bg-gray-100 hover:bg-[#0f62fe] hover:text-white border border-gray-300 text-gray-800 text-xs font-bold rounded flex items-center gap-1 transition-colors shadow-sm"
-                          title="Ouvrir le dossier client complet"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          Dossier Client
-                        </button>
-                        {onEditClient && (
                           <button
-                            onClick={() => onEditClient(c.id)}
-                            className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded transition-colors"
-                            title="Modifier les coordonnées client"
+                            onClick={() => {
+                              if (onEditClient) onEditClient(c.id);
+                              else setSelectedClient(c);
+                            }}
+                            className="px-2.5 py-1 bg-gray-100 hover:bg-[#0f62fe] hover:text-white border border-gray-300 text-gray-800 text-xs font-bold rounded flex items-center gap-1 transition-colors shadow-xs cursor-pointer"
+                            title="Ouvrir le dossier client complet"
                           >
-                            Éditer
+                            <Eye className="w-3.5 h-3.5" />
+                            Dossier
                           </button>
-                        )}
+
+                          {onNewBL && (
+                            <button
+                              onClick={() => onNewBL(c.id)}
+                              className="px-2.5 py-1 bg-amber-50 hover:bg-amber-600 hover:text-white border border-amber-300 text-amber-900 text-xs font-bold rounded flex items-center gap-1 transition-colors shadow-xs cursor-pointer"
+                              title="Créer directement un Bon de Livraison pour ce client"
+                            >
+                              <Truck className="w-3.5 h-3.5 text-amber-700 hover:text-white" />
+                              <span>Créer BL</span>
+                            </button>
+                          )}
+
+                          {onEditClient && (
+                            <button
+                              onClick={() => onEditClient(c.id)}
+                              className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded transition-colors cursor-pointer"
+                              title="Modifier les coordonnées client"
+                            >
+                              Éditer
+                            </button>
+                          )}
                         <button
                           onClick={() => {
                             if (window.confirm(`Êtes-vous sûr de vouloir supprimer définitivement le client "${c.name}" (${c.code}) ?`)) {

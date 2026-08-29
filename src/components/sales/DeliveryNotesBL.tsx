@@ -37,9 +37,12 @@ import {
   Upload,
   Scale,
   Receipt,
-  ArrowUpDown
+  ArrowUpDown,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import { GenerateInvoiceModal } from '../finance/GenerateInvoiceModal';
+import { MassBLCreationModal } from './MassBLCreationModal';
 
 
 interface DeliveryNotesBLProps {
@@ -103,6 +106,7 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   const [activeHistoryBL, setActiveHistoryBL] = useState<DeliveryNoteBL | null>(null);
   const [activeWeighingBL, setActiveWeighingBL] = useState<DeliveryNoteBL | null>(null);
   const [showExcelModal, setShowExcelModal] = useState<boolean>(false);
+  const [showMassBLModal, setShowMassBLModal] = useState<boolean>(false);
   const [showAllCompanies, setShowAllCompanies] = useState<boolean>(true);
   const [sortBy, setSortBy] = useState<'CREATED_DESC' | 'DATE_DESC' | 'STATUS_THEN_DATE' | 'DATE_ASC' | 'CLIENT'>('CREATED_DESC');
 
@@ -558,6 +562,15 @@ EasyERP Pro • Logistics Management`;
           >
             <History className="w-4 h-4" />
             <span>{t('bl.syncPrices', 'Synchroniser Prix Produits → BLs')}</span>
+          </button>
+
+          <button
+            onClick={() => setShowMassBLModal(true)}
+            className="px-3.5 py-2 bg-linear-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white text-xs font-bold rounded flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+            title="Saisir et créer plusieurs bons de livraison en une seule fois (idéal pour anciens bons ou livraisons multiples)"
+          >
+            <Layers className="w-4 h-4" />
+            <span>⚡ Saisie en Masse (Grille)</span>
           </button>
 
           <button
@@ -1195,6 +1208,12 @@ EasyERP Pro • Logistics Management`;
         onClose={() => setTargetInvoiceBL(null)}
         bl={targetInvoiceBL}
         onConfirmGenerate={handleConfirmGenerateInvoice}
+      />
+
+      {/* Saisie & Création en Masse des BLs Modal */}
+      <MassBLCreationModal
+        isOpen={showMassBLModal}
+        onClose={() => setShowMassBLModal(false)}
       />
 
       {/* Delivery History Timeline Modal */}

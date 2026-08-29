@@ -8,12 +8,14 @@ interface ClientDetailModalProps {
   onClose: () => void;
   onSelectClient?: (client: Client) => void;
   onViewBLPdf?: (bl: DeliveryNoteBL) => void;
+  onNewBL?: (clientId: string) => void;
 }
 
 export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   client,
   onClose,
   onViewBLPdf,
+  onNewBL,
 }) => {
   const { deliveryNotes } = useERP();
 
@@ -22,6 +24,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
       <ClientEditPage
         editId={client.id}
         onBack={onClose}
+        onNewBL={onNewBL}
         onViewBLPdf={(blId) => {
           const bl = deliveryNotes.find(b => b.id === blId);
           if (bl && onViewBLPdf) {

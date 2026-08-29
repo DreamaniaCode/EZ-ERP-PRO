@@ -8,14 +8,14 @@ import { SearchableClientSelect } from '../common/SearchableClientSelect';
 import { generateWhatsAppBLLink } from '../../utils/whatsappUtils';
 import { useToast } from '../common/CarbonToastContainer';
 
-export const BLEditPage: React.FC<{ editId: string | null; onBack: () => void }> = ({ editId, onBack }) => {
+export const BLEditPage: React.FC<{ editId: string | null; initialClientId?: string | null; onBack: () => void }> = ({ editId, initialClientId, onBack }) => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
   const { clients, frigos, products, stocks, deliveryNotes, addBL, updateBL, activeCompanyId, activeCompany, companies, currentUser } = useERP();
   const { notifySuccess, notifyError, notifyWarning } = useToast();
 
   const [companyId, setCompanyId] = useState<string>(activeCompanyId !== 'ALL' ? activeCompanyId : companies[0]?.id || 'STE_1');
-  const [clientId, setClientId] = useState('');
+  const [clientId, setClientId] = useState(initialClientId || '');
   const [frigoId, setFrigoId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [isHistoricalAutoApprove, setIsHistoricalAutoApprove] = useState<boolean>(true);

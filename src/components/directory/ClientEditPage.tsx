@@ -41,18 +41,21 @@ import {
 import { ChequeEffet, DeliveryNoteBL, Invoice, Client } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
 import { InvoicePdfDocument } from '../pdf/InvoicePdfDocument';
+import { MassBLCreationModal } from '../sales/MassBLCreationModal';
 import { generateWhatsAppInvoiceLink, generateWhatsAppBLLink } from '../../utils/whatsappUtils';
 
 interface ClientEditPageProps {
   editId: string | null;
   onBack: () => void;
   onViewBLPdf?: (blId: string) => void;
+  onNewBL?: (clientId: string) => void;
 }
 
 export const ClientEditPage: React.FC<ClientEditPageProps> = ({ 
   editId, 
   onBack,
-  onViewBLPdf 
+  onViewBLPdf,
+  onNewBL
 }) => {
   const { t } = useTranslation();
   const { 
@@ -77,6 +80,7 @@ export const ClientEditPage: React.FC<ClientEditPageProps> = ({
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showMassBLModal, setShowMassBLModal] = useState<boolean>(false);
   const [blSearchTerm, setBlSearchTerm] = useState('');
   const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
@@ -491,6 +495,18 @@ export const ClientEditPage: React.FC<ClientEditPageProps> = ({
                   };
                 })}
               />
+
+              <button 
+                type="button" 
+                onClick={() => {
+                  if (onNewBL && client) onNewBL(client.id);
+                }}
+                className="flex items-center px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold transition-colors shadow-sm cursor-pointer"
+                title="Créer un nouveau Bon de Livraison pour ce client"
+              >
+                <Truck className="w-3.5 h-3.5 mr-1 rtl:ml-1 rtl:mr-0" />
+                Nouveau BL
+              </button>
 
               <button 
                 type="button" 
@@ -1315,14 +1331,37 @@ export const ClientEditPage: React.FC<ClientEditPageProps> = ({
                       </p>
                     </div>
 
-                    <div className="w-full sm:w-64">
-                      <input
-                        type="text"
-                        placeholder="Filtrer par N° BL, Date, Frigo..."
-                        value={blSearchTerm}
-                        onChange={(e) => setBlSearchTerm(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-mono"
-                      />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="w-full sm:w-56">
+                        <input
+                          type="text"
+                          placeholder="Filtrer par N° BL, Date, Frigo..."
+                          value={blSearchTerm}
+                          onChange={(e) => setBlSearchTerm(e.target.value)}
+                          className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-mono"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onNewBL && client) onNewBL(client.id);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0f62fe] hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Créer un BL</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowMassBLModal(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+                        title="Saisir plusieurs bons de livraison pour ce client en une seule fois"
+                      >
+                        <Layers className="w-3.5 h-3.5" />
+                        <span>Saisie BLs en Masse</span>
+                      </button>
                     </div>
                   </div>
 
@@ -2010,6 +2049,17 @@ export const ClientEditPage: React.FC<ClientEditPageProps> = ({
             />
           </div>
         </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL 4: Saisie & Création en Masse des BLs                   */}
+      {/* ============================================================ */}
+      {showMassBLModal && (
+        <MassBLCreationModal
+          isOpen={showMassBLModal}
+          onClose={() => setShowMassBLModal(false)}
+          initialClientId={client?.id}
+        />
       )}
 
     </div>
