@@ -35,7 +35,6 @@ export const StandardKpiBarChart: React.FC<StandardKpiBarChartProps> = ({
   onItemClick
 }) => {
   const maxValue = maxVal || Math.max(...data.map(d => d.value), 1);
-
   return (
     <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm space-y-4 font-mono">
       

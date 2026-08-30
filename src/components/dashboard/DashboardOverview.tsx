@@ -37,6 +37,8 @@ import { NavTab } from '../layout/Sidebar';
 import { QRScannerModal } from '../common/QRScannerModal';
 import { ProductStockHistoryModal } from '../stock/ProductStockHistoryModal';
 import { StandardKpiBarChart } from './StandardKpiBarChart';
+import { MoneyFocusKpiRow } from './MoneyFocusKpiRow';
+import { CategoryValuationSurface, CategoryValuationRow } from './CategoryValuationSurface';
 import { computeSynchronizedStocks } from '../../utils/stockReconciler';
 
 interface DashboardOverviewProps {
@@ -241,6 +243,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     });
   });
 
+  const categoryValuationData: CategoryValuationRow[] = useMemo(() => {
+    return Object.entries(categorySalesStats)
+      .filter(([_, st]) => st.salesHT > 0 || st.valuationHT > 0 || st.stockKg > 0)
+      .map(([category, st]) => ({
+        category,
+        valuationHT: st.valuationHT,
+        salesHT: st.salesHT,
+        marginPct: st.salesHT > 0 ? (st.marginHT / st.salesHT) * 100 : 0
+      }));
+  }, [categorySalesStats]);
+
   return (
     <div className="space-y-6" id="dashboard-overview-container">
       
@@ -347,187 +360,66 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         onScanSuccess={handleQrScanSuccess}
       />
 
-      {/* 🚀 CLICKABLE KPI Cards Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-        
-        {/* KPI 1: Sales & Margin -> Opens Delivery Notes */}
-        <div 
-          onClick={() => onNavigate('DELIVERY_NOTES')}
-          className="carbon-card p-3 sm:p-4 cursor-pointer hover:border-[#0f62fe] hover:shadow-md transition-all group relative overflow-hidden active:scale-[0.98]"
-          title="Cliquer pour afficher la liste des Bons de Livraison & Ventes"
-        >
-          <div className="flex justify-between items-start">
-            <span className="text-[10px] sm:text-xs text-gray-500 uppercase font-bold tracking-wider group-hover:text-[#0f62fe] transition-colors truncate">
-              {t('dashboard.totalRevenue', 'CA HT')}
-            </span>
-            <div className="p-1 sm:p-1.5 bg-blue-50 text-blue-600 rounded group-hover:bg-blue-600 group-hover:text-white transition-colors shrink-0">
-              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </div>
-          </div>
-          <div className="text-lg sm:text-2xl font-bold font-mono text-gray-900 mt-1.5 sm:mt-2 truncate">
-            {totalSalesHT.toLocaleString()} <span className="text-[10px] sm:text-xs font-normal text-gray-500">DH</span>
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-1.5 sm:mt-3 sm:pt-2 border-t border-gray-100 text-[10px] sm:text-xs">
-            <span className="text-gray-500 hidden sm:inline">{t('dashboard.grossMargin', 'Marge')}:</span>
-            <span className="font-mono font-bold text-emerald-600 flex items-center gap-0.5">
-              <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              {grossMarginHT.toLocaleString()} DH <span className="hidden sm:inline">({(globalMarginPct || 0).toFixed(1)}%)</span>
-            </span>
-          </div>
-          <div className="text-[9px] sm:text-[10px] text-blue-600 font-bold items-center gap-0.5 mt-1.5 opacity-80 group-hover:opacity-100 group-hover:underline hidden sm:flex">
-            <span>Voir les ventes & BLs</span>
-            <ChevronRight className="w-3 h-3" />
-          </div>
+      {/* 🚀 Money Focus KPI Hierarchy */}
+      <MoneyFocusKpiRow
+        totalSalesHT={totalSalesHT}
+        grossMarginHT={grossMarginHT}
+        globalMarginPct={globalMarginPct}
+        totalStockValuationHT={totalStockValuationHT}
+        totalStockKg={totalStockKg}
+        sitesCount={frigos.length}
+        totalReceivablesTTC={totalReceivablesTTC}
+        overdueClientsCount={topDebtorClients.length}
+        totalChequesAmount={totalChequesAmount}
+        chequesCount={chequesInPortfolio.length}
+        onNavigate={onNavigate}
+      />
+
+      {/* Surface Valorisation & Marges par Catégorie + Niveaux de Remplissage des Frigos */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
+        <div className="xl:col-span-2">
+          <CategoryValuationSurface
+            data={categoryValuationData}
+            onSelectCategory={() => onNavigate('PRODUCTS_STOCK')}
+          />
         </div>
 
-        {/* KPI 2: Stock Valuation -> Opens Multi-Site Inventory */}
-        <div 
-          onClick={() => onNavigate('MULTI_SITE_INVENTORY')}
-          className="carbon-card p-3 sm:p-4 cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all group relative overflow-hidden active:scale-[0.98]"
-          title="Cliquer pour ouvrir l'Inventaire Multi-Sites & Gestion des Frigos"
-        >
-          <div className="flex justify-between items-start">
-            <span className="text-[10px] sm:text-xs text-gray-500 uppercase font-bold tracking-wider group-hover:text-emerald-700 transition-colors truncate">
-              {t('dashboard.stockValuation', 'Stock Global')}
-            </span>
-            <div className="p-1 sm:p-1.5 bg-emerald-50 text-emerald-600 rounded group-hover:bg-emerald-600 group-hover:text-white transition-colors shrink-0">
-              <Boxes className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </div>
-          </div>
-          <div className="text-lg sm:text-2xl font-bold font-mono text-gray-900 mt-1.5 sm:mt-2 truncate">
-            {totalStockValuationHT.toLocaleString()} <span className="text-[10px] sm:text-xs font-normal text-gray-500">DH</span>
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-1.5 sm:mt-3 sm:pt-2 border-t border-gray-100 text-[10px] sm:text-xs">
-            <span className="text-gray-500 hidden sm:inline">{t('products.totalStock', 'Volume')}:</span>
-            <span className="font-mono font-bold text-gray-800">
-              {totalStockKg.toLocaleString()} Kg
-            </span>
-          </div>
-          <div className="text-[9px] sm:text-[10px] text-emerald-700 font-bold items-center gap-0.5 mt-1.5 opacity-80 group-hover:opacity-100 group-hover:underline hidden sm:flex">
-            <span>Gérer les stocks & frigos</span>
-            <ChevronRight className="w-3 h-3" />
-          </div>
-        </div>
-
-        {/* KPI 3: Receivables -> Opens Clients */}
-        <div 
-          onClick={() => onNavigate('CLIENTS')}
-          className="carbon-card p-3 sm:p-4 cursor-pointer hover:border-purple-500 hover:shadow-md transition-all group relative overflow-hidden active:scale-[0.98]"
-          title="Cliquer pour afficher les comptes clients, créances et relevés"
-        >
-          <div className="flex justify-between items-start">
-            <span className="text-[10px] sm:text-xs text-gray-500 uppercase font-bold tracking-wider group-hover:text-purple-700 transition-colors truncate">
-              {t('clients.receivables', 'Créances (TTC)')}
-            </span>
-            <div className="p-1 sm:p-1.5 bg-purple-50 text-purple-600 rounded group-hover:bg-purple-600 group-hover:text-white transition-colors shrink-0">
-              <Landmark className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </div>
-          </div>
-          <div className="text-lg sm:text-2xl font-bold font-mono text-purple-700 mt-1.5 sm:mt-2 truncate">
-            {totalReceivablesTTC.toLocaleString()} <span className="text-[10px] sm:text-xs font-normal text-gray-500">DH</span>
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-1.5 sm:mt-3 sm:pt-2 border-t border-gray-100 text-[10px] sm:text-xs">
-            <span className="text-gray-500 hidden sm:inline">{t('clients.title', 'Clients')}:</span>
-            <span className="font-mono font-semibold text-gray-700">
-              {clients.length} {t('nav.clients', 'Comptes')}
-            </span>
-          </div>
-          <div className="text-[9px] sm:text-[10px] text-purple-700 font-bold items-center gap-0.5 mt-1.5 opacity-80 group-hover:opacity-100 group-hover:underline hidden sm:flex">
-            <span>Suivre les créances & soldes</span>
-            <ChevronRight className="w-3 h-3" />
-          </div>
-        </div>
-
-        {/* KPI 4: Cheques in Portfolio -> Opens Treasury */}
-        <div 
-          onClick={() => onNavigate('TREASURY_CHEQUES')}
-          className="carbon-card p-3 sm:p-4 cursor-pointer hover:border-amber-500 hover:shadow-md transition-all group relative overflow-hidden active:scale-[0.98]"
-          title="Cliquer pour afficher la gestion de trésorerie, chèques et effets"
-        >
-          <div className="flex justify-between items-start">
-            <span className="text-[10px] sm:text-xs text-gray-500 uppercase font-bold tracking-wider group-hover:text-amber-800 transition-colors truncate">
-              {t('dashboard.pendingCheques', 'Chèques')}
-            </span>
-            <div className="p-1 sm:p-1.5 bg-amber-50 text-amber-600 rounded group-hover:bg-amber-600 group-hover:text-white transition-colors shrink-0">
-              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </div>
-          </div>
-          <div className="text-lg sm:text-2xl font-bold font-mono text-amber-700 mt-1.5 sm:mt-2 truncate">
-            {totalChequesAmount.toLocaleString()} <span className="text-[10px] sm:text-xs font-normal text-gray-500">DH</span>
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-1.5 sm:mt-3 sm:pt-2 border-t border-gray-100 text-[10px] sm:text-xs">
-            <span className="text-gray-500 hidden sm:inline">{t('treasury.title', 'Titres')}:</span>
-            <span className="font-mono font-semibold text-amber-800">
-              {chequesInPortfolio.length} Chèques
-            </span>
-          </div>
-          <div className="text-[9px] sm:text-[10px] text-amber-800 font-bold items-center gap-0.5 mt-1.5 opacity-80 group-hover:opacity-100 group-hover:underline hidden sm:flex">
-            <span>Gérer les encaissements</span>
-            <ChevronRight className="w-3 h-3" />
-          </div>
-        </div>
-
-      </div>
-
-      {/* Clean Flat KPI Bar Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        
-        {/* Chart 1: Real Sales & Valuation HT by Category */}
-        <StandardKpiBarChart
-          title="Valorisation & Chiffre d'Affaires HT par Catégorie"
-          subtitle="Cliquer sur une famille pour voir les produits associés"
-          unit="DH"
-          onItemClick={() => onNavigate('PRODUCTS_STOCK')}
-          data={
-            Object.entries(categorySalesStats)
-              .filter(([_, st]) => st.salesHT > 0 || st.valuationHT > 0)
-              .map(([cat, st]) => {
-                const val = st.salesHT > 0 ? st.salesHT : st.valuationHT;
+        {/* Real Frigo Volumes */}
+        <div className="carbon-card p-4 flex flex-col justify-between">
+          <StandardKpiBarChart
+            title="Niveaux de Remplissage des Frigos"
+            subtitle="Cliquer sur un frigo pour ouvrir immédiatement sa fiche détaillée"
+            unit="Kg"
+            onItemClick={(item) => {
+              const foundFrigo = frigos.find(f => f.name.toLowerCase().trim() === item.label.toLowerCase().trim());
+              if (foundFrigo && onViewFrigoDetail) {
+                onViewFrigoDetail(foundFrigo.id);
+              } else {
+                onNavigate('FRIGO_MANAGEMENT');
+              }
+            }}
+            data={
+              frigos.map(f => {
+                const { totalConsolidatedKg: fKg, totalConsolidatedPallets: fPal } = computeSynchronizedStocks({
+                  products,
+                  frigos,
+                  stocks,
+                  purchaseInvoices,
+                  deliveryNotes,
+                  inventoryCounts,
+                  stockMovements,
+                  selectedFrigoId: f.id
+                });
+                const pct = f.capacityPallets > 0 ? Math.round((fPal / f.capacityPallets) * 100) : 0;
                 return {
-                  label: cat,
-                  value: val,
-                  subValue: st.salesHT > 0 
-                    ? `Marge: ${st.marginHT.toLocaleString()} DH` 
-                    : `Stock: ${st.stockKg.toLocaleString()} Kg`
+                  label: f.name,
+                  value: fKg,
+                  subValue: `${fPal} Palettes (${pct}% occupation)`
                 };
               })
-          }
-        />
-
-        {/* Chart 2: Real Frigo Volumes */}
-        <StandardKpiBarChart
-          title="Niveaux de Remplissage des Frigos (Stock en Kg)"
-          subtitle="Cliquer sur un frigo pour ouvrir immédiatement sa fiche détaillée"
-          unit="Kg"
-          onItemClick={(item) => {
-            const foundFrigo = frigos.find(f => f.name.toLowerCase().trim() === item.label.toLowerCase().trim());
-            if (foundFrigo && onViewFrigoDetail) {
-              onViewFrigoDetail(foundFrigo.id);
-            } else {
-              onNavigate('FRIGO_MANAGEMENT');
             }
-          }}
-          data={
-            frigos.map(f => {
-              const { totalConsolidatedKg: fKg, totalConsolidatedPallets: fPal } = computeSynchronizedStocks({
-                products,
-                frigos,
-                stocks,
-                purchaseInvoices,
-                deliveryNotes,
-                inventoryCounts,
-                stockMovements,
-                selectedFrigoId: f.id
-              });
-              const pct = f.capacityPallets > 0 ? Math.round((fPal / f.capacityPallets) * 100) : 0;
-              return {
-                label: f.name,
-                value: fKg,
-                subValue: `${fPal} Palettes (${pct}% occupation)`
-              };
-            })
-          }
-        />
+          />
+        </div>
       </div>
 
       {/* EXECUTIVE BUSINESS DASHBOARD WIDGETS GRID */}
