@@ -673,4 +673,12 @@ export function calculateProductAccumulation(params: {
       stockStatus
     };
   });
+
+  // When calculating for a specific warehouse, strictly exclude products that don't belong to it
+  // (no movements and no stock in this warehouse)
+  if (targetFrigoId && targetFrigoId !== 'ALL') {
+    return summaries.filter(p => p.currentStockKg > 0 || p.totalEntriesKg > 0 || p.totalExitsKg > 0);
+  }
+
+  return summaries;
 }

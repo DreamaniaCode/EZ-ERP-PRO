@@ -29,7 +29,8 @@ import {
   Boxes,
   History,
   RotateCcw,
-  Pencil
+  Pencil,
+  Upload
 } from 'lucide-react';
 
 interface FrigoDetailPageProps {
@@ -37,13 +38,15 @@ interface FrigoDetailPageProps {
   onBack: () => void;
   onViewProductHistory?: (productId: string) => void;
   onViewClient?: (clientId: string) => void;
+  onNavigateToImport?: (frigoId: string) => void;
 }
 
 export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({ 
   frigoId, 
   onBack, 
   onViewProductHistory,
-  onViewClient
+  onViewClient,
+  onNavigateToImport
 }) => {
   const { 
     frigos, 
@@ -59,6 +62,7 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({
   const [selectedProductId, setSelectedProductId] = useState<string | 'ALL'>('ALL');
   const [selectedProductForHistory, setSelectedProductForHistory] = useState<Product | null>(null);
   const [editingPurchaseInvoice, setEditingPurchaseInvoice] = useState<PurchaseImportInvoice | null>(null);
+  const [onlyInStock, setOnlyInStock] = useState<boolean>(true);
 
   const frigo = frigos.find(f => f.id === frigoId) || frigos[0];
 
@@ -78,7 +82,7 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({
     });
   }, [frigos, products, stocks, deliveryNotes, purchaseInvoices, inventoryCounts, stockMovements, frigo]);
 
-  // 2. Product accumulation for this frigo
+  // 2. Product accumulation for this frigo (only products belonging to this frigo)
   const productSummaries = useMemo(() => {
     if (!frigo) return [];
     return calculateProductAccumulation({
@@ -96,11 +100,12 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({
     return frigoMovements.filter(m => m.productId === selectedProductId || m.productCode === selectedProductId);
   }, [frigoMovements, selectedProductId]);
 
-  // Filtered product summaries if a product card is clicked
+  // Filtered product summaries strictly respecting onlyInStock and selectedProductId
   const filteredProductSummaries = useMemo(() => {
-    if (selectedProductId === 'ALL') return productSummaries;
-    return productSummaries.filter(p => p.productId === selectedProductId);
-  }, [productSummaries, selectedProductId]);
+    const base = onlyInStock ? productSummaries.filter(p => p.currentStockKg > 0) : productSummaries;
+    if (selectedProductId === 'ALL') return base;
+    return base.filter(p => p.productId === selectedProductId);
+  }, [productSummaries, selectedProductId, onlyInStock]);
 
   if (!frigo) {
     return (
@@ -180,6 +185,16 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {onNavigateToImport && (
+            <button
+              onClick={() => onNavigateToImport(frigo.id)}
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-xs px-3 py-2 rounded-lg transition shadow-xs cursor-pointer"
+              title="Importer des mouvements ou arrivages de stock pour ce frigo"
+            >
+              <Upload className="w-3.5 h-3.5 text-emerald-200" />
+              <span>Importer Stock</span>
+            </button>
+          )}
           <ExportButtons
             filename={`Situation_Frigo_${frigo.code}_${frigo.name.replace(/\s+/g, '_')}`}
             title={`SITUATION FRIGO LOGISTIQUE & VALORISATION - ${frigo.name.toUpperCase()} (${frigo.code})`}
@@ -249,6 +264,8 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({
         onOpenProductHistory={(prd) => onViewProductHistory ? onViewProductHistory(prd.id) : setSelectedProductForHistory(prd)}
         products={products}
         warehouseName={frigo.name}
+        onlyInStock={onlyInStock}
+        onToggleOnlyInStock={(val) => setOnlyInStock(val)}
       />
 
       {/* SECTION 1: Product Stock & Detailed Financial Valuation with Accumulation */}
@@ -260,11 +277,25 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({
               1. Cumul par Produit & Valorisation Financière du Stock ({frigo.name})
             </h3>
             <p className="text-xs text-gray-500 font-mono mt-0.5">
-              Cumul des entrées, sorties et stock net restant pour chaque référence
+              Cumul des entrées, sorties et stock net restant pour chaque référence disponible
             </p>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setOnlyInStock(!onlyInStock)}
+              className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition flex items-center gap-1.5 border cursor-pointer ${
+                onlyInStock
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-xs'
+                  : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+              }`}
+              title="Basculer entre afficher uniquement les produits en stock ou tous les produits"
+            >
+              <span className={`w-2 h-2 rounded-full ${onlyInStock ? 'bg-emerald-500' : 'bg-gray-400'}`}></span>
+              <span>{onlyInStock ? 'En Stock Uniquement' : 'Tous (inclus stock 0)'}</span>
+            </button>
+
             <span className="px-2.5 py-1 bg-blue-50 border border-blue-200 text-[#0f62fe] rounded text-xs font-mono font-bold">
               {filteredProductSummaries.length} Référence{filteredProductSummaries.length > 1 ? 's' : ''}
             </span>

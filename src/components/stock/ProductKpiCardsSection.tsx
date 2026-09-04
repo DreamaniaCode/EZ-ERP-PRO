@@ -23,6 +23,8 @@ interface ProductKpiCardsSectionProps {
   onOpenProductHistory?: (product: Product) => void;
   products: Product[];
   warehouseName?: string;
+  onlyInStock?: boolean;
+  onToggleOnlyInStock?: (onlyInStock: boolean) => void;
 }
 
 export const ProductKpiCardsSection: React.FC<ProductKpiCardsSectionProps> = ({
@@ -31,21 +33,33 @@ export const ProductKpiCardsSection: React.FC<ProductKpiCardsSectionProps> = ({
   onSelectProduct,
   onOpenProductHistory,
   products,
-  warehouseName = 'Tous les Frigos'
+  warehouseName = 'Tous les Frigos',
+  onlyInStock: externalOnlyInStock,
+  onToggleOnlyInStock
 }) => {
-  const [onlyInStock, setOnlyInStock] = React.useState<boolean>(true);
+  const [internalOnlyInStock, setInternalOnlyInStock] = React.useState<boolean>(true);
+  const onlyInStock = externalOnlyInStock !== undefined ? externalOnlyInStock : internalOnlyInStock;
 
-  // Global aggregate metrics across all products
-  const globalTotalStockKg = productSummaries.reduce((sum, p) => sum + p.currentStockKg, 0);
-  const globalTotalPallets = productSummaries.reduce((sum, p) => sum + p.currentStockPallets, 0);
-  const globalTotalCartons = productSummaries.reduce((sum, p) => sum + p.currentStockCartons, 0);
-  const globalTotalEntriesKg = productSummaries.reduce((sum, p) => sum + p.totalEntriesKg, 0);
-  const globalTotalExitsKg = productSummaries.reduce((sum, p) => sum + p.totalExitsKg, 0);
-  const globalTotalValuationCostHT = productSummaries.reduce((sum, p) => sum + p.totalValuationCostHT, 0);
-  const globalTotalValuationSaleHT = productSummaries.reduce((sum, p) => sum + p.totalValuationSaleHT, 0);
+  const handleToggleOnlyInStock = () => {
+    const nextVal = !onlyInStock;
+    if (onToggleOnlyInStock) {
+      onToggleOnlyInStock(nextVal);
+    } else {
+      setInternalOnlyInStock(nextVal);
+    }
+  };
 
   const inStockSummaries = productSummaries.filter(p => p.currentStockKg > 0);
   const displayedSummaries = onlyInStock ? inStockSummaries : productSummaries;
+
+  // Global aggregate metrics across displayed products
+  const globalTotalStockKg = displayedSummaries.reduce((sum, p) => sum + p.currentStockKg, 0);
+  const globalTotalPallets = displayedSummaries.reduce((sum, p) => sum + p.currentStockPallets, 0);
+  const globalTotalCartons = displayedSummaries.reduce((sum, p) => sum + p.currentStockCartons, 0);
+  const globalTotalEntriesKg = displayedSummaries.reduce((sum, p) => sum + p.totalEntriesKg, 0);
+  const globalTotalExitsKg = displayedSummaries.reduce((sum, p) => sum + p.totalExitsKg, 0);
+  const globalTotalValuationCostHT = displayedSummaries.reduce((sum, p) => sum + p.totalValuationCostHT, 0);
+  const globalTotalValuationSaleHT = displayedSummaries.reduce((sum, p) => sum + p.totalValuationSaleHT, 0);
 
   const selectedSummary = productSummaries.find(p => p.productId === selectedProductId);
 
@@ -74,7 +88,7 @@ export const ProductKpiCardsSection: React.FC<ProductKpiCardsSectionProps> = ({
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
-            onClick={() => setOnlyInStock(!onlyInStock)}
+            onClick={handleToggleOnlyInStock}
             className={`px-3 py-1 rounded-full text-xs font-mono font-bold transition flex items-center gap-1.5 border cursor-pointer ${
               onlyInStock
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-xs'
@@ -130,7 +144,7 @@ export const ProductKpiCardsSection: React.FC<ProductKpiCardsSectionProps> = ({
                   TOUS PRODUITS
                 </span>
                 <span className={`text-[10px] font-semibold ${selectedProductId === 'ALL' ? 'text-gray-300' : 'text-gray-500'}`}>
-                  {productSummaries.length} Réf.
+                  {displayedSummaries.length} Réf.
                 </span>
               </div>
               <h3 className={`text-sm font-bold truncate ${selectedProductId === 'ALL' ? 'text-white' : 'text-gray-900'}`}>

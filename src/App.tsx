@@ -113,6 +113,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
   const [blInitialClientId, setBlInitialClientId] = useState<string | null>(null);
+  const [clientInitialTab, setClientInitialTab] = useState<'DETAILS' | 'BL_HISTORY' | 'INVOICES' | 'PAYMENTS'>('DETAILS');
   const [previousTab, setPreviousTab] = useState<ExtendedNavTab>('DASHBOARD');
   const { frigos, deliveryNotes, currentUser, setCurrentUser } = useERP();
 
@@ -441,6 +442,9 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
             initialFrigoId={editingEntityId}
             onViewProductHistory={(id) => navigateToEdit('PRODUCT_HISTORY', id)}
             onViewClient={(id) => navigateToEdit('CLIENT_EDIT', id)}
+            onNavigateToImport={(frigoId) => {
+              navigateToEdit('IMPORT_BL', frigoId ? `STOCK:${frigoId}` : 'STOCK');
+            }}
           />
         );
 
@@ -454,7 +458,11 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
         return (
           <ClientEditPage 
             editId={editingEntityId} 
-            onBack={navigateBack} 
+            initialTab={clientInitialTab}
+            onBack={() => {
+              setClientInitialTab('DETAILS');
+              navigateBack();
+            }} 
             onViewBLPdf={(blId) => navigateToEdit('BL_PDF', blId)} 
             onNewBL={(clientId) => {
               setBlInitialClientId(clientId);
@@ -495,14 +503,44 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
       // New feature pages
       case 'USERS':
         return <UserManagement />;
-      case 'IMPORT_BL':
-        return <BLImportPage onBack={() => setNavTab('DELIVERY_NOTES')} />;
+      case 'IMPORT_BL': {
+        const isStockMode = editingEntityId === 'STOCK' || editingEntityId?.startsWith('STOCK:');
+        const frigoIdFromParam = editingEntityId?.startsWith('STOCK:') 
+          ? editingEntityId.split(':')[1] 
+          : (editingEntityId !== 'STOCK' ? editingEntityId : null);
+        return (
+          <BLImportPage 
+            onBack={() => setNavTab('DELIVERY_NOTES')}
+            initialMode={isStockMode ? 'STOCK' : 'SALES'}
+            initialFrigoId={frigoIdFromParam}
+            onNavigateToTab={(tab) => {
+              setEditingEntityId(null);
+              setNavTab(tab as any);
+            }}
+          />
+        );
+      }
       case 'BACKUP':
         return <BackupRestore />;
       case 'FRIGO_OPS':
         return <FrigoOperationsPage initialFrigoId={editingEntityId} onBack={navigateBack} />;
       case 'MASS_BL':
-        return <MassBLCreationPage initialClientId={editingEntityId} onBack={navigateBack} />;
+        return (
+          <MassBLCreationPage 
+            initialClientId={editingEntityId} 
+            onBack={navigateBack} 
+            onSuccess={(targetClientId) => {
+              if (targetClientId) {
+                setEditingEntityId(targetClientId);
+                setClientInitialTab('BL_HISTORY');
+                updateUrlAndTab('CLIENT_EDIT', targetClientId, true);
+              } else {
+                setEditingEntityId(null);
+                updateUrlAndTab('DELIVERY_NOTES', null, true);
+              }
+            }}
+          />
+        );
 
       default:
         return <DashboardOverview onNavigate={(tab: NavTab) => setNavTab(tab)} />;

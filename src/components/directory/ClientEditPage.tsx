@@ -49,6 +49,7 @@ interface ClientEditPageProps {
   onViewBLPdf?: (blId: string) => void;
   onNewBL?: (clientId: string) => void;
   onMassBL?: (clientId: string) => void;
+  initialTab?: 'DETAILS' | 'BL_HISTORY' | 'INVOICES' | 'PAYMENTS';
 }
 
 export const ClientEditPage: React.FC<ClientEditPageProps> = ({ 
@@ -56,7 +57,8 @@ export const ClientEditPage: React.FC<ClientEditPageProps> = ({
   onBack,
   onViewBLPdf,
   onNewBL,
-  onMassBL
+  onMassBL,
+  initialTab
 }) => {
   const { t } = useTranslation();
   const { 
@@ -75,7 +77,7 @@ export const ClientEditPage: React.FC<ClientEditPageProps> = ({
   } = useERP();
   
   const [currentClientId, setCurrentClientId] = useState<string | null>(editId);
-  const [activeTab, setActiveTab] = useState<'DETAILS' | 'BL_HISTORY' | 'INVOICES' | 'PAYMENTS'>('DETAILS');
+  const [activeTab, setActiveTab] = useState<'DETAILS' | 'BL_HISTORY' | 'INVOICES' | 'PAYMENTS'>(initialTab || 'DETAILS');
   const [isEditMode, setIsEditMode] = useState<boolean>(!editId); // default to edit form only if creating new
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
@@ -92,7 +94,10 @@ export const ClientEditPage: React.FC<ClientEditPageProps> = ({
   useEffect(() => {
     setCurrentClientId(editId);
     setIsEditMode(!editId);
-  }, [editId]);
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [editId, initialTab]);
 
   // Find the currently viewed client
   const client = useMemo(() => {

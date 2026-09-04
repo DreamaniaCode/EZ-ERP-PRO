@@ -43,11 +43,13 @@ interface MassBLRow {
 interface MassBLCreationPageProps {
   initialClientId?: string | null;
   onBack: () => void;
+  onSuccess?: (targetClientId?: string | null) => void;
 }
 
 export const MassBLCreationPage: React.FC<MassBLCreationPageProps> = ({
   initialClientId,
   onBack,
+  onSuccess,
 }) => {
   const { 
     clients, 
@@ -471,7 +473,15 @@ export const MassBLCreationPage: React.FC<MassBLCreationPageProps> = ({
       notifySuccess(`✅ ${blsToCreate.length} Bon(s) de Livraison créé(s) avec succès en masse !`, 'Succès Saisie en Masse');
       // Clear draft on success
       try { localStorage.removeItem('erp_mass_bl_draft'); } catch {}
-      onBack();
+
+      // Identify target client to view what we did
+      const targetClient = initialClientId || (rows.length > 0 && rows.every(r => r.clientId === rows[0].clientId) ? rows[0].clientId : null);
+
+      if (onSuccess) {
+        onSuccess(targetClient);
+      } else {
+        onBack();
+      }
     } catch (err: any) {
       console.error('Error during mass BL creation:', err);
       notifyError(`Erreur lors de la création en masse : ${err.message || 'Une erreur est survenue'}`);

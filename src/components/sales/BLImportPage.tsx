@@ -85,16 +85,31 @@ const findSmartHeaderRowIndex = (rows: any[][]): number => {
   return bestIndex;
 };
 
-export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+interface BLImportPageProps {
+  onBack: () => void;
+  initialMode?: 'SALES' | 'STOCK';
+  initialFrigoId?: string | null;
+  onNavigateToTab?: (tab: string) => void;
+}
+
+export const BLImportPage: React.FC<BLImportPageProps> = ({ 
+  onBack,
+  initialMode = 'SALES',
+  initialFrigoId,
+  onNavigateToTab
+}) => {
   const { t } = useTranslation();
   const { 
     products, clients, frigos, suppliers, currentUser,
-    importExcelBLs, resetAllData, purgeOrphanStocks
+    importExcelBLs, resetAllData, purgeOrphanStocks,
+    addClient, createPurchaseInvoice
   } = useERP();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workbookRef = useRef<XLSX.WorkBook | null>(null);
   
+  const [importMode, setImportMode] = useState<'SALES' | 'STOCK'>(initialMode);
+  const [newClientsList, setNewClientsList] = useState<string[]>([]);
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<any[]>([]);
@@ -108,7 +123,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   // Target Frigo Selection state
   const [targetFrigoId, setTargetFrigoId] = useState<string>(
-    frigos.length > 0 ? frigos[0].id : ''
+    initialFrigoId || (frigos.length > 0 ? frigos[0].id : '')
   );
 
   // Additional Upload Options
@@ -360,13 +375,13 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const fieldLabels: { [key: string]: string } = {
-    blNumber: t('import.fieldBLNumber', 'N° Bon de Livraison (BL)'),
-    clientName: t('import.fieldClient', 'Nom du Client'),
-    date: t('import.fieldDate', 'Date du BL'),
+    blNumber: importMode === 'SALES' ? t('import.fieldBLNumber', 'N° Bon de Livraison (BL)') : 'N° Document / Réception',
+    clientName: importMode === 'SALES' ? t('import.fieldClient', 'Nom du Client') : 'Fournisseur / Tiers (Optionnel)',
+    date: importMode === 'SALES' ? t('import.fieldDate', 'Date du BL') : 'Date Réception Quai',
     productName: t('import.fieldProduct', 'Désignation / Produit'),
     quantityColis: t('import.fieldColis', 'Nombre de Colis (Cartons/Caisses)'),
     quantityKg: t('import.fieldQuantityKg', 'Poids Total (Kg)'),
-    unitPriceHT: t('import.fieldUnitPrice', 'Prix Unitaire HT (DH)'),
+    unitPriceHT: importMode === 'SALES' ? t('import.fieldUnitPrice', 'Prix Vente HT (DH)') : 'Prix Achat / Coût HT (DH)',
     totalHT: t('import.fieldTotalHT', 'Total HT (DH)'),
   };
 
@@ -374,6 +389,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const valid: any[] = [];
     const warnings: any[] = [];
     const errors: any[] = [];
+    const detectedNewClients = new Set<string>();
 
     parsedData.forEach((row, index) => {
       const mappedRow: any = { _originalRow: index };
@@ -390,10 +406,12 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       });
 
       if (!mappedRow.blNumber) {
-        mappedRow.blNumber = `BL-2026-${String(index + 1).padStart(4, '0')}`;
+        mappedRow.blNumber = importMode === 'SALES' 
+          ? `BL-2026-${String(index + 1).padStart(4, '0')}` 
+          : `REC-FRG-${String(index + 1).padStart(4, '0')}`;
       }
 
-      // Smart Client Name Resolution with Text-Cell Fallback Scanner
+      // Smart Client / Tiers Name Resolution with Text-Cell Fallback Scanner
       let clientVal = mappedRow.clientName;
       if (!isValidClientName(String(clientVal || ''))) {
         // Scan all cells in the row for a valid client name string
@@ -405,21 +423,24 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           clientVal = validCell[1];
         }
       }
-      mappedRow.clientName = cleanDisplayName(String(clientVal || '')) || 'Client Divers';
+      mappedRow.clientName = cleanDisplayName(String(clientVal || '')) || (importMode === 'SALES' ? 'Client Divers' : 'Fournisseur Divers');
 
-      // Canonical Product Name Resolution (Never numeric or fake)
-      const rawPrdStr = String(mappedRow.productName || row._sheetName || '').toUpperCase();
-      const is11kg = rawPrdStr.includes('11');
-      const canonicalPrdName = is11kg ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG';
+      // Canonical Product Name Resolution (Dynamic Matching against ERP catalog)
+      const rawPrdStr = String(mappedRow.productName || row._sheetName || '').trim();
+      const catalogPrd = findMatchingProduct({ productName: rawPrdStr, productCode: rawPrdStr }, products);
+      const canonicalPrdName = catalogPrd ? catalogPrd.name : (rawPrdStr || 'Produit Importé');
+      const canonicalPrdCode = catalogPrd ? catalogPrd.code : 'PRD-IMPORT';
+      const canonicalPrdId = catalogPrd ? catalogPrd.id : `prd-${(rawPrdStr || 'import').toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+      const kgPerColis = catalogPrd ? (catalogPrd.kgPerCarton || 10) : 10;
+
       mappedRow.productName = canonicalPrdName;
-
-      // Utiliser le vrai kgPerCarton du catalogue (pas une valeur théorique)
-      const catalogPrdForValidation = findMatchingProduct({ productName: canonicalPrdName }, products);
-      const kgPerColis = catalogPrdForValidation ? (catalogPrdForValidation.kgPerCarton || (is11kg ? 11 : 5)) : (is11kg ? 11 : 5);
+      mappedRow._productId = canonicalPrdId;
+      mappedRow._productCode = canonicalPrdCode;
+      mappedRow._unitPriceHT = catalogPrd 
+        ? (importMode === 'SALES' ? (catalogPrd.sellingPriceHT || defaultUnitPrice) : (catalogPrd.unitCostHT || defaultUnitPrice))
+        : defaultUnitPrice;
 
       // Colis vs Kg auto calculation — RESPECT EXACT EXCEL VALUES
-      // Priority: if both columns exist, use them both as-is
-      // If only colis → calc kg; if only kg → calc colis; if neither → default
       let qtyKg = parseFloat(mappedRow.quantityKg);
       let qtyColis = parseFloat(mappedRow.quantityColis);
 
@@ -427,37 +448,37 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       const hasColis = !isNaN(qtyColis) && qtyColis > 0;
 
       if (hasColis && !hasKg) {
-        // Only colis provided → calc kg
         qtyKg = qtyColis * kgPerColis;
       } else if (hasKg && !hasColis) {
-        // Only kg provided → calc colis
         qtyColis = Math.ceil(qtyKg / kgPerColis);
       } else if (hasColis && hasKg) {
-        // Both provided → TRUST BOTH as-is from Excel (do NOT recalculate)
-        // This preserves the exact Excel values (e.g. 140 colis = 1540 kg)
+        // Both provided → TRUST BOTH as-is from Excel
       } else {
-        // Neither provided → fallback
-        qtyKg = 500;
-        qtyColis = Math.ceil(500 / kgPerColis);
+        qtyKg = 100;
+        qtyColis = Math.ceil(100 / kgPerColis);
       }
 
       mappedRow.quantityKg = qtyKg;
       mappedRow.quantityColis = qtyColis;
       mappedRow._kgPerColis = kgPerColis;
 
-      mappedRow._productId = is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg';
-      mappedRow._productCode = is11kg ? 'PRD-DATTE-11KG' : 'PRD-SIBORT-5KG';
-      mappedRow._unitPriceHT = is11kg ? 55 : 22;
-
-      if (mappedRow.clientName) {
+      // Client matching & Automatic New Client detection
+      if (mappedRow.clientName && importMode === 'SALES') {
+        const cleanName = String(mappedRow.clientName).trim().toLowerCase();
         const client = (clients || []).find(c => 
-          c.name.toLowerCase().includes(String(mappedRow.clientName).toLowerCase())
+          c.name.toLowerCase().trim() === cleanName ||
+          (c.companyName && c.companyName.toLowerCase().trim() === cleanName) ||
+          c.name.toLowerCase().includes(cleanName)
         );
         if (client) {
           mappedRow._clientId = client.id;
+          mappedRow._isNewClient = false;
         } else {
-          const norm = String(mappedRow.clientName).trim().toLowerCase().replace(/[^a-z0-9]/g, '-');
-          mappedRow._clientId = `clt-import-${norm || 'divers'}`;
+          mappedRow._clientId = `clt-import-${cleanName.replace(/[^a-z0-9]/g, '-')}`;
+          mappedRow._isNewClient = true;
+          if (mappedRow.clientName !== 'Client Divers') {
+            detectedNewClients.add(mappedRow.clientName);
+          }
         }
       }
 
@@ -469,6 +490,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       else valid.push(mappedRow);
     });
 
+    setNewClientsList(Array.from(detectedNewClients));
     setValidationResults({ valid, warnings, errors });
     setStep(3);
   };
@@ -481,45 +503,145 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     try {
       const toImport = [...validationResults.valid, ...validationResults.warnings, ...validationResults.errors];
       const frigoTarget = selectedTargetFrigo;
-      const uniqueClientsSet = new Set<string>();
 
+      // MODE 1: STOCK MOVEMENTS / ARRIVALS
+      if (importMode === 'STOCK') {
+        const groups: Record<string, any[]> = {};
+        toImport.forEach((row, i) => {
+          const ref = String(row.blNumber || `ARR-${row.date || 'STOCK'}-${i}`);
+          if (!groups[ref]) groups[ref] = [];
+          groups[ref].push(row);
+        });
+
+        let createdInflows = 0;
+        let totalAmountStock = 0;
+
+        Object.entries(groups).forEach(([ref, rows], groupIdx) => {
+          const firstRow = rows[0];
+          const dateArrival = firstRow.date || new Date().toISOString().split('T')[0];
+          const supplierName = cleanDisplayName(String(firstRow.clientName || '')) || 'ARRIVAGE STOCK DIRECT';
+          const matchedSupplier = (suppliers || []).find(s => 
+            s.name.toLowerCase().trim() === supplierName.toLowerCase().trim()
+          );
+          const supplierId = matchedSupplier ? matchedSupplier.id : (suppliers[0]?.id || 'sup-direct');
+
+          const items = rows.map((r, rIdx) => {
+            const rawPrd = String(r.productName || '');
+            const catalogPrd = productMapping[rawPrd]
+              ? products.find(p => p.id === productMapping[rawPrd])
+              : findMatchingProduct({ productName: rawPrd }, products);
+
+            const canonicalPrdName = catalogPrd?.name || cleanDisplayName(rawPrd) || 'Produit Stock';
+            const canonicalPrdCode = catalogPrd?.code || `PRD-STK-${rIdx + 1}`;
+            const canonicalPrdId = catalogPrd?.id || (products[0]?.id || `prd-stk-${rIdx + 1}`);
+
+            const kgPerCtn = catalogPrd?.kgPerCarton || (r._kgPerColis || 10);
+            let qtyKg = parseFloat(r.quantityKg) || 0;
+            let qtyColis = parseFloat(r.quantityColis) || 0;
+            if (qtyKg > 0 && qtyColis === 0) qtyColis = Math.round(qtyKg / kgPerCtn);
+            else if (qtyColis > 0 && qtyKg === 0) qtyKg = qtyColis * kgPerCtn;
+
+            const unitCost = parseFloat(r.unitPriceHT) || r._unitPriceHT || catalogPrd?.unitCostHT || defaultUnitPrice;
+            const totalHT = r.totalHT ? parseFloat(r.totalHT) : qtyKg * unitCost;
+            totalAmountStock += totalHT;
+
+            const palletRatio = catalogPrd?.kgPerPallet || 1000;
+            const pallets = qtyKg > 0 ? Math.ceil(qtyKg / palletRatio) : 0;
+
+            return {
+              productId: canonicalPrdId,
+              productName: canonicalPrdName,
+              productCode: canonicalPrdCode,
+              quantityKg: qtyKg,
+              quantityCartons: qtyColis,
+              quantityPallets: pallets,
+              purchaseUnitPriceHT: unitCost,
+              landedCostPerKgHT: unitCost,
+              totalHT: totalHT
+            };
+          });
+
+          const totalProductsHT = items.reduce((acc, it) => acc + it.totalHT, 0);
+
+          createPurchaseInvoice({
+            invoiceNumber: String(ref).startsWith('FAC') || String(ref).startsWith('ARR') ? String(ref) : `ARR-2026-${ref}`,
+            supplierId,
+            supplierName,
+            dateArrival,
+            targetFrigoId: frigoTarget.id,
+            isImport: false,
+            customsCostsHT: 0,
+            freightCostsHT: 0,
+            totalProductsHT,
+            totalLandedCostHT: totalProductsHT,
+            paymentStatus: 'PAYÉ',
+            items,
+            notes: `Import stock direct dans frigo ${frigoTarget.name}`
+          });
+          createdInflows++;
+        });
+
+        setImportStats({
+          success: createdInflows,
+          failed: 0,
+          totalAmount: totalAmountStock,
+          clientCount: Object.keys(groups).length
+        });
+        setStep(5);
+        return;
+      }
+
+      // MODE 2: CLIENT SALES (SORTIES BLs)
+      // 1. Auto-create detected new clients in database & state
+      for (const newClientName of newClientsList) {
+        const cleanName = cleanDisplayName(newClientName);
+        if (!cleanName || cleanName === 'CLIENT DIVERS') continue;
+        const exists = (clients || []).some(c => 
+          c.name.toLowerCase().trim() === cleanName.toLowerCase().trim() ||
+          (c.companyName && c.companyName.toLowerCase().trim() === cleanName.toLowerCase().trim())
+        );
+        if (!exists) {
+          addClient({
+            name: cleanName,
+            companyName: cleanName,
+            category: 'GROSSISTE',
+            paymentTerms: '30_JOURS',
+            creditLimit: 50000,
+            address: 'Casablanca, Maroc',
+            phone: '',
+            email: '',
+            ice: ''
+          });
+        }
+      }
+
+      const uniqueClientsSet = new Set<string>();
       let calculatedTotalHT = 0;
 
       const formattedBLs: DeliveryNoteBL[] = toImport.map((row, idx) => {
         const rawPrd = String(row.productName || '');
-        const is11kg = rawPrd.toUpperCase().includes('11');
 
-        // Résolution du produit catalogue pour récupérer le vrai kgPerCarton
+        // Dynamic Product Matching (NO HARDCODED product override!)
         const catalogPrd = productMapping[rawPrd]
           ? products.find(p => p.id === productMapping[rawPrd])
           : findMatchingProduct({ productName: rawPrd }, products);
 
-        // kgPerColis basé sur le produit catalogue, PAS sur une valeur théorique saisie
-        const kgPerCtn = catalogPrd ? (catalogPrd.kgPerCarton || (is11kg ? 11 : 5)) : (is11kg ? 11 : 5);
+        const kgPerCtn = catalogPrd?.kgPerCarton || (row._kgPerColis || 10);
 
         let qtyKg = parseFloat(row.quantityKg) || 0;
         let qtyColis = parseFloat(row.quantityColis) || 0;
 
-        // Priorité : poids du fichier. Si absent, calculer depuis colis × kgPerCarton catalogue
         if (qtyKg > 0 && qtyColis === 0) {
-          // Poids fourni dans le fichier → calculer colis depuis catalogue
           qtyColis = Math.round(qtyKg / kgPerCtn);
         } else if (qtyColis > 0 && qtyKg === 0) {
-          // Seulement colis → calculer kg via kgPerCarton du catalogue
           qtyKg = qtyColis * kgPerCtn;
-        } else if (qtyColis > 0 && qtyKg > 0) {
-          // Les deux présents → utiliser les deux tels quels (valeurs Excel)
-        } else {
-          // Rien → skip
-          qtyKg = 0;
-          qtyColis = 0;
         }
 
-        const canonicalPrdName = catalogPrd ? catalogPrd.name : (is11kg ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG');
-        const canonicalPrdCode = catalogPrd ? catalogPrd.code : (is11kg ? 'PRD-DATTE-11KG' : 'PRD-SIBORT-5KG');
-        const canonicalPrdId = catalogPrd ? catalogPrd.id : (is11kg ? 'prd-datte-11kg' : 'prd-sibort-5kg');
+        const canonicalPrdName = catalogPrd?.name || cleanDisplayName(rawPrd) || 'Produit Importé';
+        const canonicalPrdCode = catalogPrd?.code || `PRD-IMP-${idx + 1}`;
+        const canonicalPrdId = catalogPrd?.id || (products[0]?.id || `prd-import-${idx + 1}`);
 
-        const unitPrice = parseFloat(row.unitPriceHT) || row._unitPriceHT || defaultUnitPrice;
+        const unitPrice = parseFloat(row.unitPriceHT) || row._unitPriceHT || catalogPrd?.sellingPriceHT || defaultUnitPrice;
         const totalHT = row.totalHT ? parseFloat(row.totalHT) : qtyKg * unitPrice;
         const totalTTC = totalHT;
         calculatedTotalHT += totalHT;
@@ -545,7 +667,7 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         );
         const resolvedClientId = matchedClient ? matchedClient.id : (row._clientId || `clt-import-${clientName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`);
 
-        const palletRatio = catalogPrd ? (catalogPrd.kgPerPallet || (is11kg ? 1100 : 500)) : (is11kg ? 1100 : 500);
+        const palletRatio = catalogPrd?.kgPerPallet || 1000;
         const pallets = qtyKg > 0 ? Math.ceil(qtyKg / palletRatio) : 0;
         const blDate = row.date || new Date().toISOString().split('T')[0];
 
@@ -710,11 +832,66 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
               )}
 
-              {/* FRIGO SELECTION (lecture seule — créer les frigos dans le module Frigos) */}
+              {/* MODE SELECTOR (VENTES CLIENTS vs MOUVEMENTS STOCK) */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#0f62fe]" />
+                  Type d'opération à importer :
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setImportMode('SALES')}
+                    className={`p-4 rounded-xl border-2 text-left transition-all flex items-start gap-3 ${
+                      importMode === 'SALES'
+                        ? 'border-[#0f62fe] bg-blue-50/60 shadow-md ring-2 ring-blue-400/20'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <div className={`p-2.5 rounded-lg ${importMode === 'SALES' ? 'bg-[#0f62fe] text-white' : 'bg-gray-100 text-gray-600'}`}>
+                      <Truck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-gray-900 flex items-center gap-1.5">
+                        <span>🛒 Ventes Clients (Sorties BL)</span>
+                        {importMode === 'SALES' && <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-black">ACTIF</span>}
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        Génère des Bons de Livraison clients, crée automatiquement les nouveaux clients détectés et décrémente le stock du frigo.
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setImportMode('STOCK')}
+                    className={`p-4 rounded-xl border-2 text-left transition-all flex items-start gap-3 ${
+                      importMode === 'STOCK'
+                        ? 'border-emerald-600 bg-emerald-50/60 shadow-md ring-2 ring-emerald-400/20'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <div className={`p-2.5 rounded-lg ${importMode === 'STOCK' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                      <Warehouse className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-gray-900 flex items-center gap-1.5">
+                        <span>📦 Mouvements Stock (Entrées / Arrivages)</span>
+                        {importMode === 'STOCK' && <span className="bg-emerald-600 text-white text-[9px] px-1.5 py-0.5 rounded font-black">ACTIF</span>}
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        Enregistre les réceptions et arrivages de marchandises et alimente directement le stock du frigo sélectionné.
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* FRIGO SELECTION */}
               <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white p-5 rounded-xl shadow-md space-y-3">
                 <label className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-amber-300">
                   <Warehouse className="w-5 h-5 text-amber-400" />
-                  Sélectionner l'Entrepôt Frigorifique Source (Obligatoire) :
+                  {importMode === 'SALES' ? 'Sélectionner l\'Entrepôt Frigorifique Source (Sorties) :' : 'Sélectionner l\'Entrepôt Frigorifique Cible (Entrées de Stock) :'}
                 </label>
 
                 {frigos.length === 0 ? (
@@ -740,33 +917,55 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
                 <h4 className="font-bold text-gray-900 text-xs uppercase tracking-wider flex items-center gap-2 text-slate-800">
                   <Settings className="w-4 h-4 text-[#0f62fe]" />
-                  Options de l'import :
+                  Options de l'import ({importMode === 'SALES' ? 'Ventes Clients' : 'Mouvements Stock'}) :
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  <label className="flex items-start gap-2.5 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-400 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={autoUpdateClientBalance}
-                      onChange={e => setAutoUpdateClientBalance(e.target.checked)}
-                      className="mt-0.5 rounded text-[#0f62fe] focus:ring-[#0f62fe] w-4 h-4"
-                    />
-                    <div>
-                      <span className="font-bold text-gray-900">Mettre à jour les Créances Clients</span>
-                      <p className="text-[11px] text-gray-500 mt-0.5">Ajoute le montant de chaque BL au solde débiteur du client.</p>
-                    </div>
-                  </label>
+                  {importMode === 'SALES' ? (
+                    <>
+                      <label className="flex items-start gap-2.5 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-400 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={autoUpdateClientBalance}
+                          onChange={e => setAutoUpdateClientBalance(e.target.checked)}
+                          className="mt-0.5 rounded text-[#0f62fe] focus:ring-[#0f62fe] w-4 h-4"
+                        />
+                        <div>
+                          <span className="font-bold text-gray-900">Mettre à jour les Créances Clients</span>
+                          <p className="text-[11px] text-gray-500 mt-0.5">Ajoute le montant de chaque BL au solde débiteur du client.</p>
+                        </div>
+                      </label>
 
-                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 flex items-start gap-2.5 text-purple-900">
-                    <Receipt className="w-4 h-4 text-purple-700 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold">Facturation : Aucune Facture Générée</span>
-                      <p className="text-[11px] text-purple-800 mt-0.5">Les BLs importés restent en statut <strong>LIVRÉ</strong> sans créer de facture.</p>
-                    </div>
-                  </div>
+                      <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 flex items-start gap-2.5 text-purple-900">
+                        <Receipt className="w-4 h-4 text-purple-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Facturation : Aucune Facture Générée</span>
+                          <p className="text-[11px] text-purple-800 mt-0.5">Les BLs importés restent en statut <strong>LIVRÉ</strong> sans créer de facture.</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 flex items-start gap-2.5 text-emerald-900">
+                        <Warehouse className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Alimentation Directe du Stock</span>
+                          <p className="text-[11px] text-emerald-800 mt-0.5">Les quantités importées seront ajoutées au stock de <strong>"{selectedTargetFrigo.name}"</strong>.</p>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 flex items-start gap-2.5 text-blue-900">
+                        <FileSpreadsheet className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Historique & Traçabilité</span>
+                          <p className="text-[11px] text-blue-800 mt-0.5">Chaque arrivage est tracé avec sa date, son numéro de bon/référence et ses articles.</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   <div className="p-3 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
                     <div>
-                      <span className="font-bold text-gray-900">Prix Unitaire par défaut (DH) :</span>
+                      <span className="font-bold text-gray-900">{importMode === 'SALES' ? 'Prix de Vente par défaut (DH) :' : 'Coût d\'Achat par défaut (DH) :'}</span>
                       <p className="text-[11px] text-gray-500">Utilisé si le prix n'est pas dans le fichier.</p>
                     </div>
                     <input
@@ -777,11 +976,18 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     />
                   </div>
 
-                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 flex items-start gap-2.5 text-amber-900">
-                    <Warehouse className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <div className={`p-3 rounded-lg border flex items-start gap-2.5 ${
+                    importMode === 'SALES' ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  }`}>
+                    <Warehouse className="w-4 h-4 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold">Stock : Décrémentation Automatique</span>
-                      <p className="text-[11px] text-amber-800 mt-0.5">Le stock du frigo <strong>"{selectedTargetFrigo.name}"</strong> sera décrémenté du poids exact du fichier. Les entrées de stock se font manuellement.</p>
+                      <span className="font-bold">{importMode === 'SALES' ? 'Stock : Décrémentation Automatique' : 'Stock : Incrémentation Immédiate'}</span>
+                      <p className="text-[11px] mt-0.5">
+                        {importMode === 'SALES'
+                          ? `Le stock du frigo "${selectedTargetFrigo.name}" sera décrémenté du poids exact du fichier.`
+                          : `Le stock du frigo "${selectedTargetFrigo.name}" sera augmenté du poids exact du fichier.`
+                        }
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -967,8 +1173,9 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                           const kgVal = mapping.quantityKg ? row[mapping.quantityKg] : '-';
 
                           const displayClient = cleanDisplayName(String(clientVal || '')) || `CLIENT ${idx + 1}`;
-                          const rawPrdStr = String(prdVal || '').toUpperCase();
-                          const displayPrd = rawPrdStr.includes('11') ? 'Datte Algérienne 11 KG' : 'Datte Algérienne Sibort 5 KG';
+                          const rawPrdStr = String(prdVal || '').trim();
+                          const matchedPrd = findMatchingProduct({ productName: rawPrdStr }, products);
+                          const displayPrd = matchedPrd?.name || rawPrdStr || 'Produit';
 
                           return (
                             <tr key={idx} className="hover:bg-gray-50 border-b">
@@ -1016,14 +1223,44 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
               </div>
 
+              {/* NEW CLIENTS DETECTED BANNER */}
+              {importMode === 'SALES' && newClientsList.length > 0 && (
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 p-4 rounded-xl text-emerald-950 text-xs space-y-2 shadow-xs">
+                  <div className="font-bold flex items-center gap-2 text-emerald-800 text-sm">
+                    <Users className="w-5 h-5 text-emerald-600" />
+                    ✨ {newClientsList.length} Nouveau(x) Client(s) Détecté(s) dans le fichier
+                  </div>
+                  <p className="text-[11px] text-emerald-700">
+                    Ces clients n'existent pas encore dans votre base de données. Ils seront <strong>automatiquement créés</strong> avec leurs fiches clients lors de la confirmation de l'import :
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {newClientsList.map((cName, i) => (
+                      <span key={i} className="bg-emerald-100/80 text-emerald-900 px-2.5 py-1 rounded-md text-[11px] font-bold border border-emerald-300/60 flex items-center gap-1">
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        {cleanDisplayName(cName)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="bg-blue-50 border border-blue-200 p-3.5 rounded text-blue-900 text-xs space-y-1 font-mono">
                 <div className="font-bold flex items-center gap-1.5">
                   <Warehouse className="w-4 h-4 text-[#0f62fe]" />
-                  Frigo Source Sélectionné : {selectedTargetFrigo.name} ({selectedTargetFrigo.code})
+                  {importMode === 'SALES' ? 'Frigo Source :' : 'Frigo Cible (Entrée) :'} {selectedTargetFrigo.name} ({selectedTargetFrigo.code})
                 </div>
                 <div className="flex flex-wrap gap-4 text-[11px] text-blue-800 pt-1 border-t border-blue-200">
-                  <span>✓ <b>Comptes clients :</b> {autoUpdateClientBalance ? 'Règlement des créances activé' : 'Désactivé'}</span>
-                  <span>✓ <b>Facturation :</b> Aucune facture générée (BLs seuls en statut LIVRÉ)</span>
+                  {importMode === 'SALES' ? (
+                    <>
+                      <span>✓ <b>Comptes clients :</b> {autoUpdateClientBalance ? 'Règlement des créances activé' : 'Désactivé'}</span>
+                      <span>✓ <b>Facturation :</b> Aucune facture générée (BLs seuls en statut LIVRÉ)</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✓ <b>Mode Stock :</b> Alimentation directe du stock disponible</span>
+                      <span>✓ <b>Traçabilité :</b> Enregistrement des arrivages dans l'historique</span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1038,13 +1275,18 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           {step === 4 && (
             <div className="bg-white rounded-lg shadow-sm border border-[#e0e0e0] p-6 space-y-6">
               <h2 className="text-sm font-bold border-b border-[#e0e0e0] pb-2 text-gray-900 uppercase text-center">
-                {t('confirmation', 'Confirmation finale de l\'importation BLs')}
+                {importMode === 'SALES'
+                  ? t('confirmation', 'Confirmation finale de l\'importation BLs Clients')
+                  : 'Confirmation de l\'Alimentation de Stock Frigo'
+                }
               </h2>
 
               <div className="space-y-4 max-w-xl mx-auto">
                 <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg flex items-center justify-between">
                   <div>
-                    <div className="text-[10px] text-blue-700 uppercase font-bold">Frigo Source Choisi :</div>
+                    <div className="text-[10px] text-blue-700 uppercase font-bold">
+                      {importMode === 'SALES' ? 'Frigo Source Choisi :' : 'Frigo Cible Destinataire :'}
+                    </div>
                     <div className="font-bold text-sm text-blue-950">{selectedTargetFrigo.name} ({selectedTargetFrigo.code})</div>
                     <div className="text-[11px] text-blue-700">{selectedTargetFrigo.location}</div>
                   </div>
@@ -1052,31 +1294,65 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="bg-emerald-50 border border-emerald-200 p-3 rounded flex items-center gap-2 text-emerald-900 font-bold">
-                    <Users className="w-5 h-5 text-emerald-600 shrink-0" />
-                    <div>
-                      <div>Ajustement Comptes Clients</div>
-                      <div className="text-[10px] font-normal text-emerald-700">{autoUpdateClientBalance ? 'Créances clients mises à jour' : 'Option désactivée'}</div>
-                    </div>
-                  </div>
-                  <div className="bg-purple-50 border border-purple-200 p-3 rounded flex items-center gap-2 text-purple-900 font-bold">
-                    <Receipt className="w-5 h-5 text-purple-600 shrink-0" />
-                    <div>
-                      <div>Pas de Facturation</div>
-                      <div className="text-[10px] font-normal text-purple-700">Bons de livraison seuls (statut LIVRÉ)</div>
-                    </div>
-                  </div>
+                  {importMode === 'SALES' ? (
+                    <>
+                      <div className="bg-emerald-50 border border-emerald-200 p-3 rounded flex items-center gap-2 text-emerald-900 font-bold">
+                        <Users className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <div>
+                          <div>Ajustement Comptes Clients</div>
+                          <div className="text-[10px] font-normal text-emerald-700">{autoUpdateClientBalance ? 'Créances clients mises à jour' : 'Option désactivée'}</div>
+                        </div>
+                      </div>
+                      <div className="bg-purple-50 border border-purple-200 p-3 rounded flex items-center gap-2 text-purple-900 font-bold">
+                        <Receipt className="w-5 h-5 text-purple-600 shrink-0" />
+                        <div>
+                          <div>Pas de Facturation</div>
+                          <div className="text-[10px] font-normal text-purple-700">Bons de livraison seuls (statut LIVRÉ)</div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="bg-emerald-50 border border-emerald-200 p-3 rounded flex items-center gap-2 text-emerald-900 font-bold">
+                        <Warehouse className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <div>
+                          <div>Incrémentation Immédiate</div>
+                          <div className="text-[10px] font-normal text-emerald-700">Stock ajouté dans {selectedTargetFrigo.name}</div>
+                        </div>
+                      </div>
+                      <div className="bg-blue-50 border border-blue-200 p-3 rounded flex items-center gap-2 text-blue-900 font-bold">
+                        <FileSpreadsheet className="w-5 h-5 text-blue-600 shrink-0" />
+                        <div>
+                          <div>Arrivages Tracés</div>
+                          <div className="text-[10px] font-normal text-blue-700">Disponibles dans l'historique des achats/arrivages</div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <p className="text-xs text-gray-600 text-center">
-                  Vous allez importer <strong className="text-[#0f62fe]">{validationResults.valid.length + validationResults.warnings.length}</strong> Bon(s) de Livraison dans l'entrepôt frigo <strong>"{selectedTargetFrigo.name}"</strong>.
+                  {importMode === 'SALES' ? (
+                    <>
+                      Vous allez importer <strong className="text-[#0f62fe]">{validationResults.valid.length + validationResults.warnings.length}</strong> Bon(s) de Livraison dans l'entrepôt frigo <strong>"{selectedTargetFrigo.name}"</strong>.
+                      {newClientsList.length > 0 && (
+                        <span className="block mt-1 text-emerald-700 font-bold">
+                          ✨ {newClientsList.length} nouveau(x) client(s) seront créés automatiquement.
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      Vous allez importer <strong className="text-emerald-700">{validationResults.valid.length + validationResults.warnings.length}</strong> ligne(s) d'arrivage pour alimenter l'entrepôt frigo <strong>"{selectedTargetFrigo.name}"</strong>.
+                    </>
+                  )}
                 </p>
               </div>
 
               <div className="flex justify-center space-x-4 rtl:space-x-reverse pt-4 border-t border-[#e0e0e0]">
                 <button onClick={() => setStep(3)} className="px-4 py-2 border border-gray-300 rounded text-xs font-bold hover:bg-gray-50">{t('back', 'Retour')}</button>
                 <button onClick={executeImport} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded shadow-sm">
-                  {t('confirmImport', 'Confirmer et Importer les BLs')}
+                  {importMode === 'SALES' ? t('confirmImport', 'Confirmer et Importer les BLs') : 'Confirmer et Alimenter le Stock'}
                 </button>
               </div>
             </div>
@@ -1090,31 +1366,76 @@ export const BLImportPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               
               <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg max-w-lg mx-auto text-left text-xs space-y-2">
                 <div className="flex justify-between border-b pb-1">
-                  <span className="text-gray-600 font-bold">Bons de Livraison créés :</span>
-                  <span className="font-bold text-blue-700">{importStats.success} BL(s)</span>
+                  <span className="text-gray-600 font-bold">
+                    {importMode === 'SALES' ? 'Bons de Livraison créés :' : 'Arrivages / Entrées créés :'}
+                  </span>
+                  <span className="font-bold text-blue-700">{importStats.success} document(s)</span>
                 </div>
                 <div className="flex justify-between border-b pb-1">
-                  <span className="text-gray-600 font-bold">Frigo Source Assigné :</span>
+                  <span className="text-gray-600 font-bold">Entrepôt Frigorifique :</span>
                   <span className="font-bold text-gray-900">{selectedTargetFrigo.name} ({selectedTargetFrigo.code})</span>
                 </div>
 
-                <div className="flex justify-between border-b pb-1">
-                  <span className="text-gray-600 font-bold">Clients mis à jour (Comptes) :</span>
-                  <span className="font-bold text-emerald-700">{importStats.clientCount} clients</span>
-                </div>
-                <div className="flex justify-between border-b pb-1">
-                  <span className="text-gray-600 font-bold">Total Créances Clients :</span>
-                  <span className="font-bold text-emerald-700">+{importStats.totalAmount.toLocaleString()} DH</span>
-                </div>
-                <div className="flex justify-between text-purple-700 font-bold">
-                  <span>Factures générées :</span>
-                  <span>0 Facture (BLs seuls)</span>
-                </div>
+                {importMode === 'SALES' ? (
+                  <>
+                    <div className="flex justify-between border-b pb-1">
+                      <span className="text-gray-600 font-bold">Clients mis à jour (Comptes) :</span>
+                      <span className="font-bold text-emerald-700">{importStats.clientCount} clients</span>
+                    </div>
+                    {newClientsList.length > 0 && (
+                      <div className="flex justify-between border-b pb-1">
+                        <span className="text-gray-600 font-bold">Nouveaux Clients Créés :</span>
+                        <span className="font-bold text-emerald-700">{newClientsList.length} fiches créées</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between border-b pb-1">
+                      <span className="text-gray-600 font-bold">Total Créances Clients :</span>
+                      <span className="font-bold text-emerald-700">+{importStats.totalAmount.toLocaleString()} DH</span>
+                    </div>
+                    <div className="flex justify-between text-purple-700 font-bold">
+                      <span>Factures générées :</span>
+                      <span>0 Facture (BLs seuls)</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between border-b pb-1">
+                      <span className="text-gray-600 font-bold">Valeur Totale Marchandises :</span>
+                      <span className="font-bold text-emerald-700">+{importStats.totalAmount.toLocaleString()} DH</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-800 font-bold">
+                      <span>Impact Stock :</span>
+                      <span>Stock Frigo incrémenté et synchronisé</span>
+                    </div>
+                  </>
+                )}
               </div>
 
-              <button onClick={onBack} className="px-6 py-2 bg-[#0f62fe] text-white font-bold text-xs rounded hover:bg-blue-700 shadow-sm">
-                {t('backToBLList', 'Retour à la liste des BL')}
-              </button>
+              <div className="flex flex-wrap justify-center gap-3 pt-2">
+                <button 
+                  onClick={() => onNavigateToTab ? onNavigateToTab('DELIVERY_NOTES') : onBack()} 
+                  className="px-5 py-2.5 bg-[#0f62fe] text-white font-bold text-xs rounded hover:bg-blue-700 shadow flex items-center gap-2"
+                >
+                  <Truck className="w-4 h-4" />
+                  <span>Voir les BLs</span>
+                </button>
+                {importMode === 'SALES' && newClientsList.length > 0 && (
+                  <button 
+                    onClick={() => onNavigateToTab ? onNavigateToTab('CLIENTS') : onBack()} 
+                    className="px-5 py-2.5 bg-emerald-600 text-white font-bold text-xs rounded hover:bg-emerald-700 shadow flex items-center gap-2"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>Voir les Clients ({newClientsList.length} créés)</span>
+                  </button>
+                )}
+                <button 
+                  onClick={() => onNavigateToTab ? onNavigateToTab('FRIGO_MANAGEMENT') : onBack()} 
+                  className="px-5 py-2.5 bg-slate-800 text-white font-bold text-xs rounded hover:bg-slate-900 shadow flex items-center gap-2"
+                >
+                  <Warehouse className="w-4 h-4" />
+                  <span>Voir les Stocks Frigos</span>
+                </button>
+              </div>
             </div>
           )}
 

@@ -50,7 +50,8 @@ import {
   Building2,
   Check,
   ChevronRight,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Upload
 } from 'lucide-react';
 
 interface FrigoManagementProps {
@@ -59,6 +60,7 @@ interface FrigoManagementProps {
   onViewFrigoDetail?: (id: string) => void;
   onViewProductHistory?: (productId: string) => void;
   onViewClient?: (clientId: string) => void;
+  onNavigateToImport?: (frigoId?: string) => void;
   initialFrigoId?: string | null;
 }
 
@@ -68,6 +70,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
   onViewFrigoDetail,
   onViewProductHistory, 
   onViewClient,
+  onNavigateToImport,
   initialFrigoId 
 }) => {
   const { 
@@ -112,6 +115,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
   const [selectedProductForHistory, setSelectedProductForHistory] = useState<Product | null>(null);
   const [editingPurchaseInvoice, setEditingPurchaseInvoice] = useState<PurchaseImportInvoice | null>(null);
   const [paymentModalInvoice, setPaymentModalInvoice] = useState<PurchaseImportInvoice | null>(null);
+  const [onlyInStock, setOnlyInStock] = useState<boolean>(true);
 
   // Form State for Add / Edit Frigo
   const [formData, setFormData] = useState<Omit<ColdStorageFrigo, 'id' | 'code'>>({
@@ -208,6 +212,10 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
   // Filtered Product Summaries for Tab 2
   const filteredProductSummaries = useMemo(() => {
     return productSummaries.filter(p => {
+      // In-stock filter
+      if (onlyInStock && p.currentStockKg <= 0) {
+        return false;
+      }
       if (selectedProductId !== 'ALL' && p.productId !== selectedProductId && p.productCode !== selectedProductId) {
         return false;
       }
@@ -220,7 +228,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
       }
       return true;
     });
-  }, [productSummaries, selectedProductId, searchTerm]);
+  }, [productSummaries, selectedProductId, searchTerm, onlyInStock]);
 
   // Filtered Purchase / Entry Invoices for Tab 3
   const filteredPurchaseInvoices = useMemo(() => {
@@ -463,6 +471,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
         onBack={() => setSelectedFrigoDetailId(null)}
         onViewProductHistory={onViewProductHistory}
         onViewClient={onViewClient}
+        onNavigateToImport={onNavigateToImport}
       />
     );
   }
@@ -511,6 +520,18 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
             }
             pdfElementId="frigo-management-page"
           />
+
+          {/* Import Stock */}
+          {onNavigateToImport && (
+            <button
+              onClick={() => onNavigateToImport(selectedFrigoId !== 'ALL' ? selectedFrigoId : undefined)}
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-xs px-3 py-2 rounded-lg transition shadow-xs cursor-pointer"
+              title="Importer des mouvements ou arrivages de stock (Excel / CSV / PDF)"
+            >
+              <Upload className="w-3.5 h-3.5 text-emerald-200" />
+              <span>Importer Stock</span>
+            </button>
+          )}
 
           {/* Inter-frigo Transfer */}
           <button
@@ -708,6 +729,8 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
         onOpenProductHistory={(prd) => onViewProductHistory ? onViewProductHistory(prd.id) : setSelectedProductForHistory(prd)}
         products={products}
         warehouseName={warehouseDisplayLabel}
+        onlyInStock={onlyInStock}
+        onToggleOnlyInStock={(val) => setOnlyInStock(val)}
       />
 
       {/* ========================================================================= */}
@@ -1156,7 +1179,21 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setOnlyInStock(!onlyInStock)}
+                className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition flex items-center gap-1.5 border cursor-pointer ${
+                  onlyInStock
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-xs'
+                    : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                }`}
+                title="Basculer entre afficher uniquement les produits en stock ou tous les produits"
+              >
+                <span className={`w-2 h-2 rounded-full ${onlyInStock ? 'bg-emerald-500' : 'bg-gray-400'}`}></span>
+                <span>{onlyInStock ? 'En Stock Uniquement' : 'Tous (inclus stock 0)'}</span>
+              </button>
+
               <span className="text-xs text-gray-500 font-mono">
                 {filteredProductSummaries.length} référence{filteredProductSummaries.length > 1 ? 's' : ''}
               </span>
