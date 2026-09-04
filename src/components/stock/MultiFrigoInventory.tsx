@@ -244,21 +244,25 @@ export const MultiFrigoInventory: React.FC<MultiFrigoInventoryProps> = ({ onNavi
     }
   };
 
-  const handleFrigoSubmit = (e: React.FormEvent) => {
+  const handleFrigoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!frigoForm.name) return;
 
-    if (editingFrigo) {
-      updateFrigo(editingFrigo.id, frigoForm);
-      alert(`Frigo "${frigoForm.name}" mis à jour avec succès dans PostgreSQL !`);
-    } else {
-      const created = addFrigo(frigoForm);
-      setSelectedFrigoId(created.id);
-      alert(`Nouveau Frigo/Entrepôt (${created.name}) créé avec succès dans PostgreSQL !`);
-    }
+    try {
+      if (editingFrigo) {
+        await updateFrigo(editingFrigo.id, frigoForm);
+        alert(`Frigo "${frigoForm.name}" mis à jour avec succès dans PostgreSQL !`);
+      } else {
+        const created = await addFrigo(frigoForm);
+        setSelectedFrigoId(created.id);
+        alert(`Nouveau Frigo/Entrepôt (${created.name}) créé avec succès dans PostgreSQL !`);
+      }
 
-    setShowAddFrigoModal(false);
-    setEditingFrigo(null);
+      setShowAddFrigoModal(false);
+      setEditingFrigo(null);
+    } catch (err: any) {
+      alert('Erreur lors de l\'enregistrement : ' + (err.message || err));
+    }
     setFrigoForm({
       name: '',
       location: '',

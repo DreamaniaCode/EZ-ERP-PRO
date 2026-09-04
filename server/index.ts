@@ -254,7 +254,20 @@ app.get('/api/frigos', async (req, res) => {
 
 app.post('/api/frigos', async (req, res) => {
   try {
-    const frigo = await prisma.coldStorageFrigo.create({ data: req.body });
+    const { id, createdAt, updatedAt, ...bodyData } = req.body;
+    const cleanData: any = {
+      code: bodyData.code || `FRG-${Date.now()}`,
+      name: bodyData.name,
+      location: bodyData.location || '',
+      managerName: bodyData.managerName || '',
+      managerPhone: bodyData.managerPhone || '',
+      whatsappGroup: bodyData.whatsappGroup || '',
+      whatsappGroupLink: bodyData.whatsappGroupLink || '',
+      capacityPallets: Number(bodyData.capacityPallets) || 0,
+    };
+    if (id) cleanData.id = id;
+
+    const frigo = await prisma.coldStorageFrigo.create({ data: cleanData });
     res.json(frigo);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -263,12 +276,43 @@ app.post('/api/frigos', async (req, res) => {
 
 app.put('/api/frigos/:id', async (req, res) => {
   try {
-    const frigo = await prisma.coldStorageFrigo.update({
+    const { id, createdAt, updatedAt, ...bodyData } = req.body;
+    const cleanData: any = {};
+    if (bodyData.name !== undefined) cleanData.name = String(bodyData.name).trim();
+    if (bodyData.location !== undefined) cleanData.location = String(bodyData.location).trim();
+    if (bodyData.managerName !== undefined) cleanData.managerName = String(bodyData.managerName).trim();
+    if (bodyData.managerPhone !== undefined) cleanData.managerPhone = String(bodyData.managerPhone).trim();
+    if (bodyData.whatsappGroup !== undefined) cleanData.whatsappGroup = String(bodyData.whatsappGroup).trim();
+    if (bodyData.whatsappGroupLink !== undefined) cleanData.whatsappGroupLink = String(bodyData.whatsappGroupLink).trim();
+    if (bodyData.capacityPallets !== undefined) cleanData.capacityPallets = Number(bodyData.capacityPallets) || 0;
+    if (bodyData.code !== undefined) cleanData.code = String(bodyData.code).trim();
+
+    const frigo = await prisma.coldStorageFrigo.upsert({
       where: { id: req.params.id },
-      data: req.body,
+      create: {
+        id: req.params.id,
+        code: cleanData.code || `FRG-${req.params.id.slice(0, 6)}`,
+        name: cleanData.name || 'Entrepôt Frigorifique',
+        location: cleanData.location || '',
+        managerName: cleanData.managerName || '',
+        managerPhone: cleanData.managerPhone || '',
+        whatsappGroup: cleanData.whatsappGroup || '',
+        whatsappGroupLink: cleanData.whatsappGroupLink || '',
+        capacityPallets: cleanData.capacityPallets || 0,
+      },
+      update: cleanData,
     });
+
+    if (cleanData.name) {
+      await prisma.deliveryNoteBL.updateMany({
+        where: { frigoId: req.params.id },
+        data: { frigoName: cleanData.name },
+      }).catch(e => console.warn('Could not cascade frigoName to BLs in DB:', e));
+    }
+
     res.json(frigo);
   } catch (error: any) {
+    console.error('Error updating frigo in DB:', error);
     res.status(500).json({ error: error.message });
   }
 });

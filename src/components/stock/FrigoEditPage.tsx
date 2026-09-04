@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
-import { ArrowLeft, Save, X } from 'lucide-react';
+import { ArrowLeft, Save, X, Loader2 } from 'lucide-react';
 
 export const FrigoEditPage: React.FC<{ editId: string | null; onBack: () => void }> = ({ editId, onBack }) => {
   const { t } = useTranslation();
@@ -17,8 +17,12 @@ export const FrigoEditPage: React.FC<{ editId: string | null; onBack: () => void
     capacityPallets: 0
   });
 
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const isInitializedRef = useRef(false);
+
   useEffect(() => {
-    if (editId) {
+    if (editId && !isInitializedRef.current) {
       const frigo = (frigos || []).find((f: any) => f.id === editId);
       if (frigo) {
         setFormData({
@@ -30,6 +34,7 @@ export const FrigoEditPage: React.FC<{ editId: string | null; onBack: () => void
           whatsappGroupLink: frigo.whatsappGroupLink || '',
           capacityPallets: frigo.capacityPallets || 0
         });
+        isInitializedRef.current = true;
       }
     }
   }, [editId, frigos]);
@@ -42,16 +47,30 @@ export const FrigoEditPage: React.FC<{ editId: string | null; onBack: () => void
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editId) {
-      // ✅ CORRECT: pass (id, partialData) separately
-      updateFrigo(editId, formData);
-    } else {
-      // ✅ CORRECT: let ERPContext generate its own id
-      addFrigo(formData);
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!formData.name.trim()) {
+      alert('Veuillez saisir un nom pour l\'entrepôt frigo.');
+      return;
     }
-    onBack();
+
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      if (editId) {
+        await updateFrigo(editId, formData);
+      } else {
+        await addFrigo(formData);
+      }
+      onBack();
+    } catch (err: any) {
+      console.error('Erreur sauvegarde frigo:', err);
+      const msg = err.message || 'Impossible d\'enregistrer les modifications du frigo.';
+      setSaveError(msg);
+      alert(msg);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -59,7 +78,12 @@ export const FrigoEditPage: React.FC<{ editId: string | null; onBack: () => void
       {/* Top Bar */}
       <div className="flex items-center justify-between bg-white px-6 py-4 border-b border-[#e0e0e0] shadow-sm">
         <div className="flex items-center space-x-4 rtl:space-x-reverse">
-          <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-[#0f62fe]">
+          <button 
+            type="button"
+            onClick={onBack} 
+            disabled={isSaving}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-[#0f62fe] disabled:opacity-50"
+          >
             <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
           </button>
           <h1 className="text-xl font-bold">
@@ -70,17 +94,29 @@ export const FrigoEditPage: React.FC<{ editId: string | null; onBack: () => void
           <button 
             type="button" 
             onClick={onBack}
-            className="flex items-center px-4 py-2 border border-[#393939] text-[#161616] bg-white hover:bg-gray-50 rounded text-sm font-medium transition-colors"
+            disabled={isSaving}
+            className="flex items-center px-4 py-2 border border-[#393939] text-[#161616] bg-white hover:bg-gray-50 rounded text-sm font-medium transition-colors disabled:opacity-50"
           >
             <X className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
             {t('common.cancel', 'Annuler')}
           </button>
           <button 
-            onClick={handleSubmit}
-            className="flex items-center px-4 py-2 bg-[#0f62fe] text-white hover:bg-blue-700 rounded text-sm font-bold transition-colors shadow-md"
+            type="button"
+            onClick={() => handleSubmit()}
+            disabled={isSaving}
+            className="flex items-center px-4 py-2 bg-[#0f62fe] text-white hover:bg-blue-700 rounded text-sm font-bold transition-colors shadow-md disabled:opacity-50"
           >
-            <Save className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-            {t('common.save', 'Enregistrer')}
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin rtl:ml-2 rtl:mr-0" />
+                <span>Enregistrement...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
+                <span>{t('common.save', 'Enregistrer')}</span>
+              </>
+            )}
           </button>
         </div>
       </div>

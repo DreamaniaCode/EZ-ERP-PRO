@@ -113,9 +113,9 @@ interface ERPContextType {
   recalculateAllBLPrices: () => Promise<RecalculationSummaryReport>;
 
   // Frigo Actions
-  addFrigo: (frigo: Omit<ColdStorageFrigo, 'id' | 'code'>) => ColdStorageFrigo;
-  updateFrigo: (id: string, frigoData: Partial<ColdStorageFrigo>) => void;
-  deleteFrigo: (id: string) => void;
+  addFrigo: (frigo: Omit<ColdStorageFrigo, 'id' | 'code'>) => Promise<ColdStorageFrigo> | ColdStorageFrigo;
+  updateFrigo: (id: string, frigoData: Partial<ColdStorageFrigo>) => Promise<void>;
+  deleteFrigo: (id: string) => Promise<void> | void;
 
   // Stock Actions
   adjustStock: (frigoId: string, productId: string, newKg: number, newPallets: number) => void;
@@ -668,7 +668,7 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ============================================================
   // FRIGO ACTIONS
   // ============================================================
-  const addFrigo = (frigoData: Omit<ColdStorageFrigo, 'id' | 'code'>): ColdStorageFrigo => {
+  const addFrigo = async (frigoData: Omit<ColdStorageFrigo, 'id' | 'code'>): Promise<ColdStorageFrigo> => {
     const count = frigos.length + 1;
     const code = `FRG-SITE-${String(count).padStart(2, '0')}`;
     const newFrigo: ColdStorageFrigo = {
@@ -676,20 +676,69 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       id: `frigo-${Date.now()}`,
       code,
     };
-    setFrigos(prev => [...prev, newFrigo]);
-    api.createFrigo(newFrigo).catch(err => console.error('Error saving frigo:', err));
+    setFrigos(prev => {
+      const next = [...prev, newFrigo];
+      try { localStorage.setItem('erp_frigos', JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
+    try {
+      await api.createFrigo(newFrigo);
+    } catch (err) {
+      console.error('Error saving frigo:', err);
+    }
     return newFrigo;
   };
 
-  const updateFrigo = (id: string, frigoData: Partial<ColdStorageFrigo>) => {
-    setFrigos(prev => prev.map(f => f.id === id ? { ...f, ...frigoData } : f));
-    api.updateFrigo(id, frigoData).catch(err => console.error('Error updating frigo:', err));
+  const updateFrigo = async (id: string, frigoData: Partial<ColdStorageFrigo>): Promise<void> => {
+    const currentFrigo = frigos.find(f => f.id === id);
+    const oldName = currentFrigo?.name;
+    const newName = frigoData.name ? String(frigoData.name).trim() : undefined;
+
+    // 1. Immediate optimistic state and localStorage update
+    setFrigos(prev => {
+      const updated = prev.map(f => f.id === id ? { ...f, ...frigoData, ...(newName ? { name: newName } : {}) } : f);
+      try {
+        localStorage.setItem('erp_frigos', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    // 2. Cascade rename to deliveryNotes if name has changed
+    if (newName && oldName && newName !== oldName) {
+      setDeliveryNotes(prev => {
+        const updatedBLs = prev.map(bl => {
+          if (bl.frigoId === id || (bl.frigoName && bl.frigoName.trim().toLowerCase() === oldName.trim().toLowerCase())) {
+            return { ...bl, frigoName: newName, frigoId: id };
+          }
+          return bl;
+        });
+        try {
+          localStorage.setItem('erp_delivery_notes', JSON.stringify(updatedBLs));
+        } catch (e) {}
+        return updatedBLs;
+      });
+    }
+
+    // 3. Persist to PostgreSQL backend via API
+    await api.updateFrigo(id, { ...frigoData, ...(newName ? { name: newName } : {}) });
   };
 
-  const deleteFrigo = (id: string) => {
-    setFrigos(prev => prev.filter(f => f.id !== id));
-    setStocks(prev => prev.filter(s => s.frigoId !== id));
-    api.deleteFrigo(id).catch(err => console.error('Error deleting frigo:', err));
+  const deleteFrigo = async (id: string): Promise<void> => {
+    setFrigos(prev => {
+      const next = prev.filter(f => f.id !== id);
+      try { localStorage.setItem('erp_frigos', JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
+    setStocks(prev => {
+      const next = prev.filter(s => s.frigoId !== id);
+      try { localStorage.setItem('erp_stocks', JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
+    try {
+      await api.deleteFrigo(id);
+    } catch (err) {
+      console.error('Error deleting frigo:', err);
+    }
   };
 
   // ============================================================
@@ -1876,9 +1925,9 @@ const defaultFallbackContext: ERPContextType = {
   deleteProduct: () => {},
   syncBLPricesWithProducts: () => {},
   recalculateAllBLPrices: async () => ({ details: [], totalBLsScanned: 0, totalItemsUpdated: 0, updatedBLsCount: 0, unchangedBLsCount: 0, failedBLsCount: 0, totalFinancialImpactHT: 0, timestamp: '' }),
-  addFrigo: () => ({ id: '', code: '', name: '', location: '', capacityPallets: 1000, managerName: '', managerPhone: '', whatsappGroup: '', whatsappGroupLink: '' }),
-  updateFrigo: () => {},
-  deleteFrigo: () => {},
+  addFrigo: async () => ({ id: '', code: '', name: '', location: '', capacityPallets: 1000, managerName: '', managerPhone: '', whatsappGroup: '', whatsappGroupLink: '' }),
+  updateFrigo: async () => {},
+  deleteFrigo: async () => {},
   adjustStock: () => {},
   transferStock: () => {},
   repackageStock: () => {},

@@ -366,20 +366,23 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
     setShowAddModal(true);
   };
 
-  const handleSaveFrigo = (e: React.FormEvent) => {
+  const handleSaveFrigo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
       alert('Veuillez saisir le nom du frigo.');
       return;
     }
 
-    if (editingFrigo) {
-      updateFrigo(editingFrigo.id, formData);
-    } else {
-      addFrigo(formData);
+    try {
+      if (editingFrigo) {
+        await updateFrigo(editingFrigo.id, formData);
+      } else {
+        await addFrigo(formData);
+      }
+      setShowAddModal(false);
+    } catch (err: any) {
+      alert('Erreur lors de l\'enregistrement : ' + (err.message || err));
     }
-
-    setShowAddModal(false);
   };
 
   const handleDeleteFrigo = (frigo: ColdStorageFrigo) => {

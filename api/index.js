@@ -226,7 +226,19 @@ app.get("/api/frigos", async (req, res) => {
 });
 app.post("/api/frigos", async (req, res) => {
   try {
-    const frigo = await prisma.coldStorageFrigo.create({ data: req.body });
+    const { id, createdAt, updatedAt, ...bodyData } = req.body;
+    const cleanData = {
+      code: bodyData.code || `FRG-${Date.now()}`,
+      name: bodyData.name,
+      location: bodyData.location || "",
+      managerName: bodyData.managerName || "",
+      managerPhone: bodyData.managerPhone || "",
+      whatsappGroup: bodyData.whatsappGroup || "",
+      whatsappGroupLink: bodyData.whatsappGroupLink || "",
+      capacityPallets: Number(bodyData.capacityPallets) || 0
+    };
+    if (id) cleanData.id = id;
+    const frigo = await prisma.coldStorageFrigo.create({ data: cleanData });
     res.json(frigo);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -234,12 +246,40 @@ app.post("/api/frigos", async (req, res) => {
 });
 app.put("/api/frigos/:id", async (req, res) => {
   try {
-    const frigo = await prisma.coldStorageFrigo.update({
+    const { id, createdAt, updatedAt, ...bodyData } = req.body;
+    const cleanData = {};
+    if (bodyData.name !== void 0) cleanData.name = String(bodyData.name).trim();
+    if (bodyData.location !== void 0) cleanData.location = String(bodyData.location).trim();
+    if (bodyData.managerName !== void 0) cleanData.managerName = String(bodyData.managerName).trim();
+    if (bodyData.managerPhone !== void 0) cleanData.managerPhone = String(bodyData.managerPhone).trim();
+    if (bodyData.whatsappGroup !== void 0) cleanData.whatsappGroup = String(bodyData.whatsappGroup).trim();
+    if (bodyData.whatsappGroupLink !== void 0) cleanData.whatsappGroupLink = String(bodyData.whatsappGroupLink).trim();
+    if (bodyData.capacityPallets !== void 0) cleanData.capacityPallets = Number(bodyData.capacityPallets) || 0;
+    if (bodyData.code !== void 0) cleanData.code = String(bodyData.code).trim();
+    const frigo = await prisma.coldStorageFrigo.upsert({
       where: { id: req.params.id },
-      data: req.body
+      create: {
+        id: req.params.id,
+        code: cleanData.code || `FRG-${req.params.id.slice(0, 6)}`,
+        name: cleanData.name || "Entrep\xF4t Frigorifique",
+        location: cleanData.location || "",
+        managerName: cleanData.managerName || "",
+        managerPhone: cleanData.managerPhone || "",
+        whatsappGroup: cleanData.whatsappGroup || "",
+        whatsappGroupLink: cleanData.whatsappGroupLink || "",
+        capacityPallets: cleanData.capacityPallets || 0
+      },
+      update: cleanData
     });
+    if (cleanData.name) {
+      await prisma.deliveryNoteBL.updateMany({
+        where: { frigoId: req.params.id },
+        data: { frigoName: cleanData.name }
+      }).catch((e) => console.warn("Could not cascade frigoName to BLs in DB:", e));
+    }
     res.json(frigo);
   } catch (error) {
+    console.error("Error updating frigo in DB:", error);
     res.status(500).json({ error: error.message });
   }
 });
