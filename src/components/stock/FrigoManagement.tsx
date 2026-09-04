@@ -51,7 +51,9 @@ import {
   Check,
   ChevronRight,
   SlidersHorizontal,
-  Upload
+  Upload,
+  LayoutList,
+  LayoutGrid
 } from 'lucide-react';
 
 interface FrigoManagementProps {
@@ -116,6 +118,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
   const [editingPurchaseInvoice, setEditingPurchaseInvoice] = useState<PurchaseImportInvoice | null>(null);
   const [paymentModalInvoice, setPaymentModalInvoice] = useState<PurchaseImportInvoice | null>(null);
   const [onlyInStock, setOnlyInStock] = useState<boolean>(true);
+  const [frigoSelectorMode, setFrigoSelectorMode] = useState<'TABS' | 'CARDS'>('TABS');
 
   // Form State for Add / Edit Frigo
   const [formData, setFormData] = useState<Omit<ColdStorageFrigo, 'id' | 'code'>>({
@@ -559,163 +562,316 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
       {/* 2. PROMINENT FRIGO SELECTOR STRIP (FACILE À TROUVER & BIEN TRIÉ)           */}
       {/* ========================================================================= */}
       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Warehouse className="w-4 h-4 text-[#0f62fe]" />
             <h2 className="text-xs font-bold text-gray-900 uppercase tracking-wide">
-              Sélectionnez un Entrepôt Frigorifique (Accès Immédiat) :
+              Sélectionnez un Entrepôt Frigorifique :
             </h2>
           </div>
-          <span className="text-[11px] font-semibold text-gray-500 font-mono">
-            {frigos.length} entrepôt{frigos.length > 1 ? 's' : ''} configuré{frigos.length > 1 ? 's' : ''}
-          </span>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold text-gray-500 font-mono hidden sm:inline">
+              {frigos.length} entrepôt{frigos.length > 1 ? 's' : ''} configuré{frigos.length > 1 ? 's' : ''}
+            </span>
+
+            <div className="flex items-center bg-gray-100 p-1 rounded-lg border border-gray-200 text-xs">
+              <button
+                type="button"
+                onClick={() => setFrigoSelectorMode('TABS')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-bold transition-all ${
+                  frigoSelectorMode === 'TABS'
+                    ? 'bg-white text-gray-900 shadow-xs'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+                title="Affichage compact en onglets"
+              >
+                <LayoutList className="w-3.5 h-3.5 text-[#0f62fe]" />
+                <span className="hidden sm:inline">Onglets</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFrigoSelectorMode('CARDS')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-bold transition-all ${
+                  frigoSelectorMode === 'CARDS'
+                    ? 'bg-white text-gray-900 shadow-xs'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+                title="Affichage en cartes avec jauges"
+              >
+                <LayoutGrid className="w-3.5 h-3.5 text-gray-600" />
+                <span className="hidden sm:inline">Cartes</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          
-          {/* Card 1: ALL FRIGOS (VUE CONSOLIDÉE) */}
-          <div
-            onClick={() => setSelectedFrigoId('ALL')}
-            className={`cursor-pointer p-3.5 rounded-xl transition-all border-2 flex flex-col justify-between relative ${
-              selectedFrigoId === 'ALL'
-                ? 'bg-blue-50/80 border-[#0f62fe] shadow-sm ring-2 ring-blue-500/20'
-                : 'bg-gray-50/70 border-gray-200 hover:border-gray-300 hover:bg-gray-100/70'
-            }`}
-          >
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
-                  selectedFrigoId === 'ALL' ? 'bg-[#0f62fe] text-white' : 'bg-gray-200 text-gray-700'
+        {/* MODE A: COMPACT TABS & PILLS */}
+        {frigoSelectorMode === 'TABS' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+            {/* Master Tab: Tous les Frigos */}
+            <button
+              type="button"
+              onClick={() => setSelectedFrigoId('ALL')}
+              className={`p-3 rounded-xl border-2 text-left transition-all flex items-center justify-between gap-2 select-none cursor-pointer ${
+                selectedFrigoId === 'ALL'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-blue-500/20'
+                  : 'bg-gray-50 border-gray-200 hover:border-gray-300 hover:bg-gray-100 text-gray-900'
+              }`}
+            >
+              <div className="flex items-center gap-2 overflow-hidden">
+                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase ${
+                  selectedFrigoId === 'ALL' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
                 }`}>
                   MULTI-SITES
                 </span>
-                {selectedFrigoId === 'ALL' && (
-                  <span className="flex items-center gap-1 text-[11px] font-bold text-[#0f62fe]">
-                    <Check className="w-3.5 h-3.5" /> Actif
-                  </span>
-                )}
+                <span className="font-bold text-xs truncate">Tous les Frigos</span>
               </div>
-              <h3 className="font-bold text-xs text-gray-900">
-                🏢 Tous les Frigos (Vue Consolidée)
-              </h3>
-              <p className="text-[11px] text-gray-500 mt-0.5">
-                Totalité des stocks et des flux de l'entreprise
-              </p>
-            </div>
+              <div className="text-right font-mono shrink-0">
+                <div className={`text-xs font-black ${selectedFrigoId === 'ALL' ? 'text-blue-300' : 'text-emerald-700'}`}>
+                  {(totalOccupiedKg / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} T
+                </div>
+                <div className={`text-[10px] ${selectedFrigoId === 'ALL' ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {totalOccupiedPallets} Pal.
+                </div>
+              </div>
+            </button>
 
-            <div className="mt-3 pt-2 border-t border-gray-200/80 flex items-center justify-between text-xs font-mono">
-              <span className="font-bold text-emerald-700">
-                {(totalOccupiedKg / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} T ({totalOccupiedKg.toLocaleString()} Kg)
-              </span>
-              <span className="text-gray-600 font-semibold">
-                {totalOccupiedPallets} Pal.
-              </span>
-            </div>
-          </div>
-
-          {/* Individual Frigo Cards */}
-          {frigoStatsList.map(frigo => {
-            const isSelected = selectedFrigoId === frigo.id;
-            return (
-              <div
-                key={frigo.id}
-                onClick={() => setSelectedFrigoId(frigo.id)}
-                className={`cursor-pointer p-3.5 rounded-xl transition-all border-2 flex flex-col justify-between relative ${
-                  isSelected
-                    ? 'bg-blue-50/80 border-[#0f62fe] shadow-sm ring-2 ring-blue-500/20'
-                    : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
-                      isSelected ? 'bg-[#0f62fe] text-white' : 'bg-gray-100 text-gray-800 border border-gray-300'
-                    }`}>
-                      {frigo.code}
-                    </span>
-                    
-                    <div className="flex items-center gap-1">
-                      {isSelected ? (
-                        <span className="flex items-center gap-0.5 text-[11px] font-bold text-[#0f62fe]">
-                          <Check className="w-3.5 h-3.5" /> Actif
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-mono text-gray-500 flex items-center gap-0.5">
-                          <MapPin className="w-3 h-3 text-gray-400" /> {frigo.location || 'Site'}
+            {/* Individual Frigo Tabs */}
+            {frigoStatsList.map(frigo => {
+              const isSelected = selectedFrigoId === frigo.id;
+              return (
+                <div
+                  key={frigo.id}
+                  onClick={() => setSelectedFrigoId(frigo.id)}
+                  className={`p-3 rounded-xl border-2 text-left transition-all flex items-center justify-between gap-2 select-none cursor-pointer group ${
+                    isSelected
+                      ? 'bg-blue-50/90 border-[#0f62fe] shadow-sm ring-2 ring-blue-500/20'
+                      : 'bg-white border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="space-y-1 overflow-hidden flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                        isSelected ? 'bg-[#0f62fe] text-white' : 'bg-blue-50 text-[#0f62fe] border border-blue-200'
+                      }`}>
+                        {frigo.code}
+                      </span>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        frigo.occPercent >= 90 ? 'bg-rose-500' : frigo.occPercent >= 75 ? 'bg-amber-500' : 'bg-emerald-500'
+                      }`} />
+                      {isSelected && (
+                        <span className="bg-[#0f62fe] text-white text-[9px] px-1 py-0.2 rounded font-bold">
+                          Actif
                         </span>
                       )}
                     </div>
+
+                    <div className="font-bold text-xs text-gray-900 truncate group-hover:text-[#0f62fe] transition-colors" title={frigo.name}>
+                      {frigo.name}
+                    </div>
                   </div>
 
-                  <h3 className="font-bold text-xs text-gray-900 line-clamp-1">
-                    🏭 {frigo.name}
-                  </h3>
-
-                  {/* Occupation Gauge & Info */}
-                  <div className="mt-2 space-y-1">
-                    <div className="flex justify-between text-[11px] font-mono">
-                      <span className="text-gray-500">Occupation:</span>
-                      <span className="font-bold text-gray-800">{frigo.totalPallets} / {frigo.capacityPallets} Pal. ({frigo.occPercent}%)</span>
+                  <div className="text-right font-mono shrink-0 flex items-center gap-1.5">
+                    <div>
+                      <div className={`text-xs font-black ${isSelected ? 'text-[#0f62fe]' : 'text-emerald-700'}`}>
+                        {(frigo.totalKg / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} T
+                      </div>
+                      <div className="text-[10px] text-gray-500">
+                        {frigo.occPercent}% ({frigo.totalPallets} Pal)
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                      <div 
-                        className={`h-1.5 rounded-full transition-all ${
-                          frigo.occPercent >= 90 ? 'bg-rose-500' : frigo.occPercent >= 75 ? 'bg-amber-500' : 'bg-emerald-500'
-                        }`}
-                        style={{ width: `${Math.min(100, frigo.occPercent)}%` }}
-                      />
+
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEdit(frigo);
+                        }}
+                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                        title="Modifier cet entrepôt"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onViewFrigoDetail) onViewFrigoDetail(frigo.id);
+                          else setSelectedFrigoDetailId(frigo.id);
+                        }}
+                        className="p-1 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded"
+                        title="Fiche détaillée"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
+              );
+            })}
 
-                <div className="mt-3 pt-2 border-t border-gray-200/80 flex items-center justify-between text-[11px]">
-                  <span className="font-mono font-bold text-emerald-700">
-                    {(frigo.totalKg / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} T ({frigo.totalKg.toLocaleString()} Kg)
-                  </span>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenEdit(frigo);
-                      }}
-                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
-                      title="Modifier cet entrepôt"
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onViewFrigoDetail) onViewFrigoDetail(frigo.id);
-                        else setSelectedFrigoDetailId(frigo.id);
-                      }}
-                      className="p-1 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded"
-                      title="Voir la fiche détaillée du quai"
-                    >
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Card Add Frigo */}
-          <div
-            onClick={handleOpenAdd}
-            className="cursor-pointer p-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#0f62fe] hover:bg-blue-50/30 flex flex-col items-center justify-center text-center gap-1.5 text-gray-500 hover:text-[#0f62fe] transition-all min-h-[120px]"
-          >
-            <div className="p-2 bg-gray-100 rounded-full text-gray-600">
+            {/* Button: Add Warehouse */}
+            <button
+              type="button"
+              onClick={handleOpenAdd}
+              className="p-3 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#0f62fe] hover:bg-blue-50/30 flex items-center justify-center gap-2 text-gray-500 hover:text-[#0f62fe] transition-all cursor-pointer"
+            >
               <Plus className="w-4 h-4" />
-            </div>
-            <span className="text-xs font-bold font-mono">+ Ajouter un Entrepôt</span>
-            <span className="text-[10px] text-gray-400">Nouveau site frigo</span>
+              <span className="text-xs font-bold font-mono">+ Ajouter Entrepôt</span>
+            </button>
           </div>
+        )}
 
-        </div>
+        {/* MODE B: EXPANDED CARDS WITH GAUGES */}
+        {frigoSelectorMode === 'CARDS' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            
+            {/* Card 1: ALL FRIGOS (VUE CONSOLIDÉE) */}
+            <div
+              onClick={() => setSelectedFrigoId('ALL')}
+              className={`cursor-pointer p-3.5 rounded-xl transition-all border-2 flex flex-col justify-between relative ${
+                selectedFrigoId === 'ALL'
+                  ? 'bg-blue-50/80 border-[#0f62fe] shadow-sm ring-2 ring-blue-500/20'
+                  : 'bg-gray-50/70 border-gray-200 hover:border-gray-300 hover:bg-gray-100/70'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
+                    selectedFrigoId === 'ALL' ? 'bg-[#0f62fe] text-white' : 'bg-gray-200 text-gray-700'
+                  }`}>
+                    MULTI-SITES
+                  </span>
+                  {selectedFrigoId === 'ALL' && (
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-[#0f62fe]">
+                      <Check className="w-3.5 h-3.5" /> Actif
+                    </span>
+                  )}
+                </div>
+                <h3 className="font-bold text-xs text-gray-900">
+                  🏢 Tous les Frigos (Vue Consolidée)
+                </h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Totalité des stocks et des flux de l'entreprise
+                </p>
+              </div>
+
+              <div className="mt-3 pt-2 border-t border-gray-200/80 flex items-center justify-between text-xs font-mono">
+                <span className="font-bold text-emerald-700">
+                  {(totalOccupiedKg / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} T ({totalOccupiedKg.toLocaleString()} Kg)
+                </span>
+                <span className="text-gray-600 font-semibold">
+                  {totalOccupiedPallets} Pal.
+                </span>
+              </div>
+            </div>
+
+            {/* Individual Frigo Cards */}
+            {frigoStatsList.map(frigo => {
+              const isSelected = selectedFrigoId === frigo.id;
+              return (
+                <div
+                  key={frigo.id}
+                  onClick={() => setSelectedFrigoId(frigo.id)}
+                  className={`cursor-pointer p-3.5 rounded-xl transition-all border-2 flex flex-col justify-between relative ${
+                    isSelected
+                      ? 'bg-blue-50/80 border-[#0f62fe] shadow-sm ring-2 ring-blue-500/20'
+                      : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
+                        isSelected ? 'bg-[#0f62fe] text-white' : 'bg-gray-100 text-gray-800 border border-gray-300'
+                      }`}>
+                        {frigo.code}
+                      </span>
+                      
+                      <div className="flex items-center gap-1">
+                        {isSelected ? (
+                          <span className="flex items-center gap-0.5 text-[11px] font-bold text-[#0f62fe]">
+                            <Check className="w-3.5 h-3.5" /> Actif
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono text-gray-500 flex items-center gap-0.5">
+                            <MapPin className="w-3 h-3 text-gray-400" /> {frigo.location || 'Site'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <h3 className="font-bold text-xs text-gray-900 line-clamp-1">
+                      🏭 {frigo.name}
+                    </h3>
+
+                    {/* Occupation Gauge & Info */}
+                    <div className="mt-2 space-y-1">
+                      <div className="flex justify-between text-[11px] font-mono">
+                        <span className="text-gray-500">Occupation:</span>
+                        <span className="font-bold text-gray-800">{frigo.totalPallets} / {frigo.capacityPallets} Pal. ({frigo.occPercent}%)</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className={`h-1.5 rounded-full transition-all ${
+                            frigo.occPercent >= 90 ? 'bg-rose-500' : frigo.occPercent >= 75 ? 'bg-amber-500' : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.min(100, frigo.occPercent)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-2 border-t border-gray-200/80 flex items-center justify-between text-[11px]">
+                    <span className="font-mono font-bold text-emerald-700">
+                      {(frigo.totalKg / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} T ({frigo.totalKg.toLocaleString()} Kg)
+                    </span>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEdit(frigo);
+                        }}
+                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                        title="Modifier cet entrepôt"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onViewFrigoDetail) onViewFrigoDetail(frigo.id);
+                          else setSelectedFrigoDetailId(frigo.id);
+                        }}
+                        className="p-1 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded"
+                        title="Voir la fiche détaillée du quai"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Card Add Frigo */}
+            <div
+              onClick={handleOpenAdd}
+              className="cursor-pointer p-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#0f62fe] hover:bg-blue-50/30 flex flex-col items-center justify-center text-center gap-1.5 text-gray-500 hover:text-[#0f62fe] transition-all min-h-[120px]"
+            >
+              <div className="p-2 bg-gray-100 rounded-full text-gray-600">
+                <Plus className="w-4 h-4" />
+              </div>
+              <span className="text-xs font-bold font-mono">+ Ajouter un Entrepôt</span>
+              <span className="text-[10px] text-gray-400">Nouveau site frigo</span>
+            </div>
+
+          </div>
+        )}
 
       </div>
 
