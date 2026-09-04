@@ -9,11 +9,20 @@ import { generateAndDownloadPurchaseInvoicePdf } from '../../utils/pdfGenerators
 import { exportToExcel } from '../../utils/exportUtils';
 import { Ship, Plus, Search, Package, CheckCircle, ChevronDown, ChevronUp, Trash2, CreditCard, DollarSign, Filter, RefreshCw, Pencil, Edit3, X, Save, Sparkles, FileText, FileSpreadsheet, Download } from 'lucide-react';
 import { generateAutoSupplierInvoiceNumber } from '../../utils/supplierInvoiceHelper';
+import { PurchaseInvoiceEditPage } from './PurchaseInvoiceEditPage';
 
-export const ImportInvoiceEntry: React.FC = () => {
+export interface ImportInvoiceEntryProps {
+  onEditPurchase?: (id: string) => void;
+  onNewPurchase?: () => void;
+}
+
+export const ImportInvoiceEntry: React.FC<ImportInvoiceEntryProps> = ({
+  onEditPurchase,
+  onNewPurchase
+}) => {
   const { company, suppliers, products, frigos, purchaseInvoices, createPurchaseInvoice, updatePurchaseInvoice, deletePurchaseInvoice } = useERP();
 
-  const [showAddForm, setShowAddForm] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [showQuickProductModal, setShowQuickProductModal] = useState(false);
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
@@ -343,6 +352,19 @@ export const ImportInvoiceEntry: React.FC = () => {
       };
     });
 
+  // Dedicated Full-Page Mode (Never stay on the same page when modifying or creating)
+  if (editingInvoiceId || (showAddForm && !onNewPurchase)) {
+    return (
+      <PurchaseInvoiceEditPage
+        editId={editingInvoiceId}
+        onBack={() => {
+          setEditingInvoiceId(null);
+          setShowAddForm(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       
@@ -351,37 +373,27 @@ export const ImportInvoiceEntry: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold font-mono uppercase tracking-wide flex items-center gap-2">
             <Ship className="w-5 h-5 text-[#0f62fe]" />
-            {editingInvoiceId ? 'Modification Facture Achat / Entrée' : "Saisie des Factures d'Achat & Entrées en Frigo"}
+            Saisie des Factures d'Achat & Entrées en Frigo
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            {editingInvoiceId 
-              ? `Modification en cours de la facture d'achat N° ${invoiceNumber}` 
-              : 'Réception en Cartons/Colis & Pesée Frigo • Calcul du Prix de Revient (Landed Cost)'}
+            Réception en Cartons/Colis & Pesée Frigo • Calcul du Prix de Revient (Landed Cost)
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {editingInvoiceId && (
-            <button
-              type="button"
-              onClick={handleCancelEdit}
-              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded flex items-center gap-1"
-            >
-              <X className="w-4 h-4" />
-              Annuler Modification
-            </button>
-          )}
-
           <button
             type="button"
             onClick={() => {
-              if (editingInvoiceId) handleCancelEdit();
-              setShowAddForm(prev => !prev);
+              if (onNewPurchase) {
+                onNewPurchase();
+              } else {
+                setShowAddForm(true);
+              }
             }}
             className="carbon-btn-primary text-xs flex items-center gap-1.5 rounded"
           >
             <Plus className="w-4 h-4" />
-            {showAddForm ? (editingInvoiceId ? 'Fermer la Modification' : 'Masquer le Formulaire') : 'Nouveau Bon / Arrivée Achat'}
+            Nouveau Bon / Arrivée Achat
           </button>
         </div>
       </div>
@@ -789,7 +801,14 @@ export const ImportInvoiceEntry: React.FC = () => {
                     <React.Fragment key={pur.id}>
                       <tr className="hover:bg-gray-50 transition-colors">
                         <td className="font-mono font-bold text-[#0f62fe]">
-                          {pur.invoiceNumber}
+                          <button
+                            type="button"
+                            onClick={() => onEditPurchase ? onEditPurchase(pur.id) : handleStartEdit(pur)}
+                            className="text-left font-mono font-bold text-[#0f62fe] hover:underline cursor-pointer"
+                            title="Modifier cette facture d'achat"
+                          >
+                            {pur.invoiceNumber}
+                          </button>
                           {pur.containerNumber && <div className="text-[10px] text-gray-500 font-normal">Conteneur: {pur.containerNumber}</div>}
                         </td>
                         <td>
@@ -856,8 +875,8 @@ export const ImportInvoiceEntry: React.FC = () => {
                             )}
 
                             <button
-                              onClick={() => handleStartEdit(pur)}
-                              className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold rounded flex items-center gap-1 shadow-sm transition-colors"
+                              onClick={() => onEditPurchase ? onEditPurchase(pur.id) : handleStartEdit(pur)}
+                              className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold rounded flex items-center gap-1 shadow-sm transition-colors cursor-pointer"
                               title="Modifier cette facture d'achat / entrée"
                             >
                               <Pencil className="w-3.5 h-3.5" />

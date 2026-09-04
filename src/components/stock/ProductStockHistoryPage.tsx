@@ -52,13 +52,15 @@ interface ProductStockHistoryPageProps {
   onBack: () => void;
   onNavigateToBL?: (blNumberOrId: string) => void;
   onSelectProduct?: (productId: string) => void;
+  onEditPurchase?: (id: string) => void;
 }
 
 export const ProductStockHistoryPage: React.FC<ProductStockHistoryPageProps> = ({
   productId,
   onBack,
   onNavigateToBL,
-  onSelectProduct
+  onSelectProduct,
+  onEditPurchase
 }) => {
   const erp = useERP();
   const products = erp.products || [];
@@ -752,8 +754,12 @@ export const ProductStockHistoryPage: React.FC<ProductStockHistoryPageProps> = (
                         {m.type === 'ENTREE_ACHAT' && m.purchaseInvoiceId && (
                           <button
                             onClick={() => {
-                              const pur = purchaseInvoices.find(p => p.id === m.purchaseInvoiceId);
-                              if (pur) setEditingPurchaseInvoice(pur);
+                              if (onEditPurchase) {
+                                onEditPurchase(m.purchaseInvoiceId!);
+                              } else {
+                                const pur = purchaseInvoices.find(p => p.id === m.purchaseInvoiceId);
+                                if (pur) setEditingPurchaseInvoice(pur);
+                              }
                             }}
                             className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded text-xs border border-amber-200 transition inline-flex items-center gap-1 cursor-pointer"
                             title="Modifier cette facture d'achat"
@@ -866,8 +872,12 @@ export const ProductStockHistoryPage: React.FC<ProductStockHistoryPageProps> = (
                     {m.type === 'ENTREE_ACHAT' && m.purchaseInvoiceId && (
                       <button
                         onClick={() => {
-                          const pur = purchaseInvoices.find(p => p.id === m.purchaseInvoiceId);
-                          if (pur) setEditingPurchaseInvoice(pur);
+                          if (onEditPurchase) {
+                            onEditPurchase(m.purchaseInvoiceId!);
+                          } else {
+                            const pur = purchaseInvoices.find(p => p.id === m.purchaseInvoiceId);
+                            if (pur) setEditingPurchaseInvoice(pur);
+                          }
                         }}
                         className="flex-1 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 cursor-pointer touch-manipulation active:scale-95"
                       >

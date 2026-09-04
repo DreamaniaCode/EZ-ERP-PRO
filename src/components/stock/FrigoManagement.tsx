@@ -62,6 +62,7 @@ interface FrigoManagementProps {
   onViewFrigoDetail?: (id: string) => void;
   onViewProductHistory?: (productId: string) => void;
   onViewClient?: (clientId: string) => void;
+  onEditPurchase?: (id: string) => void;
   onNavigateToImport?: (frigoId?: string) => void;
   initialFrigoId?: string | null;
 }
@@ -72,6 +73,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
   onViewFrigoDetail,
   onViewProductHistory, 
   onViewClient,
+  onEditPurchase,
   onNavigateToImport,
   initialFrigoId 
 }) => {
@@ -1215,7 +1217,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                             <span>{m.documentRef}</span>
                             {purchaseInvoice && (
                               <button
-                                onClick={() => setEditingPurchaseInvoice(purchaseInvoice)}
+                                onClick={() => onEditPurchase ? onEditPurchase(purchaseInvoice.id) : setEditingPurchaseInvoice(purchaseInvoice)}
                                 className="p-0.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded"
                                 title="Modifier cette facture d'achat"
                               >
@@ -1288,7 +1290,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                             {purchaseInvoice && (
                               <button
                                 type="button"
-                                onClick={() => setEditingPurchaseInvoice(purchaseInvoice)}
+                                onClick={() => onEditPurchase ? onEditPurchase(purchaseInvoice.id) : setEditingPurchaseInvoice(purchaseInvoice)}
                                 className="px-2 py-1 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded text-[10px] font-bold flex items-center gap-1 transition"
                                 title="Modifier la facture d'achat / réception"
                               >
@@ -1657,7 +1659,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                             
                             {/* Modifier Button */}
                             <button
-                              onClick={() => setEditingPurchaseInvoice(pur)}
+                              onClick={() => onEditPurchase ? onEditPurchase(pur.id) : setEditingPurchaseInvoice(pur)}
                               className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] rounded flex items-center gap-1 shadow-xs transition cursor-pointer"
                               title="Modifier cette facture d'achat / réception et ajuster le stock"
                             >

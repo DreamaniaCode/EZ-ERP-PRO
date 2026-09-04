@@ -77,6 +77,7 @@ const BLEditPage = safeLazy(() => import('./components/sales/BLEditPage').then(m
 const OrderEditPage = safeLazy(() => import('./components/sales/OrderEditPage').then(m => ({ default: m.OrderEditPage })));
 const ExpenseEditPage = safeLazy(() => import('./components/finance/ExpenseEditPage').then(m => ({ default: m.ExpenseEditPage })));
 const ChequeEditPage = safeLazy(() => import('./components/finance/ChequeEditPage').then(m => ({ default: m.ChequeEditPage })));
+const PurchaseInvoiceEditPage = safeLazy(() => import('./components/purchases/PurchaseInvoiceEditPage').then(m => ({ default: m.PurchaseInvoiceEditPage })));
 
 // New feature pages
 const UserManagement = safeLazy(() => import('./components/users/UserManagement').then(m => ({ default: m.UserManagement })));
@@ -92,7 +93,7 @@ const MassBLCreationPage = safeLazy(() => import('./components/sales/MassBLCreat
 // Extended NavTab type with edit sub-views
 export type ExtendedNavTab = NavTab | 
   'PRODUCT_EDIT' | 'CLIENT_EDIT' | 'SUPPLIER_EDIT' | 'FRIGO_EDIT' |
-  'BL_EDIT' | 'ORDER_EDIT' | 'EXPENSE_EDIT' | 'CHEQUE_EDIT' |
+  'BL_EDIT' | 'ORDER_EDIT' | 'EXPENSE_EDIT' | 'CHEQUE_EDIT' | 'PURCHASE_EDIT' |
   'USERS' | 'IMPORT_BL' | 'BACKUP' | 'BL_SIGN' | 'BL_PDF' | 'FRIGO_OPS' | 'PRODUCT_HISTORY' | 'STOCK_REPACKAGING' | 'MASS_BL';
 
 function LoadingSpinner() {
@@ -231,6 +232,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
       'SALES_ORDERS': 'SALES_ORDERS',
       'ORDER_EDIT': 'SALES_ORDERS',
       'PURCHASES_IMPORTS': 'PURCHASES',
+      'PURCHASE_EDIT': 'PURCHASES',
       'MULTI_SITE_INVENTORY': 'INVENTORY',
       'INVOICING': 'INVOICING',
       'TREASURY_CHEQUES': 'TREASURY',
@@ -274,6 +276,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
       case 'ORDER_EDIT':
         return ['SUPER_ADMIN', 'ADMIN', 'COMMERCIAL', 'CONTROLEUR'].includes(appUser.role as any);
       case 'PURCHASES_IMPORTS':
+      case 'PURCHASE_EDIT':
         return ['SUPER_ADMIN', 'ADMIN', 'COMPTABLE', 'COMPTABLE_FACTURES', 'COMMERCIAL', 'CONTROLEUR'].includes(appUser.role as any);
       case 'MULTI_SITE_INVENTORY':
       case 'FRIGO_MANAGEMENT':
@@ -381,6 +384,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
             onBack={navigateBack} 
             onNavigateToBL={(blId) => navigateToEdit('BL_PDF', blId)}
             onSelectProduct={(id) => setEditingEntityId(id)}
+            onEditPurchase={(id) => navigateToEdit('PURCHASE_EDIT', id)}
           />
         );
       case 'STOCK_REPACKAGING':
@@ -419,7 +423,12 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
       case 'SALES_ORDERS':
         return <SalesOrders onEditOrder={(id) => navigateToEdit('ORDER_EDIT', id)} onNewOrder={() => navigateToEdit('ORDER_EDIT', null)} />;
       case 'PURCHASES_IMPORTS':
-        return <ImportInvoiceEntry />;
+        return (
+          <ImportInvoiceEntry 
+            onEditPurchase={(id) => navigateToEdit('PURCHASE_EDIT', id)}
+            onNewPurchase={() => navigateToEdit('PURCHASE_EDIT', null)}
+          />
+        );
       case 'MULTI_SITE_INVENTORY':
         return (
           <MultiFrigoInventory 
@@ -442,6 +451,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
             initialFrigoId={editingEntityId}
             onViewProductHistory={(id) => navigateToEdit('PRODUCT_HISTORY', id)}
             onViewClient={(id) => navigateToEdit('CLIENT_EDIT', id)}
+            onEditPurchase={(id) => navigateToEdit('PURCHASE_EDIT', id)}
             onNavigateToImport={(frigoId) => {
               navigateToEdit('IMPORT_BL', frigoId ? `STOCK:${frigoId}` : 'STOCK');
             }}
@@ -487,6 +497,7 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
               setBlInitialClientId(null);
               navigateBack();
             }} 
+            onViewClient={(clientId) => navigateToEdit('CLIENT_EDIT', clientId)}
           />
         );
       case 'ORDER_EDIT':
@@ -495,6 +506,8 @@ function ERPContent({ appUser }: { appUser: AppUser }) {
         return <ExpenseEditPage editId={editingEntityId} onBack={navigateBack} />;
       case 'CHEQUE_EDIT':
         return <ChequeEditPage editId={editingEntityId} onBack={navigateBack} />;
+      case 'PURCHASE_EDIT':
+        return <PurchaseInvoiceEditPage editId={editingEntityId} onBack={navigateBack} />;
       case 'BL_SIGN':
         return <BLSignaturePage blId={editingEntityId} onBack={navigateBack} />;
       case 'BL_PDF':
