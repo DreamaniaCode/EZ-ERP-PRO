@@ -917,65 +917,113 @@ app.post("/api/delivery-notes/import-batch", async (req, res) => {
   try {
     const { bls } = req.body;
     if (!Array.isArray(bls)) return res.status(400).json({ error: "Array of BLs expected" });
-    const result = await prisma.$transaction(async (tx) => {
-      const createdBLs = [];
-      const allClients = await tx.client.findMany();
-      let maxClientNum = 0;
-      allClients.forEach((c) => {
-        const match = (c.code || "").match(/CLT-(\d+)/i);
-        if (match) {
-          const num = parseInt(match[1], 10);
-          if (num > maxClientNum) maxClientNum = num;
+    if (bls.length === 0) return res.json({ importedCount: 0, bls: [] });
+    const allClients = await prisma.client.findMany();
+    let maxClientNum = 0;
+    allClients.forEach((c) => {
+      const match = (c.code || "").match(/CLT-(\d+)/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxClientNum) maxClientNum = num;
+      }
+    });
+    const existingBLRecords = await prisma.deliveryNoteBL.findMany({ select: { blNumber: true } });
+    const existingBLNumbers = new Set(existingBLRecords.map((b) => b.blNumber));
+    const createdBLs = [];
+    const allowedFields = /* @__PURE__ */ new Set([
+      "id",
+      "companyId",
+      "blNumber",
+      "orderId",
+      "orderNumber",
+      "clientId",
+      "clientName",
+      "clientAddress",
+      "clientPhone",
+      "clientEmail",
+      "frigoId",
+      "frigoName",
+      "date",
+      "items",
+      "totalKg",
+      "totalCartons",
+      "totalPallets",
+      "totalHT",
+      "totalTTC",
+      "stockDecremented",
+      "frigoEmployeeApproved",
+      "frigoApprovedBy",
+      "frigoApprovedAt",
+      "bonDeSortiePhotoUrl",
+      "bonDeSortieUploadedBy",
+      "bonDeSortieUploadedAt",
+      "whatsappSent",
+      "whatsappSentAt",
+      "clientSignatureUrl",
+      "signedByName",
+      "signedAt",
+      "emailSent",
+      "emailSentAt",
+      "emailRecipient",
+      "invoiceId",
+      "invoiceNumber",
+      "status",
+      "logs"
+    ]);
+    for (let i = 0; i < bls.length; i++) {
+      const rawBL = bls[i];
+      if (!rawBL) continue;
+      let blNumber = rawBL.blNumber;
+      if (!blNumber) {
+        blNumber = `BL-BATCH-${Date.now()}-${i + 1}`;
+      }
+      let finalBlNumber = blNumber;
+      if (existingBLNumbers.has(finalBlNumber)) {
+        finalBlNumber = `${blNumber}-${Date.now().toString().slice(-4)}${i + 1}`;
+      }
+      existingBLNumbers.add(finalBlNumber);
+      let finalClientId = rawBL.clientId;
+      if (rawBL.clientName && rawBL.clientName.trim()) {
+        const cleanName = rawBL.clientName.trim();
+        let matchedClient = allClients.find(
+          (c) => finalClientId && c.id === finalClientId || c.name.trim().toLowerCase() === cleanName.toLowerCase() || c.companyName && c.companyName.trim().toLowerCase() === cleanName.toLowerCase()
+        );
+        if (!matchedClient) {
+          maxClientNum++;
+          const newCode = `CLT-${String(maxClientNum).padStart(3, "0")}`;
+          matchedClient = await prisma.client.create({
+            data: {
+              code: newCode,
+              name: cleanName,
+              companyName: cleanName,
+              city: "Casablanca",
+              creditLimit: 3e5,
+              currentBalance: 0
+            }
+          });
+          allClients.push(matchedClient);
         }
-      });
-      const existingBLRecords = await tx.deliveryNoteBL.findMany({ select: { blNumber: true } });
-      const existingBLNumbers = new Set(existingBLRecords.map((b) => b.blNumber));
-      for (let i = 0; i < bls.length; i++) {
-        const blData = { ...bls[i] };
-        if (!blData.blNumber) {
-          blData.blNumber = `BL-BATCH-${Date.now()}-${i + 1}`;
+        finalClientId = matchedClient.id;
+      }
+      const cleanData = {};
+      for (const key of Object.keys(rawBL)) {
+        if (allowedFields.has(key)) {
+          cleanData[key] = rawBL[key];
         }
-        let finalBlNumber = blData.blNumber;
-        if (existingBLNumbers.has(finalBlNumber)) {
-          finalBlNumber = `${blData.blNumber}-${Date.now().toString().slice(-4)}${i + 1}`;
-        }
-        existingBLNumbers.add(finalBlNumber);
-        blData.blNumber = finalBlNumber;
-        let finalClientId = blData.clientId;
-        if (blData.clientName && blData.clientName.trim()) {
-          const cleanName = blData.clientName.trim();
-          let matchedClient = allClients.find(
-            (c) => finalClientId && c.id === finalClientId || c.name.trim().toLowerCase() === cleanName.toLowerCase() || c.companyName.trim().toLowerCase() === cleanName.toLowerCase()
-          );
-          if (!matchedClient) {
-            maxClientNum++;
-            const newCode = `CLT-${String(maxClientNum).padStart(3, "0")}`;
-            matchedClient = await tx.client.create({
-              data: {
-                code: newCode,
-                name: cleanName,
-                companyName: cleanName,
-                city: "Casablanca",
-                creditLimit: 3e5,
-                currentBalance: 0
-              }
-            });
-            allClients.push(matchedClient);
-          }
-          finalClientId = matchedClient.id;
-        }
-        blData.clientId = finalClientId || blData.clientId || "";
-        const created = await tx.deliveryNoteBL.create({ data: blData });
-        createdBLs.push(created);
-        if (blData.frigoId && Array.isArray(blData.items)) {
-          for (const item of blData.items) {
+      }
+      cleanData.blNumber = finalBlNumber;
+      cleanData.clientId = finalClientId || cleanData.clientId || "";
+      const created = await prisma.$transaction(async (tx) => {
+        const createdRecord = await tx.deliveryNoteBL.create({ data: cleanData });
+        if (cleanData.frigoId && Array.isArray(cleanData.items)) {
+          for (const item of cleanData.items) {
             if (!item.productId) continue;
             const kg = Number(item.quantityKg) || 0;
             const pallets = Number(item.quantityPallets) || 0;
             const existingStock = await tx.frigoStockLevel.findUnique({
               where: {
                 frigoId_productId: {
-                  frigoId: blData.frigoId,
+                  frigoId: cleanData.frigoId,
                   productId: item.productId
                 }
               }
@@ -984,7 +1032,7 @@ app.post("/api/delivery-notes/import-batch", async (req, res) => {
               await tx.frigoStockLevel.update({
                 where: {
                   frigoId_productId: {
-                    frigoId: blData.frigoId,
+                    frigoId: cleanData.frigoId,
                     productId: item.productId
                   }
                 },
@@ -996,7 +1044,7 @@ app.post("/api/delivery-notes/import-batch", async (req, res) => {
             } else {
               await tx.frigoStockLevel.create({
                 data: {
-                  frigoId: blData.frigoId,
+                  frigoId: cleanData.frigoId,
                   productId: item.productId,
                   quantityKg: 0,
                   quantityPallets: 0
@@ -1006,21 +1054,25 @@ app.post("/api/delivery-notes/import-batch", async (req, res) => {
             await tx.productStockMovement.create({
               data: {
                 productId: item.productId,
-                frigoId: blData.frigoId,
+                frigoId: cleanData.frigoId,
                 type: "SORTIE",
                 quantityKg: kg,
                 quantityPallets: pallets,
                 performedBy: "Saisie / Import BL en Masse",
-                referenceDoc: blData.blNumber,
-                notes: `Sortie BL ${blData.blNumber} - Client: ${blData.clientName || ""}`
+                referenceDoc: cleanData.blNumber,
+                notes: `Sortie BL ${cleanData.blNumber} - Client: ${cleanData.clientName || ""}`
               }
             });
           }
         }
-      }
-      return createdBLs;
-    });
-    res.json({ importedCount: result.length, bls: result });
+        return createdRecord;
+      }, {
+        maxWait: 15e3,
+        timeout: 3e4
+      });
+      createdBLs.push(created);
+    }
+    res.json({ importedCount: createdBLs.length, bls: createdBLs });
   } catch (error) {
     console.error("Error importing batch BLs with stock decrement:", error);
     res.status(500).json({ error: error.message });

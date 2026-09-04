@@ -1084,74 +1084,99 @@ app.post('/api/delivery-notes/import-batch', async (req, res) => {
   try {
     const { bls } = req.body;
     if (!Array.isArray(bls)) return res.status(400).json({ error: 'Array of BLs expected' });
+    if (bls.length === 0) return res.json({ importedCount: 0, bls: [] });
     
-    const result = await prisma.$transaction(async (tx) => {
-      const createdBLs = [];
-      // Get all existing clients for fast in-memory lookup and code generation
-      const allClients = await tx.client.findMany();
-      let maxClientNum = 0;
-      allClients.forEach(c => {
-        const match = (c.code || '').match(/CLT-(\d+)/i);
-        if (match) {
-          const num = parseInt(match[1], 10);
-          if (num > maxClientNum) maxClientNum = num;
+    // 1. Pre-fetch all clients & existing BL numbers outside transaction for instant lookup
+    const allClients = await prisma.client.findMany();
+    let maxClientNum = 0;
+    allClients.forEach(c => {
+      const match = (c.code || '').match(/CLT-(\d+)/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxClientNum) maxClientNum = num;
+      }
+    });
+
+    const existingBLRecords = await prisma.deliveryNoteBL.findMany({ select: { blNumber: true } });
+    const existingBLNumbers = new Set(existingBLRecords.map(b => b.blNumber));
+
+    const createdBLs = [];
+
+    // Valid fields according to Prisma DeliveryNoteBL schema
+    const allowedFields = new Set([
+      'id', 'companyId', 'blNumber', 'orderId', 'orderNumber', 'clientId',
+      'clientName', 'clientAddress', 'clientPhone', 'clientEmail', 'frigoId',
+      'frigoName', 'date', 'items', 'totalKg', 'totalCartons', 'totalPallets',
+      'totalHT', 'totalTTC', 'stockDecremented', 'frigoEmployeeApproved',
+      'frigoApprovedBy', 'frigoApprovedAt', 'bonDeSortiePhotoUrl',
+      'bonDeSortieUploadedBy', 'bonDeSortieUploadedAt', 'whatsappSent',
+      'whatsappSentAt', 'clientSignatureUrl', 'signedByName', 'signedAt',
+      'emailSent', 'emailSentAt', 'emailRecipient', 'invoiceId', 'invoiceNumber',
+      'status', 'logs'
+    ]);
+
+    for (let i = 0; i < bls.length; i++) {
+      const rawBL = bls[i];
+      if (!rawBL) continue;
+
+      let blNumber = rawBL.blNumber;
+      if (!blNumber) {
+        blNumber = `BL-BATCH-${Date.now()}-${i + 1}`;
+      }
+
+      // Ensure blNumber is 100% unique in DB
+      let finalBlNumber = blNumber;
+      if (existingBLNumbers.has(finalBlNumber)) {
+        finalBlNumber = `${blNumber}-${Date.now().toString().slice(-4)}${i + 1}`;
+      }
+      existingBLNumbers.add(finalBlNumber);
+
+      // Auto-resolve or auto-create client
+      let finalClientId = rawBL.clientId;
+      if (rawBL.clientName && rawBL.clientName.trim()) {
+        const cleanName = rawBL.clientName.trim();
+        let matchedClient = allClients.find(c => 
+          (finalClientId && c.id === finalClientId) ||
+          c.name.trim().toLowerCase() === cleanName.toLowerCase() ||
+          (c.companyName && c.companyName.trim().toLowerCase() === cleanName.toLowerCase())
+        );
+
+        if (!matchedClient) {
+          maxClientNum++;
+          const newCode = `CLT-${String(maxClientNum).padStart(3, '0')}`;
+          matchedClient = await prisma.client.create({
+            data: {
+              code: newCode,
+              name: cleanName,
+              companyName: cleanName,
+              city: 'Casablanca',
+              creditLimit: 300000,
+              currentBalance: 0,
+            }
+          });
+          allClients.push(matchedClient);
         }
-      });
+        finalClientId = matchedClient.id;
+      }
 
-      // Get existing BL numbers to guarantee absolute uniqueness
-      const existingBLRecords = await tx.deliveryNoteBL.findMany({ select: { blNumber: true } });
-      const existingBLNumbers = new Set(existingBLRecords.map(b => b.blNumber));
-
-      for (let i = 0; i < bls.length; i++) {
-        const blData = { ...bls[i] };
-        if (!blData.blNumber) {
-          blData.blNumber = `BL-BATCH-${Date.now()}-${i + 1}`;
+      // Filter to only allowed schema fields
+      const cleanData: any = {};
+      for (const key of Object.keys(rawBL)) {
+        if (allowedFields.has(key)) {
+          cleanData[key] = rawBL[key];
         }
+      }
 
-        // Ensure blNumber is 100% unique in DB
-        let finalBlNumber = blData.blNumber;
-        if (existingBLNumbers.has(finalBlNumber)) {
-          finalBlNumber = `${blData.blNumber}-${Date.now().toString().slice(-4)}${i + 1}`;
-        }
-        existingBLNumbers.add(finalBlNumber);
-        blData.blNumber = finalBlNumber;
+      cleanData.blNumber = finalBlNumber;
+      cleanData.clientId = finalClientId || cleanData.clientId || '';
 
-        // Auto-resolve or auto-create client
-        let finalClientId = blData.clientId;
-        if (blData.clientName && blData.clientName.trim()) {
-          const cleanName = blData.clientName.trim();
-          let matchedClient = allClients.find(c => 
-            (finalClientId && c.id === finalClientId) ||
-            c.name.trim().toLowerCase() === cleanName.toLowerCase() ||
-            c.companyName.trim().toLowerCase() === cleanName.toLowerCase()
-          );
-
-          if (!matchedClient) {
-            maxClientNum++;
-            const newCode = `CLT-${String(maxClientNum).padStart(3, '0')}`;
-            matchedClient = await tx.client.create({
-              data: {
-                code: newCode,
-                name: cleanName,
-                companyName: cleanName,
-                city: 'Casablanca',
-                creditLimit: 300000,
-                currentBalance: 0,
-              }
-            });
-            allClients.push(matchedClient);
-          }
-          finalClientId = matchedClient.id;
-        }
-
-        blData.clientId = finalClientId || blData.clientId || '';
-
-        const created = await tx.deliveryNoteBL.create({ data: blData });
-        createdBLs.push(created);
+      // Each BL and its stock decrement is executed in its own isolated transaction with a generous 30s timeout
+      const created = await prisma.$transaction(async (tx) => {
+        const createdRecord = await tx.deliveryNoteBL.create({ data: cleanData });
 
         // Decrement stock for this imported BL
-        if (blData.frigoId && Array.isArray(blData.items)) {
-          for (const item of blData.items) {
+        if (cleanData.frigoId && Array.isArray(cleanData.items)) {
+          for (const item of cleanData.items) {
             if (!item.productId) continue;
             const kg = Number(item.quantityKg) || 0;
             const pallets = Number(item.quantityPallets) || 0;
@@ -1159,7 +1184,7 @@ app.post('/api/delivery-notes/import-batch', async (req, res) => {
             const existingStock = await tx.frigoStockLevel.findUnique({
               where: {
                 frigoId_productId: {
-                  frigoId: blData.frigoId,
+                  frigoId: cleanData.frigoId,
                   productId: item.productId,
                 }
               }
@@ -1169,7 +1194,7 @@ app.post('/api/delivery-notes/import-batch', async (req, res) => {
               await tx.frigoStockLevel.update({
                 where: {
                   frigoId_productId: {
-                    frigoId: blData.frigoId,
+                    frigoId: cleanData.frigoId,
                     productId: item.productId,
                   }
                 },
@@ -1181,7 +1206,7 @@ app.post('/api/delivery-notes/import-batch', async (req, res) => {
             } else {
               await tx.frigoStockLevel.create({
                 data: {
-                  frigoId: blData.frigoId,
+                  frigoId: cleanData.frigoId,
                   productId: item.productId,
                   quantityKg: 0,
                   quantityPallets: 0,
@@ -1192,22 +1217,28 @@ app.post('/api/delivery-notes/import-batch', async (req, res) => {
             await tx.productStockMovement.create({
               data: {
                 productId: item.productId,
-                frigoId: blData.frigoId,
+                frigoId: cleanData.frigoId,
                 type: 'SORTIE',
                 quantityKg: kg,
                 quantityPallets: pallets,
                 performedBy: 'Saisie / Import BL en Masse',
-                referenceDoc: blData.blNumber,
-                notes: `Sortie BL ${blData.blNumber} - Client: ${blData.clientName || ''}`,
+                referenceDoc: cleanData.blNumber,
+                notes: `Sortie BL ${cleanData.blNumber} - Client: ${cleanData.clientName || ''}`,
               }
             });
           }
         }
-      }
-      return createdBLs;
-    });
 
-    res.json({ importedCount: result.length, bls: result });
+        return createdRecord;
+      }, {
+        maxWait: 15000,
+        timeout: 30000
+      });
+
+      createdBLs.push(created);
+    }
+
+    res.json({ importedCount: createdBLs.length, bls: createdBLs });
   } catch (error: any) {
     console.error('Error importing batch BLs with stock decrement:', error);
     res.status(500).json({ error: error.message });
