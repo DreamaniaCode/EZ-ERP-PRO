@@ -750,7 +750,16 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                 const isSelected = selectedProductIds.includes(p.productId);
 
                 return (
-                  <tr key={p.productId} className={`hover:bg-blue-50/30 transition-colors ${isSelected ? 'bg-indigo-50/50' : ''}`}>
+                  <tr 
+                    key={p.productId} 
+                    onClick={() => {
+                      if (rawProduct) {
+                        onViewProductHistory ? onViewProductHistory(rawProduct.id) : setSelectedHistoryProduct(rawProduct);
+                      }
+                    }}
+                    className={`hover:bg-blue-50/50 cursor-pointer transition-colors group ${isSelected ? 'bg-indigo-50/50' : ''}`}
+                    title="Cliquer pour voir la fiche produit complète et l'historique"
+                  >
                     
                     {/* Checkbox */}
                     <td onClick={e => e.stopPropagation()} className="text-center">
@@ -765,13 +774,15 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                     </td>
 
                     {/* SKU */}
-                    <td className="font-mono font-bold text-[#0f62fe] whitespace-nowrap">
+                    <td className="font-mono font-bold text-[#0f62fe] whitespace-nowrap group-hover:underline">
                       {p.productCode}
                     </td>
 
                     {/* Product Name */}
                     <td>
-                      <div className="font-bold text-gray-900">{p.productName}</div>
+                      <div className="font-bold text-gray-900 group-hover:text-blue-700 transition-colors flex items-center gap-1.5">
+                        <span>{p.productName}</span>
+                      </div>
                       <div className="text-[10px] text-gray-500 font-mono">
                         {p.kgPerCarton} kg/colis • {p.kgPerPallet} kg/pal
                       </div>
@@ -850,7 +861,7 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                     </td>
 
                     {/* Actions */}
-                    <td className="text-center whitespace-nowrap">
+                    <td onClick={e => e.stopPropagation()} className="text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1">
                         
                         {/* History Button */}
@@ -935,9 +946,19 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                       }}
                       className="rounded text-indigo-600 focus:ring-0 cursor-pointer w-4 h-4"
                     />
-                    <span className="font-mono font-bold text-xs text-[#0f62fe] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (rawProduct) {
+                          onViewProductHistory ? onViewProductHistory(rawProduct.id) : setSelectedHistoryProduct(rawProduct);
+                        }
+                      }}
+                      className="font-mono font-bold text-xs text-[#0f62fe] bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 cursor-pointer"
+                      title="Voir fiche et historique"
+                    >
                       {p.productCode}
-                    </span>
+                    </button>
                     <span className="text-[10px] text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded font-medium truncate max-w-[130px]">
                       {p.category}
                     </span>
@@ -953,8 +974,19 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                 </div>
 
                 {/* Product Name & Packaging Specs */}
-                <div>
-                  <div className="font-bold text-sm text-gray-900 leading-snug">{p.productName}</div>
+                <div 
+                  onClick={() => {
+                    if (rawProduct) {
+                      onViewProductHistory ? onViewProductHistory(rawProduct.id) : setSelectedHistoryProduct(rawProduct);
+                    }
+                  }}
+                  className="cursor-pointer active:scale-[0.99] transition-transform group"
+                  title="Cliquer pour voir la fiche produit complète et l'historique"
+                >
+                  <div className="font-bold text-sm text-gray-900 group-hover:text-blue-700 transition-colors leading-snug flex items-center justify-between">
+                    <span>{p.productName}</span>
+                    <span className="text-[10px] text-blue-600 font-normal">Fiche & Historique &rarr;</span>
+                  </div>
                   <div className="text-[10px] text-gray-500 font-mono mt-0.5">
                     {p.origin || 'Origine Locale'} • {p.kgPerCarton} kg/colis • {p.kgPerPallet} kg/pal
                   </div>

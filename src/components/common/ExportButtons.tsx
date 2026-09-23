@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileSpreadsheet, FileText, Download } from 'lucide-react';
-import { exportToExcel, exportToCsv, exportElementToPdf, printDataReport } from '../../utils/exportUtils';
+import { exportToExcel, exportToCsv, exportElementToPdf, exportDataToPdf } from '../../utils/exportUtils';
 
 interface ExportButtonsProps {
   filename: string;
@@ -14,6 +14,7 @@ interface ExportButtonsProps {
   pdfRows?: (string | number)[][];
   sheetName?: string;
   size?: 'sm' | 'md';
+  onExportPdf?: () => void;
 }
 
 export const ExportButtons: React.FC<ExportButtonsProps> = ({
@@ -27,6 +28,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
   pdfRows,
   sheetName = 'Données',
   size = 'md',
+  onExportPdf,
 }) => {
   const { t } = useTranslation();
 
@@ -44,7 +46,6 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
     }
   };
 
-
   const handleCsvExport = () => {
     if (excelData && excelData.length > 0) {
       exportToCsv(excelData, filename);
@@ -54,17 +55,28 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
   };
 
   const handlePdfExport = () => {
-    if (pdfElementId && document.getElementById(pdfElementId)) {
+    if (onExportPdf) {
+      onExportPdf();
+      return;
+    }
+    if (excelData && excelData.length > 0) {
+      exportDataToPdf(excelData, filename, title, {
+        frigoName,
+        frigoLocation,
+      });
+    } else if (pdfElementId && document.getElementById(pdfElementId)) {
       exportElementToPdf(pdfElementId, filename, title);
     } else if (pdfHeaders && pdfRows && pdfRows.length > 0) {
-      printDataReport(title, pdfHeaders, pdfRows);
-    } else if (excelData && excelData.length > 0) {
-      // Auto-generate rows and headers from excelData
-      const headers = Object.keys(excelData[0]);
-      const rows = excelData.map(row => headers.map(h => row[h] ?? ''));
-      printDataReport(title, headers, rows);
+      const rowsObj = pdfRows.map(r => {
+        const obj: Record<string, any> = {};
+        pdfHeaders.forEach((h, idx) => {
+          obj[h] = r[idx] ?? '';
+        });
+        return obj;
+      });
+      exportDataToPdf(rowsObj, filename, title, { frigoName, frigoLocation });
     } else {
-      window.print();
+      alert(t('common.noData', 'Aucune donnée à exporter en PDF.'));
     }
   };
 

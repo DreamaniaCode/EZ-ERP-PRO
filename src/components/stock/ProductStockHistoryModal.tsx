@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Product, ColdStorageFrigo } from '../../types';
 import { useERP } from '../../context/ERPContext';
 import { ExportButtons } from '../common/ExportButtons';
+import { exportProductHistoryPdf } from '../../utils/exportUtils';
 import { 
   X, 
   History, 
@@ -20,7 +21,14 @@ import {
   Layers,
   ArrowRight,
   Clock,
-  Pencil
+  Pencil,
+  DollarSign,
+  TrendingUp,
+  Boxes,
+  Scale,
+  ShieldCheck,
+  Tag,
+  Info
 } from 'lucide-react';
 import { EditPurchaseInvoiceModal } from '../purchases/EditPurchaseInvoiceModal';
 import { PurchaseImportInvoice } from '../../types';
@@ -69,12 +77,44 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
   const stocks = erp.stocks || [];
   const frigos = erp.frigos || [];
   const adjustStock = erp.adjustStock;
+  const updateProduct = erp.updateProduct;
 
+  const [activeTab, setActiveTab] = useState<'HISTORY' | 'INFO'>('HISTORY');
   const [frigoFilter, setFrigoFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [editingPurchaseInvoice, setEditingPurchaseInvoice] = useState<PurchaseImportInvoice | null>(null);
+
+  // Edit Product Sub-Modal State
+  const [isEditingProduct, setIsEditingProduct] = useState<boolean>(false);
+  const [productFormData, setProductFormData] = useState({
+    name: '',
+    category: 'Dattes Locales' as any,
+    origin: 'Maroc',
+    sellingPriceHT: 0,
+    unitCostHT: 0,
+    kgPerCarton: 5,
+    cartonsPerPallet: 160,
+    minStockAlertKg: 0,
+    description: '',
+  });
+
+  useEffect(() => {
+    if (product) {
+      setProductFormData({
+        name: product.name,
+        category: product.category,
+        origin: product.origin || 'Maroc',
+        sellingPriceHT: product.sellingPriceHT || 0,
+        unitCostHT: product.unitCostHT || 0,
+        kgPerCarton: product.kgPerCarton || 5,
+        cartonsPerPallet: product.cartonsPerPallet || 160,
+        minStockAlertKg: product.minStockAlertKg || 0,
+        description: product.description || '',
+      });
+    }
+  }, [product]);
 
   // Manual adjustment sub-form toggle
   const [showManualForm, setShowManualForm] = useState<boolean>(false);
@@ -227,6 +267,66 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
   const dynamicBalanceKg = Math.max(0, totalEntriesKg - totalExitsKg);
   const effectiveTotalStockKg = totalEntriesKg > 0 ? dynamicBalanceKg : totalStockKgFromRecords;
 
+  // Financial & Logistics calculations
+  const sellingPriceHT = product?.sellingPriceHT || 0;
+  const unitCostHT = product?.unitCostHT || 0;
+  const marginPerKg = Math.max(0, sellingPriceHT - unitCostHT);
+  const marginPct = sellingPriceHT > 0 ? ((marginPerKg / sellingPriceHT) * 100).toFixed(1) : '0';
+  const vatRate = product?.vatRate !== undefined ? product.vatRate : 0.20;
+  const priceTTC = sellingPriceHT * (1 + vatRate);
+  const totalStockCartons = (product?.kgPerCarton || 5) > 0 ? Math.round(effectiveTotalStockKg / (product?.kgPerCarton || 5)) : 0;
+  const totalValuationCost = effectiveTotalStockKg * unitCostHT;
+  const totalValuationSale = effectiveTotalStockKg * sellingPriceHT;
+  const totalGrossMargin = Math.max(0, totalValuationSale - totalValuationCost);
+
+  // Status
+  const isOutOfStock = effectiveTotalStockKg <= 0;
+  const isLowStock = !isOutOfStock && (product?.minStockAlertKg || 0) > 0 && effectiveTotalStockKg <= (product?.minStockAlertKg || 0);
+  const stockStatusLabel = isOutOfStock ? 'RUPTURE DE STOCK' : isLowStock ? 'STOCK FAIBLE' : 'EN STOCK DISPONIBLE';
+
+  const handleUpdateProductSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product) return;
+    updateProduct(product.id, {
+      ...productFormData,
+      sellingPriceHT: Number(productFormData.sellingPriceHT),
+      unitCostHT: Number(productFormData.unitCostHT),
+      kgPerCarton: Number(productFormData.kgPerCarton),
+      cartonsPerPallet: Number(productFormData.cartonsPerPallet),
+      minStockAlertKg: Number(productFormData.minStockAlertKg),
+      kgPerPallet: (Number(productFormData.kgPerCarton) || 5) * (Number(productFormData.cartonsPerPallet) || 160),
+    });
+    setIsEditingProduct(false);
+    alert('Fiche produit et tarifs mis à jour avec succès !');
+  };
+
+  const handleExportStockPdf = () => {
+    if (!product) return;
+    exportProductHistoryPdf(
+      product,
+      filteredMovements,
+      {
+        effectiveStockKg: effectiveTotalStockKg,
+        totalPallets: totalStockPallets,
+        totalEntriesKg,
+        totalExitsKg,
+        frigoBreakdown: frigos.map(fr => {
+          const fMvs = allMovements.filter(m => m.frigoId === fr.id || (m.frigoName && fr.name && (m.frigoName.includes(fr.name) || fr.name.includes(m.frigoName))));
+          const fEntries = fMvs.filter(m => m.changeKg > 0).reduce((sum, m) => sum + m.changeKg, 0);
+          const fExits = fMvs.filter(m => m.changeKg < 0).reduce((sum, m) => sum + Math.abs(m.changeKg), 0);
+          const st = productStocks.find(s => s.frigoId === fr.id || s.frigoId === fr.code);
+          const fKg = fEntries > 0 ? Math.max(0, fEntries - fExits) : (st?.quantityKg || 0);
+          const fPal = st && st.quantityPallets > 0 ? st.quantityPallets : (fKg > 0 ? Math.max(1, Math.ceil(fKg / (product.kgPerPallet || 500))) : 0);
+          return {
+            frigoName: fr.name,
+            quantityKg: fKg,
+            quantityPallets: fPal
+          };
+        })
+      }
+    );
+  };
+
   // *** GUARD: Must come AFTER all hooks ***
   if (!isOpen || !product) return null;
 
@@ -270,7 +370,7 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
         <div className="bg-[#161616] text-white p-4 flex justify-between items-center border-b border-[#393939] shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-[#0f62fe] flex items-center justify-center text-white font-bold shadow">
-              <History className="w-5 h-5" />
+              <Package className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -278,34 +378,88 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
                   {product.code}
                 </span>
                 <h2 className="font-bold text-base tracking-wide text-white">
-                  Historique Chronologique des Mouvements & BLs
+                  Fiche Produit & Historique des Mouvements
                 </h2>
               </div>
               <p className="text-xs text-gray-400 mt-0.5">
-                {product.name} ({product.category} • {product.origin})
+                {product.name} ({product.category} • {product.origin || 'Maroc'})
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => setShowManualForm(!showManualForm)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded transition flex items-center gap-1.5 shadow"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded transition flex items-center gap-1.5 shadow cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Ajuster Stock</span>
             </button>
             <button
+              type="button"
               onClick={onClose}
-              className="text-gray-400 hover:text-white p-1.5 rounded-lg transition hover:bg-[#262626]"
+              className="text-gray-400 hover:text-white p-1.5 rounded-lg transition hover:bg-[#262626] cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
+        {/* Navigation Tabs Bar */}
+        <div className="bg-[#1f1f1f] text-white px-4 flex items-center justify-between border-b border-[#393939] shrink-0 text-xs">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('HISTORY')}
+              className={`py-2.5 px-4 font-semibold transition border-b-2 flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'HISTORY'
+                  ? 'border-[#0f62fe] text-white bg-[#262626]'
+                  : 'border-transparent text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>Historique des Mouvements ({allMovements.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('INFO')}
+              className={`py-2.5 px-4 font-semibold transition border-b-2 flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'INFO'
+                  ? 'border-[#0f62fe] text-white bg-[#262626]'
+                  : 'border-transparent text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <Info className="w-3.5 h-3.5" />
+              <span>Fiche Complète & Tarifs</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 py-1.5">
+            <span className={`text-[10px] px-2.5 py-0.5 font-bold font-mono rounded border ${
+              isOutOfStock ? 'bg-red-950 text-red-300 border-red-800' :
+              isLowStock ? 'bg-amber-950 text-amber-300 border-amber-800' :
+              'bg-emerald-950 text-emerald-300 border-emerald-800'
+            }`}>
+              {stockStatusLabel}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsEditingProduct(true)}
+              className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium px-2.5 py-1 rounded flex items-center gap-1 transition cursor-pointer"
+              title="Modifier les tarifs ou caractéristiques du produit"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              <span>Modifier Fiche</span>
+            </button>
+          </div>
+        </div>
+
         {/* Modal Content Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+
+          {activeTab === 'HISTORY' && (
+            <>
 
           {/* Top KPI Summary Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -515,7 +669,7 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
                 />
               </div>
 
-              {/* Export Button for Stock History */}
+              {/* Export Button for Stock History with Direct PDF download */}
               <ExportButtons
                 filename={`Historique_Stock_${product.code}`}
                 title={`Historique des Mouvements de Stock - ${product.code} (${product.name})`}
@@ -534,6 +688,7 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
                   'Statut Document': m.status || 'OK',
                   'Remarques / Notes': m.notes || '-',
                 }))}
+                onExportPdf={handleExportStockPdf}
               />
             </div>
 
@@ -705,31 +860,412 @@ export const ProductStockHistoryModal: React.FC<ProductStockHistoryModalProps> =
               </table>
             </div>
           </div>
+        </>
+      )}
+
+      {/* TAB 2: FICHE COMPLÈTE DU PRODUIT & TARIFS */}
+      {activeTab === 'INFO' && (
+        <div className="space-y-4 animate-fade-in">
+          
+          {/* Product Identity & Main Specifications Card */}
+          <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-[#0f62fe] font-bold">
+                  <Package className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                      {product.code}
+                    </span>
+                    <h3 className="text-base font-bold text-gray-900">{product.name}</h3>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {product.category} • Origine: <b>{product.origin || 'Maroc'}</b>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProduct(true)}
+                  className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Modifier les caractéristiques</span>
+                </button>
+              </div>
+            </div>
+
+            {product.description && (
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs text-gray-700">
+                <span className="font-bold text-gray-900 block mb-1">Description / Notes :</span>
+                {product.description}
+              </div>
+            )}
+
+            {/* 3 Metrics Grids */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              
+              {/* Grid 1: Tarification & Marge */}
+              <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-200/80 space-y-3">
+                <div className="flex items-center justify-between text-emerald-900 font-bold text-xs">
+                  <span className="flex items-center gap-1.5">
+                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                    Tarification & Marges
+                  </span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-mono font-bold">
+                    {marginPct}% Marge
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-xs font-mono">
+                  <div className="flex justify-between items-center py-1 border-b border-emerald-100">
+                    <span className="text-gray-600">Prix Vente HT / kg :</span>
+                    <span className="font-black text-sm text-emerald-800">{sellingPriceHT.toFixed(2)} DH</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-emerald-100">
+                    <span className="text-gray-600">Coût Revient HT / kg :</span>
+                    <span className="font-bold text-gray-800">{unitCostHT.toFixed(2)} DH</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-emerald-100">
+                    <span className="text-gray-600">Marge Brute HT / kg :</span>
+                    <span className="font-bold text-blue-700">+{marginPerKg.toFixed(2)} DH</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-emerald-100">
+                    <span className="text-gray-600">TVA appliquée :</span>
+                    <span className="text-gray-800">{(vatRate * 100).toFixed(0)}%</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-gray-600">Prix Vente TTC estimé :</span>
+                    <span className="font-bold text-gray-900">{priceTTC.toFixed(2)} DH / kg</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid 2: Valorisation du Stock */}
+              <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-200/80 space-y-3">
+                <div className="flex items-center justify-between text-purple-900 font-bold text-xs">
+                  <span className="flex items-center gap-1.5">
+                    <TrendingUp className="w-4 h-4 text-purple-600" />
+                    Valorisation du Stock Actuel
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-xs font-mono">
+                  <div className="flex justify-between items-center py-1 border-b border-purple-100">
+                    <span className="text-gray-600">Valeur au Coût HT :</span>
+                    <span className="font-black text-sm text-purple-900">{totalValuationCost.toLocaleString()} DH</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-purple-100">
+                    <span className="text-gray-600">Valeur Vénale Vente HT :</span>
+                    <span className="font-bold text-emerald-800">{totalValuationSale.toLocaleString()} DH</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-purple-100">
+                    <span className="text-gray-600">Plus-value Brute :</span>
+                    <span className="font-bold text-blue-700">+{totalGrossMargin.toLocaleString()} DH</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-gray-600">Quantité en Stock :</span>
+                    <span className="font-bold text-gray-900">{effectiveTotalStockKg.toLocaleString()} Kg</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid 3: Conditionnement & Alertes */}
+              <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-200/80 space-y-3">
+                <div className="flex items-center justify-between text-blue-900 font-bold text-xs">
+                  <span className="flex items-center gap-1.5">
+                    <Boxes className="w-4 h-4 text-[#0f62fe]" />
+                    Conditionnement & Logistique
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-xs font-mono">
+                  <div className="flex justify-between items-center py-1 border-b border-blue-100">
+                    <span className="text-gray-600">Poids par Colis / Carton :</span>
+                    <span className="font-bold text-gray-900">{product.kgPerCarton || 5} Kg</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-blue-100">
+                    <span className="text-gray-600">Colis par Palette :</span>
+                    <span className="font-bold text-gray-900">{product.cartonsPerPallet || 160} colis</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-blue-100">
+                    <span className="text-gray-600">Poids théorique Palette :</span>
+                    <span className="font-bold text-purple-700">{product.kgPerPallet || ((product.kgPerCarton || 5) * (product.cartonsPerPallet || 160))} Kg</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-blue-100">
+                    <span className="text-gray-600">Total Colis en Stock :</span>
+                    <span className="font-bold text-gray-900">{totalStockCartons.toLocaleString()} colis</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-gray-600">Seuil d'Alerte Minimum :</span>
+                    <span className={`font-bold ${isLowStock ? 'text-amber-700 font-black' : 'text-gray-800'}`}>
+                      {(product.minStockAlertKg || 0).toLocaleString()} Kg
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* Detailed Breakdown per Cold Storage Frigo */}
+          <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-4">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+              <h4 className="font-bold text-xs text-gray-900 uppercase tracking-wide flex items-center gap-1.5">
+                <Building2 className="w-4 h-4 text-[#0f62fe]" />
+                Répartition Détaillée par Entrepôt & Frigo
+              </h4>
+              <span className="text-xs text-gray-500 font-mono">
+                {frigos.length} entrepôt(s) configuré(s)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {frigos.map(fr => {
+                const fMvs = allMovements.filter(m => m.frigoId === fr.id || (m.frigoName && fr.name && (m.frigoName.includes(fr.name) || fr.name.includes(m.frigoName))));
+                const fEntries = fMvs.filter(m => m.changeKg > 0).reduce((sum, m) => sum + m.changeKg, 0);
+                const fExits = fMvs.filter(m => m.changeKg < 0).reduce((sum, m) => sum + Math.abs(m.changeKg), 0);
+                const st = productStocks.find(s => s.frigoId === fr.id || s.frigoId === fr.code);
+                const fKg = fEntries > 0 ? Math.max(0, fEntries - fExits) : (st?.quantityKg || 0);
+                const fPal = st && st.quantityPallets > 0 ? st.quantityPallets : (fKg > 0 ? Math.max(1, Math.ceil(fKg / (product.kgPerPallet || 500))) : 0);
+                const fCartons = (product.kgPerCarton || 5) > 0 ? Math.round(fKg / (product.kgPerCarton || 5)) : 0;
+                const pctOfTotal = effectiveTotalStockKg > 0 ? Math.min(100, Math.round((fKg / effectiveTotalStockKg) * 100)) : 0;
+
+                return (
+                  <div key={fr.id} className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl space-y-2.5">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="font-bold text-xs text-gray-900 block">{fr.name}</span>
+                        <span className="text-[10px] text-gray-500">{fr.location || 'Site Principal'} • Capacité: {fr.capacityPallets || 500} pal</span>
+                      </div>
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${fKg > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-600'}`}>
+                        {fKg > 0 ? `${pctOfTotal}% du stock` : 'Vide (0 kg)'}
+                      </span>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-[#0f62fe] h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${pctOfTotal}%` }}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono pt-1">
+                      <div className="bg-white p-1.5 rounded border border-gray-200">
+                        <span className="text-[9px] text-gray-500 block uppercase font-sans font-bold">Poids Net</span>
+                        <span className="font-bold text-gray-900">{fKg.toLocaleString()} kg</span>
+                      </div>
+                      <div className="bg-white p-1.5 rounded border border-gray-200">
+                        <span className="text-[9px] text-gray-500 block uppercase font-sans font-bold">Palettes</span>
+                        <span className="font-bold text-purple-700">{fPal} pal.</span>
+                      </div>
+                      <div className="bg-white p-1.5 rounded border border-gray-200">
+                        <span className="text-[9px] text-gray-500 block uppercase font-sans font-bold">Colis</span>
+                        <span className="font-bold text-gray-700">{fCartons.toLocaleString()} c.</span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center text-[10px] font-mono text-gray-500 pt-1 border-t border-gray-200/60">
+                      <span className="text-emerald-700 font-semibold">+ Entrées: {fEntries.toLocaleString()} kg</span>
+                      <span className="text-rose-600 font-semibold">- Sorties: {fExits.toLocaleString()} kg</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
         </div>
+      )}
 
-        {/* Modal Footer */}
-        <div className="p-3 bg-gray-100 border-t border-gray-200 flex justify-between items-center shrink-0">
-          <span className="text-xs text-gray-600 font-mono">
-            {filteredMovements.length} mouvement(s) affiché(s)
-          </span>
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded font-semibold text-xs transition cursor-pointer"
+    </div>
+
+    {/* Modal Footer */}
+    <div className="p-3 bg-gray-100 border-t border-gray-200 flex justify-between items-center shrink-0">
+      <span className="text-xs text-gray-600 font-mono">
+        {activeTab === 'HISTORY' ? `${filteredMovements.length} mouvement(s) affiché(s)` : `Produit ${product.code} • ${product.name}`}
+      </span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleExportStockPdf}
+          className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded font-bold text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+          title="Télécharger directement la fiche et l'historique en fichier PDF"
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>Télécharger PDF</span>
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded font-semibold text-xs transition cursor-pointer"
+        >
+          Fermer
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  {/* Edit Purchase Invoice Modal */}
+  {editingPurchaseInvoice && (
+    <EditPurchaseInvoiceModal
+      invoice={editingPurchaseInvoice}
+      onClose={() => setEditingPurchaseInvoice(null)}
+    />
+  )}
+
+  {/* Quick Edit Product Modal */}
+  {isEditingProduct && (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-60 flex items-center justify-center p-4">
+      <div className="bg-white border border-gray-300 w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden animate-in fade-in">
+        <div className="bg-gray-900 text-white px-4 py-3 flex justify-between items-center">
+          <h3 className="font-bold text-sm font-mono flex items-center gap-2">
+            <Pencil className="w-4 h-4 text-amber-400" />
+            <span>Modifier les Caractéristiques du Produit ({product.code})</span>
+          </h3>
+          <button 
+            type="button"
+            onClick={() => setIsEditingProduct(false)}
+            className="text-gray-400 hover:text-white font-bold cursor-pointer"
           >
-            Fermer
+            ✕
           </button>
         </div>
 
-      </div>
+        <form onSubmit={handleUpdateProductSubmit} className="p-5 space-y-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label className="block font-bold text-gray-700 mb-1">Désignation *</label>
+              <input
+                type="text"
+                required
+                value={productFormData.name}
+                onChange={e => setProductFormData({ ...productFormData, name: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe]"
+              />
+            </div>
 
-      {/* Edit Purchase Invoice Modal */}
-      {editingPurchaseInvoice && (
-        <EditPurchaseInvoiceModal
-          invoice={editingPurchaseInvoice}
-          onClose={() => setEditingPurchaseInvoice(null)}
-        />
-      )}
+            <div>
+              <label className="block font-bold text-gray-700 mb-1">Catégorie *</label>
+              <select
+                value={productFormData.category}
+                onChange={e => setProductFormData({ ...productFormData, category: e.target.value as any })}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe]"
+              >
+                <option value="Dattes Locales">Dattes Locales</option>
+                <option value="Dattes Importées">Dattes Importées</option>
+                <option value="Fruits Secs">Fruits Secs</option>
+                <option value="Huiles & Condiments">Huiles & Condiments</option>
+                <option value="Autres Produits Alimentaires">Autres Produits Alimentaires</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold text-gray-700 mb-1">Origine / Provenance</label>
+              <input
+                type="text"
+                value={productFormData.origin}
+                onChange={e => setProductFormData({ ...productFormData, origin: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe]"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-emerald-900 mb-1">Prix Vente HT / kg (DH) *</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                required
+                value={productFormData.sellingPriceHT}
+                onChange={e => setProductFormData({ ...productFormData, sellingPriceHT: Number(e.target.value) })}
+                className="w-full px-3 py-2 bg-emerald-50/50 border border-emerald-300 rounded-lg focus:bg-white focus:outline-none focus:border-emerald-600 font-mono font-bold text-emerald-900"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-gray-700 mb-1">Coût de Revient Unitaire HT / kg (DH)</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                value={productFormData.unitCostHT}
+                onChange={e => setProductFormData({ ...productFormData, unitCostHT: Number(e.target.value) })}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe] font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-gray-700 mb-1">Seuil Alerte Stock Minimum (Kg)</label>
+              <input
+                type="number"
+                min="0"
+                value={productFormData.minStockAlertKg}
+                onChange={e => setProductFormData({ ...productFormData, minStockAlertKg: Number(e.target.value) })}
+                className="w-full px-3 py-2 bg-amber-50/50 border border-amber-300 rounded-lg focus:bg-white focus:outline-none focus:border-amber-600 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-gray-700 mb-1">Poids par Colis (Kg)</label>
+              <input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={productFormData.kgPerCarton}
+                onChange={e => setProductFormData({ ...productFormData, kgPerCarton: Number(e.target.value) })}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe] font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-gray-700 mb-1">Cartons par Palette</label>
+              <input
+                type="number"
+                min="1"
+                value={productFormData.cartonsPerPallet}
+                onChange={e => setProductFormData({ ...productFormData, cartonsPerPallet: Number(e.target.value) })}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe] font-mono"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block font-bold text-gray-700 mb-1">Description / Notes</label>
+              <textarea
+                rows={2}
+                value={productFormData.description}
+                onChange={e => setProductFormData({ ...productFormData, description: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe]"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => setIsEditingProduct(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 font-semibold cursor-pointer"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-[#0f62fe] hover:bg-blue-700 text-white rounded-lg font-bold shadow-xs cursor-pointer"
+            >
+              Enregistrer les Modifications
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )}
     </div>
   );
 };

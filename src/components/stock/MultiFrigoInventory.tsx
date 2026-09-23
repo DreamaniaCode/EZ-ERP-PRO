@@ -4,6 +4,7 @@ import { Product, InventoryCountItem, ColdStorageFrigo } from '../../types';
 import { ExportButtons } from '../common/ExportButtons';
 import { StockTransferModal } from './StockTransferModal';
 import { StockRepackagingModal } from './StockRepackagingModal';
+import { ProductStockHistoryModal } from './ProductStockHistoryModal';
 
 import { 
   ClipboardCheck, 
@@ -26,7 +27,8 @@ import {
   Trash2,
   Zap,
   RotateCcw,
-  Scissors
+  Scissors,
+  History
 } from 'lucide-react';
 
 interface MultiFrigoInventoryProps {
@@ -59,6 +61,7 @@ export const MultiFrigoInventory: React.FC<MultiFrigoInventoryProps> = ({ onNavi
   const [showRepackagingModal, setShowRepackagingModal] = useState(false);
   const [repackagingInitialProduct, setRepackagingInitialProduct] = useState<string>('');
   const [editingFrigo, setEditingFrigo] = useState<ColdStorageFrigo | null>(null);
+  const [selectedProductForHistory, setSelectedProductForHistory] = useState<Product | null>(null);
 
   // View mode switcher: 'SHEET' (Physical count sheet) vs 'MATRIX' (Multi-frigo consolidated comparative grid)
   const [viewMode, setViewMode] = useState<'SHEET' | 'MATRIX'>('SHEET');
@@ -851,15 +854,31 @@ export const MultiFrigoInventory: React.FC<MultiFrigoInventoryProps> = ({ onNavi
                       
                       {/* Code Auto */}
                       <td className="font-mono font-bold text-[#0f62fe]">
-                        {prd.code}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProductForHistory(prd)}
+                          className="hover:underline hover:text-blue-700 cursor-pointer text-left font-mono font-bold"
+                          title="Voir la fiche complète et l'historique de ce produit"
+                        >
+                          {prd.code}
+                        </button>
                       </td>
 
                       {/* Designation */}
                       <td>
-                        <div className="font-bold text-gray-900">{prd.name}</div>
-                        <div className="text-[10px] text-gray-500 font-mono">
-                          Catégorie: {prd.category} • Origine: {prd.origin}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProductForHistory(prd)}
+                          className="text-left group cursor-pointer"
+                          title="Voir la fiche complète et l'historique de ce produit"
+                        >
+                          <div className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors flex items-center gap-1.5">
+                            <span>{prd.name}</span>
+                          </div>
+                          <div className="text-[10px] text-gray-500 font-mono">
+                            Catégorie: {prd.category} • Origine: {prd.origin}
+                          </div>
+                        </button>
                       </td>
 
                       {/* Threshold Level with Edit Trigger */}
@@ -967,6 +986,14 @@ export const MultiFrigoInventory: React.FC<MultiFrigoInventoryProps> = ({ onNavi
                       <td>
                         <div className="flex items-center gap-1.5">
                           <button
+                            type="button"
+                            onClick={() => setSelectedProductForHistory(prd)}
+                            className="p-1.5 bg-gray-50 hover:bg-blue-50 text-gray-600 hover:text-blue-700 rounded text-[11px] font-mono font-bold flex items-center gap-1 border border-gray-200 hover:border-blue-300 transition-colors cursor-pointer"
+                            title="Historique des mouvements"
+                          >
+                            <History className="w-3.5 h-3.5" />
+                          </button>
+                          <button
                             onClick={() => openTransferForProduct(selectedFrigoId, prd.id)}
                             className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[11px] font-mono font-bold flex items-center gap-1 border border-blue-200 transition-colors"
                             title="Transférer ce produit vers un autre frigo"
@@ -1033,13 +1060,27 @@ export const MultiFrigoInventory: React.FC<MultiFrigoInventoryProps> = ({ onNavi
                       
                       {/* Product Code */}
                       <td className="font-mono font-bold text-[#0f62fe]">
-                        {prd.code}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProductForHistory(prd)}
+                          className="hover:underline hover:text-blue-700 cursor-pointer text-left font-mono font-bold"
+                          title="Voir la fiche complète et l'historique de ce produit"
+                        >
+                          {prd.code}
+                        </button>
                       </td>
 
                       {/* Product Name */}
                       <td>
-                        <div className="font-bold text-gray-900">{prd.name}</div>
-                        <div className="text-[10px] text-gray-500 font-mono">{prd.category} • {prd.origin}</div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProductForHistory(prd)}
+                          className="text-left group cursor-pointer"
+                          title="Voir la fiche complète et l'historique de ce produit"
+                        >
+                          <div className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{prd.name}</div>
+                          <div className="text-[10px] text-gray-500 font-mono">{prd.category} • {prd.origin}</div>
+                        </button>
                       </td>
 
                       {/* Individual Frigo Columns */}
@@ -1538,6 +1579,15 @@ export const MultiFrigoInventory: React.FC<MultiFrigoInventoryProps> = ({ onNavi
           }}
           defaultFrigoId={selectedFrigoId}
           defaultSourceProductId={repackagingInitialProduct}
+        />
+      )}
+
+      {/* Product Stock History Modal */}
+      {selectedProductForHistory && (
+        <ProductStockHistoryModal
+          product={selectedProductForHistory}
+          isOpen={!!selectedProductForHistory}
+          onClose={() => setSelectedProductForHistory(null)}
         />
       )}
 

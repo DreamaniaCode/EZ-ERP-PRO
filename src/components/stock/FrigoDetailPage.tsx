@@ -329,11 +329,25 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({
               <tbody>
                 {filteredProductSummaries.map(p => {
                   const rawPrd = products.find(prod => prod.id === p.productId);
+                  const openHistory = () => {
+                    if (rawPrd) {
+                      onViewProductHistory ? onViewProductHistory(rawPrd.id) : setSelectedProductForHistory(rawPrd);
+                    }
+                  };
 
                   return (
-                    <tr key={p.productId} className="hover:bg-blue-50/30 transition-colors">
-                      <td className="font-mono font-bold text-[#0f62fe]">{p.productCode}</td>
-                      <td className="font-semibold text-gray-900">{p.productName}</td>
+                    <tr 
+                      key={p.productId} 
+                      onClick={openHistory}
+                      className="hover:bg-blue-50/50 cursor-pointer transition-colors group"
+                      title="Cliquer pour voir la fiche complète et l'historique de ce produit"
+                    >
+                      <td className="font-mono font-bold text-[#0f62fe] group-hover:underline">{p.productCode}</td>
+                      <td className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
+                        <div className="flex items-center gap-1.5">
+                          <span>{p.productName}</span>
+                        </div>
+                      </td>
                       <td className="text-gray-500">{p.category}</td>
                       <td className="text-right font-mono font-bold text-emerald-700 bg-emerald-50/30">
                         +{p.totalEntriesKg.toLocaleString()} Kg
@@ -350,11 +364,11 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({
                       <td className="text-right font-mono text-blue-700">{p.sellingPriceHT?.toLocaleString()} DH</td>
                       <td className="text-right font-mono font-bold text-purple-700">{p.totalValuationCostHT.toLocaleString()} DH</td>
                       <td className="text-right font-mono font-bold text-emerald-700">{p.totalValuationSaleHT.toLocaleString()} DH</td>
-                      <td className="text-center">
+                      <td onClick={e => e.stopPropagation()} className="text-center">
                         {rawPrd && (
                           <button
                             type="button"
-                            onClick={() => onViewProductHistory ? onViewProductHistory(rawPrd.id) : setSelectedProductForHistory(rawPrd)}
+                            onClick={openHistory}
                             className="p-1 text-gray-400 hover:text-[#0f62fe] hover:bg-blue-50 rounded transition-colors cursor-pointer"
                             title="Historique chronologique"
                           >
@@ -460,8 +474,24 @@ export const FrigoDetailPage: React.FC<FrigoDetailPageProps> = ({
                     </td>
 
                     <td>
-                      <div className="font-bold text-gray-900 line-clamp-1">{m.productName}</div>
-                      <div className="text-[10px] font-mono text-gray-500">{m.productCode}</div>
+                      {(() => {
+                        const prdObj = products.find(p => p.id === m.productId || p.code === m.productCode);
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (prdObj) {
+                                onViewProductHistory ? onViewProductHistory(prdObj.id) : setSelectedProductForHistory(prdObj);
+                              }
+                            }}
+                            className="text-left group cursor-pointer"
+                            title="Cliquer pour voir la fiche complète et l'historique du produit"
+                          >
+                            <div className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">{m.productName}</div>
+                            <div className="text-[10px] font-mono text-gray-500 group-hover:underline">{m.productCode}</div>
+                          </button>
+                        );
+                      })()}
                     </td>
 
                     <td className="text-right font-mono font-bold whitespace-nowrap">

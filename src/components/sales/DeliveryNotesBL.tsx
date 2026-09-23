@@ -12,6 +12,7 @@ import { ExcelVerificationModal } from './ExcelVerificationModal';
 import { ExportButtons } from '../common/ExportButtons';
 import { useToast } from '../common/CarbonToastContainer';
 import { generateWhatsAppBLLink } from '../../utils/whatsappUtils';
+import { ProductStockHistoryModal } from '../stock/ProductStockHistoryModal';
 
 import { 
   Truck, 
@@ -107,6 +108,7 @@ export const DeliveryNotesBL: React.FC<DeliveryNotesBLProps> = ({
   const [activeHistoryBL, setActiveHistoryBL] = useState<DeliveryNoteBL | null>(null);
   const [activeWeighingBL, setActiveWeighingBL] = useState<DeliveryNoteBL | null>(null);
   const [showExcelModal, setShowExcelModal] = useState<boolean>(false);
+  const [selectedProductForHistory, setSelectedProductForHistory] = useState<any | null>(null);
 
   const [showAllCompanies, setShowAllCompanies] = useState<boolean>(true);
   const [sortBy, setSortBy] = useState<'CREATED_DESC' | 'DATE_DESC' | 'STATUS_THEN_DATE' | 'DATE_ASC' | 'CLIENT'>('CREATED_DESC');
@@ -922,11 +924,14 @@ EasyERP Pro • Logistics Management`;
                           type="button"
                           onClick={() => {
                             const foundPrd = products.find(p => p.id === item.productId || p.code === item.productCode || (p.name || '').toLowerCase() === cleanedName.toLowerCase());
-                            if (foundPrd && onEditProduct && !isFrigoRole) onEditProduct(foundPrd.id);
-                            else if (onEditProduct && item.productId && !isFrigoRole) onEditProduct(item.productId);
+                            if (foundPrd) {
+                              setSelectedProductForHistory(foundPrd);
+                            } else if (onEditProduct && !isFrigoRole) {
+                              onEditProduct(item.productId);
+                            }
                           }}
                           className="font-bold text-gray-900 hover:text-[#0f62fe] hover:underline cursor-pointer truncate text-left w-full block uppercase mb-1"
-                          title="Produit à charger"
+                          title="Cliquer pour voir la fiche produit complète et l'historique"
                         >
                           {cleanedName}
                         </button>
@@ -1733,6 +1738,15 @@ EasyERP Pro • Logistics Management`;
             setActiveWeighingBL(null);
             alert(`Pesée du Frigo enregistrée avec succès pour le BL ${activeWeighingBL.blNumber} ! Le poids pesé de ${totalKg.toLocaleString()} Kg a été enregistré.`);
           }}
+        />
+      )}
+
+      {/* Product Stock History Modal */}
+      {selectedProductForHistory && (
+        <ProductStockHistoryModal
+          product={selectedProductForHistory}
+          isOpen={!!selectedProductForHistory}
+          onClose={() => setSelectedProductForHistory(null)}
         />
       )}
 

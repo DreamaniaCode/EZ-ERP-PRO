@@ -551,7 +551,7 @@ export function calculateProductAccumulation(params: {
     !p.name.includes('PAGE 1')
   );
 
-  return validProducts.map(prd => {
+  const summaries = validProducts.map(prd => {
     const kgPerCarton = prd.kgPerCarton || 10;
     const kgPerPallet = prd.kgPerPallet || 500;
     const unitCostHT = prd.unitCostHT || 0;

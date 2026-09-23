@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Product, PurchaseImportInvoice } from '../../types';
 import { useERP } from '../../context/ERPContext';
 import { ExportButtons } from '../common/ExportButtons';
+import { exportProductHistoryPdf } from '../../utils/exportUtils';
 import { 
   ArrowLeft, 
   History, 
@@ -20,7 +21,14 @@ import {
   Truck,
   Boxes,
   SlidersHorizontal,
-  ChevronRight
+  ChevronRight,
+  Info,
+  DollarSign,
+  TrendingUp,
+  AlertTriangle,
+  ShieldCheck,
+  Tag,
+  X
 } from 'lucide-react';
 import { EditPurchaseInvoiceModal } from '../purchases/EditPurchaseInvoiceModal';
 import { extractDateAndTime } from '../../utils/frigoStockMovements';
@@ -63,6 +71,8 @@ export const ProductStockHistoryPage: React.FC<ProductStockHistoryPageProps> = (
   onEditPurchase
 }) => {
   const erp = useERP();
+  const currentUser = erp.currentUser;
+  const updateProduct = erp.updateProduct;
   const products = erp.products || [];
   const deliveryNotes = erp.deliveryNotes || [];
   const purchaseInvoices = erp.purchaseInvoices || [];
@@ -273,6 +283,121 @@ export const ProductStockHistoryPage: React.FC<ProductStockHistoryPageProps> = (
     }
   };
 
+  const [activeTab, setActiveTab] = useState<'HISTORY' | 'INFO'>('HISTORY');
+  const [isEditingProduct, setIsEditingProduct] = useState(false);
+  const [productFormData, setProductFormData] = useState({
+    name: product?.name || '',
+    category: product?.category || 'Dattes Locales',
+    origin: product?.origin || 'Maroc',
+    sellingPriceHT: product?.sellingPriceHT || 0,
+    unitCostHT: product?.unitCostHT || 0,
+    vatRate: product?.vatRate || 0.20,
+    kgPerCarton: product?.kgPerCarton || 5,
+    cartonsPerPallet: product?.cartonsPerPallet || 160,
+    minStockAlertKg: product?.minStockAlertKg || 0,
+    description: product?.description || '',
+  });
+
+  useEffect(() => {
+    if (product) {
+      setProductFormData({
+        name: product.name,
+        category: product.category,
+        origin: product.origin || 'Maroc',
+        sellingPriceHT: product.sellingPriceHT || 0,
+        unitCostHT: product.unitCostHT || 0,
+        vatRate: product.vatRate || 0.20,
+        kgPerCarton: product.kgPerCarton || 5,
+        cartonsPerPallet: product.cartonsPerPallet || 160,
+        minStockAlertKg: product.minStockAlertKg || 0,
+        description: product.description || '',
+      });
+    }
+  }, [product]);
+
+  // Financial & Pricing metrics
+  const sellingPriceHT = product?.sellingPriceHT || 0;
+  const unitCostHT = product?.unitCostHT || 0;
+  const unitGrossMarginHT = sellingPriceHT - unitCostHT;
+  const marginPercentage = unitCostHT > 0 ? ((unitGrossMarginHT / unitCostHT) * 100).toFixed(1) : '0';
+  const vatRate = product?.vatRate || 0.20;
+  const sellingPriceTTC = sellingPriceHT * (1 + vatRate);
+  const totalValuationCostHT = effectiveTotalStockKg * unitCostHT;
+  const totalValuationSaleHT = effectiveTotalStockKg * sellingPriceHT;
+  const potentialTotalGrossMargin = totalValuationSaleHT - totalValuationCostHT;
+
+  // Packaging metrics
+  const kgPerCarton = product?.kgPerCarton || 5;
+  const cartonsPerPallet = product?.cartonsPerPallet || 160;
+  const kgPerPallet = product?.kgPerPallet || (kgPerCarton * cartonsPerPallet);
+  const totalCartons = Math.round(effectiveTotalStockKg / (kgPerCarton || 1));
+  const minStockAlertKg = product?.minStockAlertKg || 0;
+  const isLowStock = minStockAlertKg > 0 && effectiveTotalStockKg <= minStockAlertKg && effectiveTotalStockKg > 0;
+  const isOutOfStock = effectiveTotalStockKg <= 0;
+
+  const handleUpdateProductSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product) return;
+    updateProduct(product.id, {
+      ...product,
+      name: productFormData.name,
+      category: productFormData.category,
+      origin: productFormData.origin,
+      sellingPriceHT: Number(productFormData.sellingPriceHT),
+      unitCostHT: Number(productFormData.unitCostHT),
+      vatRate: Number(productFormData.vatRate),
+      kgPerCarton: Number(productFormData.kgPerCarton),
+      cartonsPerPallet: Number(productFormData.cartonsPerPallet),
+      minStockAlertKg: Number(productFormData.minStockAlertKg),
+      description: productFormData.description,
+    });
+    setIsEditingProduct(false);
+    alert('Fiche produit et tarifs mis à jour avec succès !');
+  };
+
+  const handleExportStockPdf = () => {
+    if (!product) return;
+    const frigoBreakdown = frigos.map(fr => {
+      const fMvs = allMovements.filter(m => m.frigoId === fr.id || (m.frigoName && fr.name && (m.frigoName.includes(fr.name) || fr.name.includes(m.frigoName))));
+      const fEntries = fMvs.filter(m => m.changeKg > 0).reduce((sum, m) => sum + m.changeKg, 0);
+      const fExits = fMvs.filter(m => m.changeKg < 0).reduce((sum, m) => sum + Math.abs(m.changeKg), 0);
+      const st = productStocks.find(s => s.frigoId === fr.id || s.frigoId === fr.code);
+      const fKg = fEntries > 0 ? Math.max(0, fEntries - fExits) : (st?.quantityKg || 0);
+      const fPal = st && st.quantityPallets > 0 ? st.quantityPallets : (fKg > 0 ? Math.max(1, Math.ceil(fKg / (product.kgPerPallet || 500))) : 0);
+      return {
+        frigoName: fr.name,
+        quantityKg: fKg,
+        quantityPallets: fPal,
+      };
+    }).filter(fb => fb.quantityKg > 0);
+
+    exportProductHistoryPdf(
+      product,
+      filteredMovements.map(m => ({
+        date: m.date,
+        time: m.time,
+        type: m.type === 'SORTIE_BL' ? 'Sortie (BL)' : m.type === 'ENTREE_ACHAT' ? 'Entrée (Achat)' : 'Ajustement',
+        documentRef: m.documentRef,
+        orderRef: m.orderRef,
+        frigoName: m.frigoName,
+        partyName: m.partyName,
+        changeKg: m.changeKg,
+        changePallets: m.changePallets,
+        unitPriceHT: m.unitPriceHT,
+        totalHT: m.totalHT,
+        status: m.status,
+        notes: m.notes,
+      })),
+      {
+        effectiveStockKg: effectiveTotalStockKg,
+        totalPallets: totalStockPallets,
+        totalEntriesKg,
+        totalExitsKg,
+        frigoBreakdown,
+      }
+    );
+  };
+
   if (!product) {
     return (
       <div className="p-8 text-center bg-white rounded-xl border border-gray-200 shadow-sm max-w-lg mx-auto">
@@ -353,9 +478,20 @@ export const ProductStockHistoryPage: React.FC<ProductStockHistoryPageProps> = (
             <span>Ajuster Stock</span>
           </button>
 
+          <button
+            type="button"
+            onClick={handleExportStockPdf}
+            className="bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white text-xs font-bold px-3 py-2 rounded-lg transition shadow-xs flex items-center gap-1.5 cursor-pointer touch-manipulation active:scale-95"
+            title="Télécharger directement la fiche et l'historique en fichier PDF"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Télécharger PDF</span>
+          </button>
+
           <ExportButtons
             filename={`Historique_Stock_${product.code}`}
             title={`Historique des Mouvements de Stock - ${product.code} (${product.name})`}
+            onExportPdf={handleExportStockPdf}
             excelData={filteredMovements.map(m => ({
               'Date': m.date,
               'Heure': m.time,
@@ -377,7 +513,52 @@ export const ProductStockHistoryPage: React.FC<ProductStockHistoryPageProps> = (
 
       </div>
 
-      {/* 2. Top KPI Summary Cards */}
+      {/* Navigation Tabs Bar */}
+      <div className="bg-white rounded-xl border border-gray-200 p-1 flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('HISTORY')}
+            className={`py-2 px-4 rounded-lg font-bold text-xs transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'HISTORY'
+                ? 'bg-[#0f62fe] text-white shadow-xs'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            <span>Historique des Mouvements ({filteredMovements.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('INFO')}
+            className={`py-2 px-4 rounded-lg font-bold text-xs transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'INFO'
+                ? 'bg-[#0f62fe] text-white shadow-xs'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            }`}
+          >
+            <Info className="w-3.5 h-3.5" />
+            <span>Fiche Complète & Tarifs</span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 pr-2">
+          {currentUser?.role !== 'RESPONSABLE_FRIGO' && (
+            <button
+              type="button"
+              onClick={() => setIsEditingProduct(true)}
+              className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer"
+              title="Modifier les tarifs ou caractéristiques du produit"
+            >
+              <Pencil className="w-3.5 h-3.5 text-amber-700" />
+              <span>Modifier Produit</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {activeTab === 'HISTORY' && (
+        <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         
         {/* Current Stock */}
@@ -894,6 +1075,184 @@ export const ProductStockHistoryPage: React.FC<ProductStockHistoryPageProps> = (
         </div>
 
       </div>
+      </>
+      )}
+
+      {activeTab === 'INFO' && (
+        <div className="space-y-4">
+          {/* Hero Identification Card */}
+          <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-[#0f62fe] bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200">
+                    {product.code}
+                  </span>
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded font-medium">
+                    {product.category}
+                  </span>
+                  <span className="text-xs text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded font-medium border border-emerald-200">
+                    {product.origin || 'Maroc'}
+                  </span>
+                </div>
+                <h2 className="text-xl font-black text-gray-900 mt-2">{product.name}</h2>
+                {product.description && (
+                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">{product.description}</p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className={`text-xs px-3 py-1 font-mono font-bold rounded ${
+                  isOutOfStock ? 'bg-red-100 text-red-800 border border-red-300' :
+                  isLowStock ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+                  'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                }`}>
+                  {isOutOfStock ? '🔴 EN RUPTURE' : isLowStock ? '⚠️ STOCK FAIBLE' : '✓ EN STOCK DISPONIBLE'}
+                </span>
+                {currentUser?.role !== 'RESPONSABLE_FRIGO' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProduct(true)}
+                    className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold px-3 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>Modifier</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Financial Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-xs font-mono">
+              <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-200">
+                <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider block">Prix Vente HT</span>
+                <span className="text-lg font-black text-emerald-900 mt-1 block">{sellingPriceHT.toLocaleString()} DH</span>
+                <span className="text-[10px] text-emerald-700">TTC: {sellingPriceTTC.toFixed(2)} DH (TVA 20%)</span>
+              </div>
+
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <span className="text-[10px] text-gray-600 font-bold uppercase tracking-wider block">Prix Revient HT</span>
+                <span className="text-lg font-black text-gray-900 mt-1 block">{unitCostHT.toLocaleString()} DH</span>
+                <span className="text-[10px] text-gray-500">Coût d'achat pondéré</span>
+              </div>
+
+              <div className="bg-blue-50/70 p-3 rounded-xl border border-blue-200">
+                <span className="text-[10px] text-blue-800 font-bold uppercase tracking-wider block">Marge Unitaire HT</span>
+                <span className={`text-lg font-black mt-1 block ${unitGrossMarginHT >= 0 ? 'text-blue-900' : 'text-red-700'}`}>
+                  {unitGrossMarginHT >= 0 ? `+${unitGrossMarginHT.toLocaleString()}` : unitGrossMarginHT.toLocaleString()} DH
+                </span>
+                <span className="text-[10px] text-blue-700 font-bold">Marge: {marginPercentage}%</span>
+              </div>
+
+              <div className="bg-purple-50/70 p-3 rounded-xl border border-purple-200">
+                <span className="text-[10px] text-purple-800 font-bold uppercase tracking-wider block">Valeur Stock HT (Coût)</span>
+                <span className="text-lg font-black text-purple-950 mt-1 block">{totalValuationCostHT.toLocaleString()} DH</span>
+                <span className="text-[10px] text-purple-700">Sur {effectiveTotalStockKg.toLocaleString()} kg</span>
+              </div>
+
+              <div className="bg-amber-50/70 p-3 rounded-xl border border-amber-200">
+                <span className="text-[10px] text-amber-800 font-bold uppercase tracking-wider block">Valeur Vente Potentielle</span>
+                <span className="text-lg font-black text-amber-950 mt-1 block">{totalValuationSaleHT.toLocaleString()} DH</span>
+                <span className="text-[10px] text-amber-700 font-bold">Marge pot.: +{potentialTotalGrossMargin.toLocaleString()} DH</span>
+              </div>
+            </div>
+
+            {/* Packaging & Logistics specifications */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 p-4 rounded-xl border border-gray-200 text-xs font-mono">
+              <div>
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block">Conditionnement Colis</span>
+                <span className="text-base font-black text-gray-900 mt-0.5 block">{kgPerCarton} Kg / carton</span>
+                <span className="text-[10px] text-gray-500">{totalCartons.toLocaleString()} colis en stock</span>
+              </div>
+
+              <div>
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block">Palettisation</span>
+                <span className="text-base font-black text-purple-800 mt-0.5 block">{cartonsPerPallet} cartons / pal.</span>
+                <span className="text-[10px] text-purple-700 font-semibold">{kgPerPallet.toLocaleString()} Kg / palette</span>
+              </div>
+
+              <div>
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block">Seuil Alerte Réappro</span>
+                <span className="text-base font-black text-amber-800 mt-0.5 block">
+                  {minStockAlertKg > 0 ? `${minStockAlertKg.toLocaleString()} Kg` : 'Non défini'}
+                </span>
+                <span className="text-[10px] text-gray-500">Alerte automatique si stock &lt; seuil</span>
+              </div>
+
+              <div>
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block">Stock Total Physique</span>
+                <span className="text-base font-black text-emerald-800 mt-0.5 block">{effectiveTotalStockKg.toLocaleString()} Kg</span>
+                <span className="text-[10px] text-emerald-700 font-bold">{totalStockPallets} Palettes au global</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Frigo Distribution Breakdown */}
+          <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-xs space-y-3">
+            <h3 className="font-bold text-sm text-gray-900 uppercase tracking-wide flex items-center justify-between border-b pb-2">
+              <span className="flex items-center gap-2 text-[#0f62fe]">
+                <Building2 className="w-4 h-4" />
+                Répartition Détaillée du Stock par Entrepôt Frigorifique
+              </span>
+              <span className="text-xs font-mono text-gray-500">{frigos.length} entrepôts connectés</span>
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {frigos.map(fr => {
+                const fMvs = allMovements.filter(m => m.frigoId === fr.id || (m.frigoName && fr.name && (m.frigoName.includes(fr.name) || fr.name.includes(m.frigoName))));
+                const fEntries = fMvs.filter(m => m.changeKg > 0).reduce((sum, m) => sum + m.changeKg, 0);
+                const fExits = fMvs.filter(m => m.changeKg < 0).reduce((sum, m) => sum + Math.abs(m.changeKg), 0);
+                const st = productStocks.find(s => s.frigoId === fr.id || s.frigoId === fr.code);
+                const fKg = fEntries > 0 ? Math.max(0, fEntries - fExits) : (st?.quantityKg || 0);
+                const fPal = st && st.quantityPallets > 0 ? st.quantityPallets : (fKg > 0 ? Math.max(1, Math.ceil(fKg / (product.kgPerPallet || 500))) : 0);
+                const fCartons = Math.round(fKg / (product.kgPerCarton || 5));
+                const pctOfTotal = effectiveTotalStockKg > 0 ? Math.round((fKg / effectiveTotalStockKg) * 100) : 0;
+
+                return (
+                  <div key={fr.id} className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-2.5">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-bold text-xs text-gray-900 flex items-center gap-1.5">
+                          <span>🏭 {fr.name}</span>
+                          <span className="font-mono text-[10px] bg-gray-200 px-1 rounded">{fr.code}</span>
+                        </div>
+                        <div className="text-[10px] text-gray-500 font-mono">{fr.location || 'Site Principal'}</div>
+                      </div>
+                      <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                        {pctOfTotal}% du stock
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                      <div className="bg-[#0f62fe] h-2 rounded-full transition-all duration-300" style={{ width: `${pctOfTotal}%` }} />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono pt-1">
+                      <div className="bg-white p-2 rounded-lg border border-gray-200">
+                        <span className="text-[9px] text-gray-500 block uppercase font-sans font-bold">Poids Net</span>
+                        <span className="font-bold text-gray-900">{fKg.toLocaleString()} kg</span>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-gray-200">
+                        <span className="text-[9px] text-gray-500 block uppercase font-sans font-bold">Palettes</span>
+                        <span className="font-bold text-purple-700">{fPal} pal.</span>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-gray-200">
+                        <span className="text-[9px] text-gray-500 block uppercase font-sans font-bold">Colis</span>
+                        <span className="font-bold text-gray-700">{fCartons.toLocaleString()} c.</span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center text-[10px] font-mono text-gray-500 pt-1 border-t border-gray-200/60">
+                      <span className="text-emerald-700 font-semibold">+ Entrées: {fEntries.toLocaleString()} kg</span>
+                      <span className="text-rose-600 font-semibold">- Sorties: {fExits.toLocaleString()} kg</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Purchase Invoice Modal */}
       {editingPurchaseInvoice && (
@@ -901,6 +1260,166 @@ export const ProductStockHistoryPage: React.FC<ProductStockHistoryPageProps> = (
           invoice={editingPurchaseInvoice}
           onClose={() => setEditingPurchaseInvoice(null)}
         />
+      )}
+
+      {/* Quick Edit Product Modal */}
+      {isEditingProduct && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-60 flex items-center justify-center p-4">
+          <div className="bg-white border border-gray-300 w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden animate-in fade-in">
+            <div className="bg-gray-900 text-white px-4 py-3 flex justify-between items-center">
+              <h3 className="font-bold text-sm font-mono flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-amber-400" />
+                <span>Modifier les Caractéristiques du Produit ({product.code})</span>
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setIsEditingProduct(false)}
+                className="text-gray-400 hover:text-white font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateProductSubmit} className="p-5 space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Désignation *</label>
+                  <input
+                    type="text"
+                    required
+                    value={productFormData.name}
+                    onChange={e => setProductFormData({ ...productFormData, name: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Catégorie *</label>
+                  <select
+                    value={productFormData.category}
+                    onChange={e => setProductFormData({ ...productFormData, category: e.target.value as any })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe]"
+                  >
+                    <option value="Dattes Locales">Dattes Locales</option>
+                    <option value="Dattes Importées">Dattes Importées</option>
+                    <option value="Fruits Secs">Fruits Secs</option>
+                    <option value="Huiles & Condiments">Huiles & Condiments</option>
+                    <option value="Autres Produits Alimentaires">Autres Produits Alimentaires</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Origine / Provenance</label>
+                  <input
+                    type="text"
+                    value={productFormData.origin}
+                    onChange={e => setProductFormData({ ...productFormData, origin: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Prix Vente HT (DH / kg) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={productFormData.sellingPriceHT}
+                    onChange={e => setProductFormData({ ...productFormData, sellingPriceHT: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe] font-mono font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Coût d'Achat HT (DH / kg)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={productFormData.unitCostHT}
+                    onChange={e => setProductFormData({ ...productFormData, unitCostHT: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe] font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Taux TVA (ex: 0.20 pour 20%)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="1"
+                    value={productFormData.vatRate}
+                    onChange={e => setProductFormData({ ...productFormData, vatRate: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe] font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Poids par Colis (Kg)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    value={productFormData.kgPerCarton}
+                    onChange={e => setProductFormData({ ...productFormData, kgPerCarton: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe] font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Colis par Palette</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={productFormData.cartonsPerPallet}
+                    onChange={e => setProductFormData({ ...productFormData, cartonsPerPallet: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe] font-mono"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-gray-700 mb-1">Seuil Alerte Stock Minimum (Kg)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={productFormData.minStockAlertKg}
+                    onChange={e => setProductFormData({ ...productFormData, minStockAlertKg: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe] font-mono"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-gray-700 mb-1">Description / Notes</label>
+                  <textarea
+                    rows={2}
+                    value={productFormData.description}
+                    onChange={e => setProductFormData({ ...productFormData, description: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:border-[#0f62fe]"
+                    placeholder="Notes internes..."
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProduct(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-100 transition cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition shadow cursor-pointer"
+                >
+                  Enregistrer les Modifications
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
     </div>
