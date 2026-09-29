@@ -344,53 +344,73 @@ app.get('/api/stocks', async (req, res) => {
 app.post('/api/stocks/adjust', async (req, res) => {
   try {
     const { frigoId, productId, newKg, newPallets, performedBy, notes } = req.body;
-    
+    const targetKg = Number(newKg);
+    const targetPallets = Number(newPallets);
+
+    if (!frigoId || !productId || !Number.isFinite(targetKg) || !Number.isFinite(targetPallets)) {
+      return res.status(400).json({ error: 'frigoId, productId, newKg et newPallets valides sont requis' });
+    }
+    if (targetKg < 0 || targetPallets < 0) {
+      return res.status(400).json({ error: 'Le stock ne peut pas être négatif' });
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({ where: { id: productId } });
       const frigo = await tx.coldStorageFrigo.findUnique({ where: { id: frigoId } });
+      if (!product) throw new Error('Produit introuvable');
+      if (!frigo) throw new Error('Frigo introuvable');
 
       const currentStock = await tx.frigoStockLevel.findUnique({
         where: { frigoId_productId: { frigoId, productId } }
       });
 
-      const prevKg = currentStock?.quantityKg || 0;
+      const prevKg = Number(currentStock?.quantityKg || 0);
+      const prevPallets = Number(currentStock?.quantityPallets || 0);
+
       const updatedStock = await tx.frigoStockLevel.upsert({
         where: { frigoId_productId: { frigoId, productId } },
         create: {
           frigoId,
           productId,
-          quantityKg: newKg,
-          quantityPallets: newPallets,
+          quantityKg: targetKg,
+          quantityPallets: targetPallets,
         },
         update: {
-          quantityKg: newKg,
-          quantityPallets: newPallets,
+          quantityKg: targetKg,
+          quantityPallets: targetPallets,
         }
       });
 
-      // Log movement
-      await tx.productStockMovement.create({
-        data: {
-          productId,
-          productName: product?.name || 'Inconnu',
-          productCode: product?.code || '',
-          frigoId,
-          frigoName: frigo?.name || 'Inconnu',
-          type: 'AJUSTEMENT_MANUEL',
-          quantityKg: Math.abs(newKg - prevKg),
-          previousStockKg: prevKg,
-          newStockKg: newKg,
-          referenceDoc: 'AJUST-MANUEL',
-          performedBy: performedBy || 'Admin',
-          notes: notes || 'Ajustement manuel inventaire',
-        }
-      });
+      const kgChanged = Math.abs(targetKg - prevKg) > 0.000001;
+      const palletsChanged = Math.abs(targetPallets - prevPallets) > 0.000001;
+
+      // No-op syncs must not create fake historical movements.
+      if (kgChanged || palletsChanged) {
+        await tx.productStockMovement.create({
+          data: {
+            productId,
+            productName: product.name || 'Inconnu',
+            productCode: product.code || '',
+            frigoId,
+            frigoName: frigo.name || 'Inconnu',
+            type: 'AJUSTEMENT_MANUEL',
+            quantityKg: Math.abs(targetKg - prevKg),
+            quantityPallets: Math.abs(targetPallets - prevPallets),
+            previousStockKg: prevKg,
+            newStockKg: targetKg,
+            referenceDoc: 'AJUST-MANUEL',
+            performedBy: performedBy || 'Admin',
+            notes: notes || 'Ajustement manuel inventaire',
+          }
+        });
+      }
 
       return updatedStock;
     });
 
     res.json(result);
   } catch (error: any) {
+    console.error('Error adjusting stock:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -500,48 +520,86 @@ app.post('/api/stocks/purge-orphans', async (req, res) => {
 
 app.post('/api/stocks/clear', async (req, res) => {
   try {
-    const { frigoId, productId, performedBy, notes } = req.body;
+    const { frigoId, productId, performedBy, notes } = req.body || {};
 
-    const whereClause: any = {};
-    if (frigoId) whereClause.frigoId = frigoId;
-    if (productId) whereClause.productId = productId;
+    const [allProducts, allFrigos, existingStocks] = await Promise.all([
+      prisma.product.findMany({ select: { id: true, code: true, name: true } }),
+      prisma.coldStorageFrigo.findMany({ select: { id: true, code: true, name: true } }),
+      prisma.frigoStockLevel.findMany(),
+    ]);
 
-    const stocksToClear = await prisma.frigoStockLevel.findMany({
-      where: whereClause,
-      include: { product: true, frigo: true }
-    });
+    const targetProducts = productId
+      ? allProducts.filter(p => p.id === productId)
+      : allProducts;
+    const targetFrigos = frigoId
+      ? allFrigos.filter(f => f.id === frigoId)
+      : allFrigos;
 
-    await prisma.frigoStockLevel.updateMany({
-      where: whereClause,
-      data: {
-        quantityKg: 0,
-        quantityPallets: 0,
-      }
-    });
-
-    for (const st of stocksToClear) {
-      if (st.quantityKg > 0 || st.quantityPallets > 0) {
-        await prisma.productStockMovement.create({
-          data: {
-            productId: st.productId,
-            productName: st.product?.name || 'Inconnu',
-            productCode: st.product?.code || '',
-            frigoId: st.frigoId,
-            frigoName: st.frigo?.name || 'Inconnu',
-            type: 'AJUSTEMENT_MANUEL',
-            quantityKg: st.quantityKg,
-            previousStockKg: st.quantityKg,
-            newStockKg: 0,
-            referenceDoc: 'VIDAGE-STOCK',
-            performedBy: performedBy || 'Admin',
-            notes: notes || `Remise à zéro du stock (${st.frigo?.name || 'Frigo'})`,
-          }
-        });
-      }
+    if (productId && targetProducts.length === 0) {
+      return res.status(404).json({ error: 'Produit introuvable' });
+    }
+    if (frigoId && targetFrigos.length === 0) {
+      return res.status(404).json({ error: 'Frigo introuvable' });
     }
 
-    res.json({ success: true, clearedCount: stocksToClear.length });
+    const existingMap = new Map(
+      existingStocks.map(s => [`${s.frigoId}::${s.productId}`, s])
+    );
+
+    let changedCount = 0;
+    const clearedCount = targetProducts.length * targetFrigos.length;
+
+    await prisma.$transaction(async (tx) => {
+      for (const frigo of targetFrigos) {
+        for (const product of targetProducts) {
+          const key = `${frigo.id}::${product.id}`;
+          const previous = existingMap.get(key);
+          const prevKg = Number(previous?.quantityKg || 0);
+          const prevPallets = Number(previous?.quantityPallets || 0);
+
+          // Upsert a zero row even when one did not exist. This explicit zero is
+          // important: historical movements must not resurrect old stock.
+          await tx.frigoStockLevel.upsert({
+            where: { frigoId_productId: { frigoId: frigo.id, productId: product.id } },
+            create: {
+              frigoId: frigo.id,
+              productId: product.id,
+              quantityKg: 0,
+              quantityPallets: 0,
+            },
+            update: {
+              quantityKg: 0,
+              quantityPallets: 0,
+            }
+          });
+
+          if (prevKg > 0 || prevPallets > 0) {
+            changedCount++;
+            await tx.productStockMovement.create({
+              data: {
+                productId: product.id,
+                productName: product.name || 'Inconnu',
+                productCode: product.code || '',
+                frigoId: frigo.id,
+                frigoName: frigo.name || 'Inconnu',
+                type: 'AJUSTEMENT_MANUEL',
+                quantityKg: prevKg,
+                quantityPallets: prevPallets,
+                previousStockKg: prevKg,
+                newStockKg: 0,
+                referenceDoc: 'VIDAGE-STOCK',
+                performedBy: performedBy || 'Admin',
+                notes: notes || `Remise à zéro du stock (${frigo.name || 'Frigo'})`,
+              }
+            });
+          }
+        }
+      }
+    });
+
+    res.json({ success: true, clearedCount, changedCount });
   } catch (error: any) {
+    console.error('Error clearing stocks:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1745,7 +1803,7 @@ app.post('/api/purchases', async (req, res) => {
       totalLandedCostHT: Number(p.totalLandedCostHT) || 0,
       paidAmount: Number(p.paidAmount) || 0,
       remainingBalance: p.remainingBalance !== undefined ? Number(p.remainingBalance) : ((Number(p.totalLandedCostHT) || 0) - (Number(p.paidAmount) || 0)),
-      items: p.items || [],
+      items: Array.isArray(p.items) ? p.items : [],
       notes: p.notes || '',
       paymentStatus: p.paymentStatus || 'NON_PAYÉ',
       payments: p.payments || [],
@@ -1754,53 +1812,89 @@ app.post('/api/purchases', async (req, res) => {
     if (p.id) sanitizedData.id = p.id;
 
     const purchase = await prisma.$transaction(async (tx) => {
-      const created = await tx.purchaseImportInvoice.upsert({
-        where: { invoiceNumber: sanitizedData.invoiceNumber },
-        create: sanitizedData,
-        update: sanitizedData,
+      const existing = await tx.purchaseImportInvoice.findUnique({
+        where: { invoiceNumber: sanitizedData.invoiceNumber }
       });
 
-      if (sanitizedData.targetFrigoId && Array.isArray(sanitizedData.items)) {
-        for (const item of sanitizedData.items) {
-          if (!item.productId) continue;
-          const kg = Number(item.quantityKg) || 0;
-          const pallets = Number(item.quantityPallets) || 0;
+      const oldItems = existing && Array.isArray(existing.items as any) ? (existing.items as any[]) : [];
+      const oldFrigoId = existing?.targetFrigoId || '';
+      const newItems = sanitizedData.items as any[];
+      const newFrigoId = sanitizedData.targetFrigoId || '';
 
-          await tx.frigoStockLevel.upsert({
-            where: {
-              frigoId_productId: {
-                frigoId: sanitizedData.targetFrigoId,
-                productId: item.productId,
-              }
-            },
-            create: {
-              frigoId: sanitizedData.targetFrigoId,
-              productId: item.productId,
-              quantityKg: kg,
-              quantityPallets: pallets,
-            },
-            update: {
-              quantityKg: { increment: kg },
-              quantityPallets: { increment: pallets },
-            }
-          });
+      const deltas = new Map<string, { frigoId: string; productId: string; kg: number; pallets: number }>();
+      const addDelta = (frigo: string, product: string, kg: number, pallets: number) => {
+        if (!frigo || !product) return;
+        const key = `${frigo}::${product}`;
+        const cur = deltas.get(key) || { frigoId: frigo, productId: product, kg: 0, pallets: 0 };
+        cur.kg += kg;
+        cur.pallets += pallets;
+        deltas.set(key, cur);
+      };
 
-          await tx.productStockMovement.create({
-            data: {
-              productId: item.productId,
-              frigoId: sanitizedData.targetFrigoId,
-              type: 'ENTREE',
-              quantityKg: kg,
-              quantityPallets: pallets,
-              performedBy: 'Achat / Réception',
-              referenceDoc: sanitizedData.invoiceNumber || 'Facture Achat',
-              notes: `Arrivée Achat/Import - Fournisseur: ${sanitizedData.supplierName || ''}`,
-            }
-          });
-        }
+      oldItems.forEach(item => addDelta(
+        oldFrigoId,
+        item.productId,
+        -(Number(item.quantityKg) || 0),
+        -(Number(item.quantityPallets) || 0)
+      ));
+      newItems.forEach(item => addDelta(
+        newFrigoId,
+        item.productId,
+        Number(item.quantityKg) || 0,
+        Number(item.quantityPallets) || 0
+      ));
+
+      const saved = existing
+        ? await tx.purchaseImportInvoice.update({
+            where: { id: existing.id },
+            data: sanitizedData,
+          })
+        : await tx.purchaseImportInvoice.create({ data: sanitizedData });
+
+      for (const delta of deltas.values()) {
+        if (Math.abs(delta.kg) <= 0.000001 && Math.abs(delta.pallets) <= 0.000001) continue;
+
+        const current = await tx.frigoStockLevel.findUnique({
+          where: { frigoId_productId: { frigoId: delta.frigoId, productId: delta.productId } }
+        });
+        const prevKg = Number(current?.quantityKg || 0);
+        const prevPallets = Number(current?.quantityPallets || 0);
+        const nextKg = Math.max(0, prevKg + delta.kg);
+        const nextPallets = Math.max(0, prevPallets + delta.pallets);
+
+        await tx.frigoStockLevel.upsert({
+          where: { frigoId_productId: { frigoId: delta.frigoId, productId: delta.productId } },
+          create: {
+            frigoId: delta.frigoId,
+            productId: delta.productId,
+            quantityKg: nextKg,
+            quantityPallets: nextPallets,
+          },
+          update: {
+            quantityKg: nextKg,
+            quantityPallets: nextPallets,
+          }
+        });
+
+        await tx.productStockMovement.create({
+          data: {
+            productId: delta.productId,
+            frigoId: delta.frigoId,
+            type: delta.kg >= 0 ? 'ENTREE_ACHAT' : 'AJUSTEMENT_ACHAT',
+            quantityKg: Math.abs(delta.kg),
+            quantityPallets: Math.abs(delta.pallets),
+            previousStockKg: prevKg,
+            newStockKg: nextKg,
+            performedBy: existing ? 'Mise à jour Achat / Réception' : 'Achat / Réception',
+            referenceDoc: sanitizedData.invoiceNumber,
+            notes: existing
+              ? `Mise à jour facture achat ${sanitizedData.invoiceNumber}`
+              : `Arrivée Achat/Import - Fournisseur: ${sanitizedData.supplierName || ''}`,
+          }
+        });
       }
 
-      return created;
+      return saved;
     });
 
     res.json(purchase);
@@ -1827,18 +1921,101 @@ app.put('/api/purchases/:id', async (req, res) => {
     if (p.totalLandedCostHT !== undefined) sanitizedData.totalLandedCostHT = Number(p.totalLandedCostHT) || 0;
     if (p.paidAmount !== undefined) sanitizedData.paidAmount = Number(p.paidAmount) || 0;
     if (p.remainingBalance !== undefined) sanitizedData.remainingBalance = Number(p.remainingBalance) || 0;
-    if (p.items !== undefined) sanitizedData.items = p.items;
+    if (p.items !== undefined) sanitizedData.items = Array.isArray(p.items) ? p.items : [];
     if (p.notes !== undefined) sanitizedData.notes = p.notes;
     if (p.paymentStatus !== undefined) sanitizedData.paymentStatus = p.paymentStatus;
     if (p.payments !== undefined) sanitizedData.payments = p.payments;
     if (p.timeArrival !== undefined) sanitizedData.timeArrival = p.timeArrival;
 
-    const purchase = await prisma.purchaseImportInvoice.update({
-      where: { id: req.params.id },
-      data: sanitizedData,
+    const purchase = await prisma.$transaction(async (tx) => {
+      const existing = await tx.purchaseImportInvoice.findUnique({ where: { id: req.params.id } });
+      if (!existing) throw new Error('Facture achat introuvable');
+
+      const oldItems = Array.isArray(existing.items as any) ? (existing.items as any[]) : [];
+      const newItems = sanitizedData.items !== undefined
+        ? (sanitizedData.items as any[])
+        : oldItems;
+      const oldFrigoId = existing.targetFrigoId || '';
+      const newFrigoId = sanitizedData.targetFrigoId !== undefined
+        ? sanitizedData.targetFrigoId
+        : oldFrigoId;
+      const referenceDoc = sanitizedData.invoiceNumber || existing.invoiceNumber;
+
+      const deltas = new Map<string, { frigoId: string; productId: string; kg: number; pallets: number }>();
+      const addDelta = (frigo: string, product: string, kg: number, pallets: number) => {
+        if (!frigo || !product) return;
+        const key = `${frigo}::${product}`;
+        const cur = deltas.get(key) || { frigoId: frigo, productId: product, kg: 0, pallets: 0 };
+        cur.kg += kg;
+        cur.pallets += pallets;
+        deltas.set(key, cur);
+      };
+
+      oldItems.forEach(item => addDelta(
+        oldFrigoId,
+        item.productId,
+        -(Number(item.quantityKg) || 0),
+        -(Number(item.quantityPallets) || 0)
+      ));
+      newItems.forEach(item => addDelta(
+        newFrigoId,
+        item.productId,
+        Number(item.quantityKg) || 0,
+        Number(item.quantityPallets) || 0
+      ));
+
+      const updated = await tx.purchaseImportInvoice.update({
+        where: { id: req.params.id },
+        data: sanitizedData,
+      });
+
+      for (const delta of deltas.values()) {
+        if (Math.abs(delta.kg) <= 0.000001 && Math.abs(delta.pallets) <= 0.000001) continue;
+
+        const current = await tx.frigoStockLevel.findUnique({
+          where: { frigoId_productId: { frigoId: delta.frigoId, productId: delta.productId } }
+        });
+        const prevKg = Number(current?.quantityKg || 0);
+        const prevPallets = Number(current?.quantityPallets || 0);
+        const nextKg = Math.max(0, prevKg + delta.kg);
+        const nextPallets = Math.max(0, prevPallets + delta.pallets);
+
+        await tx.frigoStockLevel.upsert({
+          where: { frigoId_productId: { frigoId: delta.frigoId, productId: delta.productId } },
+          create: {
+            frigoId: delta.frigoId,
+            productId: delta.productId,
+            quantityKg: nextKg,
+            quantityPallets: nextPallets,
+          },
+          update: {
+            quantityKg: nextKg,
+            quantityPallets: nextPallets,
+          }
+        });
+
+        await tx.productStockMovement.create({
+          data: {
+            productId: delta.productId,
+            frigoId: delta.frigoId,
+            type: delta.kg >= 0 ? 'ENTREE_ACHAT' : 'AJUSTEMENT_ACHAT',
+            quantityKg: Math.abs(delta.kg),
+            quantityPallets: Math.abs(delta.pallets),
+            previousStockKg: prevKg,
+            newStockKg: nextKg,
+            performedBy: 'Mise à jour Achat / Réception',
+            referenceDoc,
+            notes: `Correction facture achat ${referenceDoc}`,
+          }
+        });
+      }
+
+      return updated;
     });
+
     res.json(purchase);
   } catch (error: any) {
+    console.error('Error updating purchase with stock delta:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1849,7 +2026,7 @@ app.delete('/api/purchases/:id', async (req, res) => {
     if (purchase) {
       await prisma.$transaction(async (tx) => {
         if (purchase.targetFrigoId && Array.isArray(purchase.items as any)) {
-          for (const item of (purchase.items as any)) {
+          for (const item of (purchase.items as any[])) {
             if (!item.productId) continue;
             const kg = Number(item.quantityKg) || 0;
             const pallets = Number(item.quantityPallets) || 0;
@@ -1879,6 +2056,13 @@ app.delete('/api/purchases/:id', async (req, res) => {
             }
           }
         }
+
+        // Remove audit movements tied to this purchase so a deleted invoice cannot
+        // reappear later as a standalone historical entry in reconciliation.
+        await tx.productStockMovement.deleteMany({
+          where: { referenceDoc: purchase.invoiceNumber }
+        });
+
         await tx.purchaseImportInvoice.delete({ where: { id: req.params.id } });
       });
     }
