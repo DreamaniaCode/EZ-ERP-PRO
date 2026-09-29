@@ -458,11 +458,14 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setFrigos(pgFrigos);
         localStorage.setItem('erp_frigos', JSON.stringify(pgFrigos));
       }
-      if (pgStocks && pgStocks.length > 0) {
+      // PostgreSQL is authoritative for current stock. Always accept an empty
+      // array as a valid state (e.g. after a full reset) instead of keeping stale
+      // localStorage quantities.
+      if (Array.isArray(pgStocks)) {
         setStocks(pgStocks);
         localStorage.setItem('erp_stocks', JSON.stringify(pgStocks));
       }
-      if (pgMovements && pgMovements.length > 0) setStockMovements(pgMovements);
+      if (Array.isArray(pgMovements)) setStockMovements(pgMovements);
       if (pgClients && Array.isArray(pgClients)) {
         setClients(pgClients);
         localStorage.setItem('erp_clients', JSON.stringify(pgClients));
@@ -767,7 +770,9 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       newPallets,
       performedBy: currentUser?.name || 'Admin',
       notes: 'Ajustement manuel inventaire'
-    }).catch(err => console.error('Error adjusting stock in PostgreSQL:', err));
+    })
+      .then(() => refreshFromDatabase())
+      .catch(err => console.error('Error adjusting stock in PostgreSQL:', err));
   };
 
   const transferStock = (sourceFrigoId: string, targetFrigoId: string, productId: string, kg: number, pallets: number) => {
@@ -896,36 +901,16 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const recalculateAndSyncAllStocks = async (): Promise<FrigoStockLevel[]> => {
     try {
-      const { productStocks } = computeSynchronizedStocks({
-        products,
-        frigos,
-        stocks,
-        purchaseInvoices,
-        deliveryNotes,
-        inventoryCounts,
-        stockMovements,
-        selectedFrigoId: 'ALL',
-      });
+      // Do not rebuild current stock from historical purchases/BLs. The persisted
+      // stock table is the single source of truth; movements are audit/history.
+      const dbStocks = await api.getStocks();
+      setStocks(dbStocks);
+      localStorage.setItem('erp_stocks', JSON.stringify(dbStocks));
 
-      const reconciled = buildReconciledStockLevels(productStocks);
-      setStocks(reconciled);
-      localStorage.setItem('erp_stocks', JSON.stringify(reconciled));
+      const dbMovements = await api.getStockMovements().catch(() => stockMovements);
+      if (Array.isArray(dbMovements)) setStockMovements(dbMovements);
 
-      // Background sync to backend for active stock levels
-      for (const stk of reconciled) {
-        if (stk.quantityKg > 0 || stk.quantityPallets > 0) {
-          api.adjustStock({
-            frigoId: stk.frigoId,
-            productId: stk.productId,
-            newKg: stk.quantityKg,
-            newPallets: stk.quantityPallets,
-            performedBy: currentUser?.name || 'Admin',
-            notes: 'Recalcul automatique synchronisé des stocks'
-          }).catch(() => {});
-        }
-      }
-
-      return reconciled;
+      return dbStocks;
     } catch (e) {
       console.error('Error during recalculateAndSyncAllStocks:', e);
       return stocks;
@@ -1857,36 +1842,18 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
 
   // ============================================================
-  // AUTO SYNCHRONIZE STOCKS WITH PURCHASES & BLs (Runs automatically on mount / data changes)
-  // Guarantees 100% synchronicity between purchases, BLs, frigos and product stocks
+  // CURRENT STOCK PERSISTENCE
+  // PostgreSQL FrigoStockLevel is authoritative. Never reconstruct current
+  // quantities from historical purchases/BLs on the client, because manual
+  // absolute adjustments and stock resets would otherwise be applied twice.
   // ============================================================
   useEffect(() => {
     try {
-      if (products.length > 0) {
-        const { productStocks } = computeSynchronizedStocks({
-          products,
-          frigos,
-          stocks,
-          purchaseInvoices,
-          deliveryNotes,
-          inventoryCounts,
-          stockMovements,
-          selectedFrigoId: 'ALL',
-        });
-
-        const reconciled = buildReconciledStockLevels(productStocks);
-        const recJson = JSON.stringify(reconciled);
-        const curJson = JSON.stringify(stocks);
-
-        if (recJson !== curJson) {
-          setStocks(reconciled);
-          localStorage.setItem('erp_stocks', recJson);
-        }
-      }
+      localStorage.setItem('erp_stocks', JSON.stringify(stocks));
     } catch (e) {
-      console.error('Error during auto stock synchronization:', e);
+      console.error('Error persisting current stock locally:', e);
     }
-  }, [products, frigos, purchaseInvoices, deliveryNotes, inventoryCounts, stockMovements]);
+  }, [stocks]);
 
   return (
     <ERPContext.Provider value={contextValue}>
