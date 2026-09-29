@@ -1040,7 +1040,7 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                 }`}
               >
                 <ArrowUpRight className="w-3.5 h-3.5" />
-                <span>Sorties BLs (-{allFrigoMovements.filter(m => !m.isEntry).length})</span>
+                <span>Sorties / Ajustements (-{allFrigoMovements.filter(m => !m.isEntry).length})</span>
               </button>
 
               <button
@@ -1207,6 +1207,15 @@ export const FrigoManagement: React.FC<FrigoManagementProps> = ({
                             <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 font-bold px-2.5 py-0.5 rounded text-[10px] border border-amber-300 shadow-2xs">
                               <Edit className="w-3 h-3 text-amber-700" />
                               AJUSTEMENT
+                            </span>
+                          )}
+                          {m.type === 'RÉCONCILIATION_STOCK' && (
+                            <span
+                              className="inline-flex items-center gap-1 bg-fuchsia-100 text-fuchsia-900 font-black px-2.5 py-0.5 rounded text-[10px] border border-fuchsia-300 shadow-2xs"
+                              title="Écart calculé entre le stock courant et l'historique disponible"
+                            >
+                              <AlertTriangle className="w-3 h-3 text-fuchsia-700" />
+                              RÉCONCILIATION
                             </span>
                           )}
                         </td>
