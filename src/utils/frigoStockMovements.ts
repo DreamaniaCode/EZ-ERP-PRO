@@ -5,7 +5,7 @@ export interface UnifiedFrigoMovement {
   rawDate: string; // ISO or date string for sorting
   date: string; // e.g. "26/08/2026"
   time: string; // e.g. "14:32:10"
-  type: 'ENTRÉE_ACHAT' | 'ENTRÉE_STOCK' | 'SORTIE_BL' | 'TRANSFERT_INTER_FRIGO' | 'AJUSTEMENT_INVENTAIRE' | 'AJUSTEMENT_MANUEL';
+  type: 'ENTRÉE_ACHAT' | 'ENTRÉE_STOCK' | 'SORTIE_BL' | 'TRANSFERT_INTER_FRIGO' | 'AJUSTEMENT_INVENTAIRE' | 'AJUSTEMENT_MANUEL' | 'RÉCONCILIATION_STOCK';
   isEntry: boolean;
   documentRef: string;
   orderRef?: string;
@@ -516,6 +516,75 @@ export function compileUnifiedFrigoMovements(params: {
       partyType: 'INTERNE',
       performedBy: sm.performedBy,
       notes: sm.notes || `Stock: ${sm.previousStockKg || 0}kg ➔ ${sm.newStockKg || 0}kg`
+    });
+  });
+
+  // 5. RECONCILIATION OF CURRENT STOCK VS. AVAILABLE HISTORY
+  // If an explicit current stock row exists but the visible historical movements
+  // do not add up to that value, expose the difference as a derived reconciliation
+  // line. This does NOT invent a commercial document: it clearly flags that an
+  // older reset/adjustment is missing from the recorded history.
+  stocks.forEach(stock => {
+    const frigoObj = frigos.find(f =>
+      f.id === stock.frigoId || f.code === stock.frigoId || f.name === stock.frigoId
+    );
+    const prd = products.find(p => p.id === stock.productId || p.code === stock.productId);
+
+    if (!frigoObj || !prd) return;
+    if (!isFrigoMatch(frigoObj.id, frigoObj.name)) return;
+    if (!isProductMatch(prd.id, prd.code, prd.name)) return;
+
+    const matchingMovements = results.filter(m =>
+      (m.frigoId === frigoObj.id || m.frigoId === frigoObj.code || m.frigoName === frigoObj.name) &&
+      (m.productId === prd.id || m.productCode === prd.code)
+    );
+
+    const historyBalanceKg = matchingMovements.reduce((sum, m) => sum + Number(m.signedKg || 0), 0);
+    const historyBalancePallets = matchingMovements.reduce((sum, m) => sum + Number(m.signedPallets || 0), 0);
+    const currentKg = Math.max(0, Number(stock.quantityKg) || 0);
+    const currentPallets = Math.max(0, Number(stock.quantityPallets) || 0);
+    const deltaKg = currentKg - historyBalanceKg;
+    const deltaPallets = currentPallets - historyBalancePallets;
+
+    if (Math.abs(deltaKg) < 0.01 && Math.abs(deltaPallets) < 0.01) return;
+
+    const isEntry = deltaKg > 0 || (Math.abs(deltaKg) < 0.01 && deltaPallets > 0);
+    const kgPerCarton = prd.kgPerCarton || 10;
+    const qtyKg = Math.abs(deltaKg);
+    const qtyPallets = Math.abs(deltaPallets);
+    const qtyCartons = Math.round(qtyKg / kgPerCarton);
+    const { date, time, timestampMs } = extractDateAndTime(stock.lastUpdated);
+
+    results.push({
+      id: `mv-reconcile-${frigoObj.id}-${prd.id}-${timestampMs}`,
+      rawDate: new Date(timestampMs).toISOString(),
+      date,
+      time,
+      type: 'RÉCONCILIATION_STOCK',
+      isEntry,
+      documentRef: currentKg === 0 && historyBalanceKg > 0 ? 'VIDAGE-ANTÉRIEUR' : 'ÉCART-STOCK',
+      frigoId: frigoObj.id,
+      frigoName: frigoObj.name,
+      productId: prd.id,
+      productCode: prd.code,
+      productName: prd.name,
+      productCategory: prd.category,
+      kgPerCarton,
+      quantityKg: qtyKg,
+      signedKg: deltaKg,
+      quantityPallets: qtyPallets,
+      signedPallets: deltaPallets,
+      quantityCartons: qtyCartons,
+      signedCartons: isEntry ? qtyCartons : -qtyCartons,
+      unitPriceHT: prd.unitCostHT || 0,
+      totalHT: qtyKg * (prd.unitCostHT || 0),
+      partyName: 'Système / Réconciliation',
+      partyType: 'INTERNE',
+      performedBy: 'Système',
+      balanceAfterKg: currentKg,
+      notes: currentKg === 0 && historyBalanceKg > 0
+        ? `Stock courant à 0 Kg alors que l'historique visible totalise encore ${historyBalanceKg.toLocaleString()} Kg. Cette ligne signale un ancien vidage/ajustement non tracé; date basée sur la dernière mise à jour du stock.`
+        : `Écart calculé entre historique (${historyBalanceKg.toLocaleString()} Kg) et stock courant (${currentKg.toLocaleString()} Kg). Date basée sur la dernière mise à jour du stock.`
     });
   });
 
