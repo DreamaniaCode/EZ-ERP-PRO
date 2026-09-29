@@ -48,12 +48,12 @@ export const INITIAL_FRIGOS: ColdStorageFrigo[] = [
   {
     id: 'frigo-1',
     code: 'FRG-01',
-    name: 'Entrepôt Ain Rabat (Principal)',
-    location: 'Ain Rabat, Casablanca',
+    name: 'Entrepôt Skhirat (Principal)',
+    location: 'Skhirat',
     managerName: 'Responsable Quai',
     managerPhone: '+212 600-000000',
     capacityPallets: 50000,
-    whatsappGroup: 'Groupe WhatsApp Frigo Ain Rabat',
+    whatsappGroup: 'Groupe WhatsApp Frigo Skhirat',
     whatsappGroupLink: ''
   }
 ];
