@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useERP } from '../../context/ERPContext';
+import { api } from '../../lib/api';
 import { ProductCategory, Product } from '../../types';
 import { findSimilarProducts, normalizeProductName } from '../../utils/productMatcher';
 import { ArrowLeft, Save, X, Image as ImageIcon, AlertTriangle, Copy, Package, Warehouse, Sparkles } from 'lucide-react';
@@ -20,6 +21,9 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
   const [currentEditId, setCurrentEditId] = useState<string | null>(editId);
   const [duplicateWarning, setDuplicateWarning] = useState<Product | null>(null);
   const [duplicateNoticeSuccess, setDuplicateNoticeSuccess] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [isCodeLoading, setIsCodeLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const currentProduct = useMemo(() => {
     if (!currentEditId) return null;
@@ -72,6 +76,36 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
     }
   }, [currentProduct]);
 
+  // Reserve a permanent product code as soon as creation mode is opened.
+  // A reserved number is never returned to the pool, even if the form is cancelled.
+  useEffect(() => {
+    if (currentEditId) {
+      setGeneratedCode(currentProduct?.code || '');
+      setIsCodeLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setGeneratedCode('');
+    setIsCodeLoading(true);
+
+    api.getNextProductCode()
+      .then(({ code }) => {
+        if (!cancelled) setGeneratedCode(code);
+      })
+      .catch(err => {
+        console.error('Error reserving product code:', err);
+        if (!cancelled) setGeneratedCode('');
+      })
+      .finally(() => {
+        if (!cancelled) setIsCodeLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentEditId, currentProduct?.code]);
+
   // Compute active stock and frigos for the product being edited
   const productActiveStock = useMemo(() => {
     if (!currentProduct) return { totalKg: 0, frigoDetails: [], movementsCount: 0 };
@@ -122,28 +156,50 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
     setTimeout(() => setDuplicateNoticeSuccess(false), 5000);
   };
 
-  const executeSave = () => {
-    const cleanData = {
-      ...formData,
-      category: (formData.category as ProductCategory) || 'Dattes Locales',
-      unitCostHT: Number(formData.unitCostHT) || 0,
-      sellingPriceHT: Number(formData.sellingPriceHT) || 0,
-      kgPerCarton: Number(formData.kgPerCarton) || 5,
-      cartonsPerPallet: Number(formData.cartonsPerPallet) || 100,
-    };
+  const executeSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
 
-    if (currentEditId) {
-      updateProduct(currentEditId, cleanData);
-    } else {
-      addProduct(cleanData);
+    try {
+      const cleanData = {
+        ...formData,
+        category: (formData.category as ProductCategory) || 'Dattes Locales',
+        unitCostHT: Number(formData.unitCostHT) || 0,
+        sellingPriceHT: Number(formData.sellingPriceHT) || 0,
+        kgPerCarton: Number(formData.kgPerCarton) || 5,
+        cartonsPerPallet: Number(formData.cartonsPerPallet) || 100,
+      };
+
+      if (currentEditId) {
+        await updateProduct(currentEditId, cleanData);
+      } else {
+        let reservedCode = generatedCode;
+        if (!reservedCode) {
+          const reservation = await api.getNextProductCode();
+          reservedCode = reservation.code;
+          setGeneratedCode(reservedCode);
+        }
+        await addProduct({ ...cleanData, code: reservedCode });
+      }
+
+      onBack();
+    } catch (err: any) {
+      console.error('Error saving product:', err);
+      alert(err?.message || 'Erreur lors de l’enregistrement du produit.');
+    } finally {
+      setIsSaving(false);
     }
-    onBack();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
       alert('Veuillez saisir le nom du produit.');
+      return;
+    }
+
+    if (!currentEditId && isCodeLoading) {
+      alert('Le code produit est en cours de génération. Réessayez dans un instant.');
       return;
     }
 
@@ -154,7 +210,7 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
       return;
     }
 
-    executeSave();
+    void executeSave();
   };
 
   const kgPerPallet = (Number(formData.kgPerCarton) || 0) * (Number(formData.cartonsPerPallet) || 0);
@@ -175,9 +231,9 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
               <h1 className="text-xl font-bold text-gray-900">
                 {currentEditId ? t('stock.editProduct', 'Modifier la Fiche Produit') : t('stock.newProduct', 'Nouveau Produit')}
               </h1>
-              {currentProduct && (
+              {(currentProduct || !currentEditId) && (
                 <span className="px-2.5 py-0.5 bg-blue-100 text-blue-800 rounded font-mono font-bold text-xs border border-blue-200">
-                  {currentProduct.code}
+                  {currentProduct?.code || generatedCode || (isCodeLoading ? 'GÉNÉRATION…' : 'AUTO')}
                 </span>
               )}
             </div>
@@ -211,10 +267,11 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
 
           <button 
             onClick={handleSubmit}
-            className="flex items-center px-4 py-2 bg-[#0f62fe] text-white hover:bg-blue-700 rounded text-sm font-bold transition-colors shadow-md cursor-pointer"
+            disabled={isSaving || (!currentEditId && isCodeLoading)}
+            className="flex items-center px-4 py-2 bg-[#0f62fe] text-white hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded text-sm font-bold transition-colors shadow-md cursor-pointer"
           >
             <Save className="w-4 h-4 mr-1.5 rtl:ml-1.5 rtl:mr-0" />
-            {t('common.save', 'Enregistrer')}
+            {isSaving ? 'Enregistrement…' : t('common.save', 'Enregistrer')}
           </button>
         </div>
       </div>
@@ -269,6 +326,26 @@ export const ProductEditPage: React.FC<{ editId: string | null; onBack: () => vo
                 )}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-black text-blue-900 uppercase mb-1">
+                    Code Produit — Généré automatiquement
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      readOnly
+                      value={currentProduct?.code || generatedCode || (isCodeLoading ? 'Génération en cours…' : 'Code automatique')}
+                      className="w-full carbon-input font-mono font-black text-base bg-blue-50 border-blue-300 text-blue-900 cursor-not-allowed"
+                    />
+                    {!currentEditId && isCodeLoading && (
+                      <span className="text-[11px] font-semibold text-blue-700 whitespace-nowrap">Réservation…</span>
+                    )}
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-gray-500">
+                    Ce code est réservé par la base de données et ne sera jamais réutilisé, même si le produit est supprimé.
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
                     {t('stock.productName', 'Désignation du Produit')} *
