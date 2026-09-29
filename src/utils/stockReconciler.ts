@@ -180,19 +180,26 @@ export function computeSynchronizedStocks(params: {
       let frigoKg = 0;
       let frigoPallets = 0;
 
-      if (entriesKg > 0 || exitsKg > 0) {
-        // Dynamic balance from actual purchases and delivery notes
-        const movementBalanceKg = Math.max(0, entriesKg - exitsKg);
-        frigoKg = Math.max(movementBalanceKg, explicitStock?.quantityKg || 0);
-        frigoPallets = (explicitStock && explicitStock.quantityPallets > 0 && explicitStock.quantityPallets <= Math.max(5, Math.ceil(frigoKg / 20)))
-          ? explicitStock.quantityPallets
-          : (frigoKg > 0 ? Math.max(1, Math.ceil(frigoKg / safeKgPerPallet)) : 0);
-      } else if (explicitStock && explicitStock.quantityKg > 0) {
-        // No recorded movements, but explicit stock was configured
-        frigoKg = explicitStock.quantityKg;
-        frigoPallets = (explicitStock.quantityPallets > 0 && explicitStock.quantityPallets <= Math.max(5, Math.ceil(frigoKg / 20)))
-          ? explicitStock.quantityPallets
-          : (frigoKg > 0 ? Math.max(1, Math.ceil(frigoKg / safeKgPerPallet)) : 0);
+      // IMPORTANT: FrigoStockLevel is the single source of truth for CURRENT stock.
+      // Historical movements remain useful for entries/exits/audit, but must never
+      // overwrite an explicit stock value (including an intentional 0 Kg reset).
+      //
+      // Previously we used Math.max(movementBalanceKg, explicitStock.quantityKg).
+      // That could turn an absolute manual adjustment such as 23,000 Kg into
+      // 43,000 Kg when older movement history still carried 40,000 Kg.
+      if (explicitStock) {
+        frigoKg = Math.max(0, Number(explicitStock.quantityKg) || 0);
+        frigoPallets = Math.max(0, Number(explicitStock.quantityPallets) || 0);
+
+        // If pallets were not maintained, derive them from the authoritative Kg.
+        if (frigoKg > 0 && frigoPallets <= 0) {
+          frigoPallets = Math.max(1, Math.ceil(frigoKg / safeKgPerPallet));
+        }
+      } else if (entriesKg > 0 || exitsKg > 0) {
+        // Compatibility fallback for old datasets that have movement history
+        // but no FrigoStockLevel row yet.
+        frigoKg = Math.max(0, entriesKg - exitsKg);
+        frigoPallets = frigoKg > 0 ? Math.max(1, Math.ceil(frigoKg / safeKgPerPallet)) : 0;
       }
 
       const frigoCartons = kgPerCarton > 0 ? Math.round(frigoKg / kgPerCarton) : 0;
