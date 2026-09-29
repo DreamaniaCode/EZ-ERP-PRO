@@ -66,6 +66,7 @@ export const api = {
 
   // Products
   getProducts: () => request<Product[]>('/products'),
+  getNextProductCode: () => request<{ code: string }>('/products/next-code'),
   createProduct: (product: Partial<Product>) => request<Product>('/products', { method: 'POST', body: JSON.stringify(product) }),
   updateProduct: (id: string, product: Partial<Product>) => request<Product>(`/products/${id}`, { method: 'PUT', body: JSON.stringify(product) }),
   deleteProduct: (id: string) => request<{ success: boolean }>(`/products/${id}`, { method: 'DELETE' }),
