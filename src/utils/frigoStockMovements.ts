@@ -574,12 +574,14 @@ export function calculateProductAccumulation(params: {
     const totalExitsPallets = exitMovements.reduce((sum, m) => sum + m.quantityPallets, 0);
     const exitsCount = exitMovements.length;
 
-    // Current Stock Level (Dynamic movement balance takes precedence over stale 0kg stocks)
+    // Current Stock Level: persisted FrigoStockLevel rows are authoritative.
+    // Movement history is used only as a compatibility fallback when no stock
+    // row exists yet. An explicit 0 Kg must remain 0 Kg after a reset.
     let currentStockKg = 0;
     let currentStockPallets = 0;
 
     const dynamicBalanceKg = Math.max(0, totalEntriesKg - totalExitsKg);
-    const dynamicBalancePallets = Math.ceil(dynamicBalanceKg / kgPerPallet);
+    const dynamicBalancePallets = dynamicBalanceKg > 0 ? Math.ceil(dynamicBalanceKg / kgPerPallet) : 0;
 
     if (targetFrigoId && targetFrigoId !== 'ALL') {
       const targetFrigo = frigos.find(f => f.id === targetFrigoId);
@@ -588,28 +590,27 @@ export function calculateProductAccumulation(params: {
         (s.productId === prd.id || s.productId === prd.code)
       );
 
-      if (totalEntriesKg > 0 || totalExitsKg > 0) {
-        currentStockKg = Math.max(dynamicBalanceKg, stkObj?.quantityKg || 0);
-        currentStockPallets = stkObj && stkObj.quantityPallets > 0 ? stkObj.quantityPallets : dynamicBalancePallets;
-      } else if (stkObj && stkObj.quantityKg > 0) {
-        currentStockKg = stkObj.quantityKg;
-        currentStockPallets = stkObj.quantityPallets;
+      if (stkObj) {
+        currentStockKg = Math.max(0, Number(stkObj.quantityKg) || 0);
+        currentStockPallets = Math.max(0, Number(stkObj.quantityPallets) || 0);
+        if (currentStockKg > 0 && currentStockPallets <= 0) {
+          currentStockPallets = Math.ceil(currentStockKg / kgPerPallet);
+        }
       } else {
         currentStockKg = dynamicBalanceKg;
         currentStockPallets = dynamicBalancePallets;
       }
     } else {
-      // Global stock across all frigos
+      // Global stock across all frigos. Presence of rows (even zero rows)
+      // means PostgreSQL has an explicit current-stock answer.
       const relevantStocks = stocks.filter(s => s.productId === prd.id || s.productId === prd.code);
-      const totalStaticKg = relevantStocks.reduce((sum, s) => sum + s.quantityKg, 0);
-      const totalStaticPallets = relevantStocks.reduce((sum, s) => sum + s.quantityPallets, 0);
 
-      if (totalEntriesKg > 0 || totalExitsKg > 0) {
-        currentStockKg = Math.max(dynamicBalanceKg, totalStaticKg);
-        currentStockPallets = totalStaticPallets > 0 ? totalStaticPallets : dynamicBalancePallets;
-      } else if (totalStaticKg > 0) {
-        currentStockKg = totalStaticKg;
-        currentStockPallets = totalStaticPallets;
+      if (relevantStocks.length > 0) {
+        currentStockKg = relevantStocks.reduce((sum, s) => sum + Math.max(0, Number(s.quantityKg) || 0), 0);
+        currentStockPallets = relevantStocks.reduce((sum, s) => sum + Math.max(0, Number(s.quantityPallets) || 0), 0);
+        if (currentStockKg > 0 && currentStockPallets <= 0) {
+          currentStockPallets = Math.ceil(currentStockKg / kgPerPallet);
+        }
       } else {
         currentStockKg = dynamicBalanceKg;
         currentStockPallets = dynamicBalancePallets;
