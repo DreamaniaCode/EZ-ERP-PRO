@@ -184,23 +184,28 @@ export const ProductsList: React.FC<ProductsListProps> = ({
     }
   };
 
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProd.name) return;
-    addProduct(newProd);
-    setShowAddModal(false);
-    setNewProd({
-      name: '',
-      category: 'Dattes Locales',
-      origin: 'Maroc',
-      sellingPriceHT: 0,
-      unitCostHT: 0,
-      vatRate: 0.20,
-      kgPerCarton: 5,
-      cartonsPerPallet: 160,
-      minStockAlertKg: 0,
-      description: '',
-    });
+    try {
+      await addProduct(newProd);
+      setShowAddModal(false);
+      setNewProd({
+        name: '',
+        category: 'Dattes Locales',
+        origin: 'Maroc',
+        sellingPriceHT: 0,
+        unitCostHT: 0,
+        vatRate: 0.20,
+        kgPerCarton: 5,
+        cartonsPerPallet: 160,
+        minStockAlertKg: 0,
+        description: '',
+      });
+    } catch (err: any) {
+      console.error('Error creating product:', err);
+      alert(err?.message || 'Erreur lors de la création du produit.');
+    }
   };
 
   const handleEditSubmit = (e: React.FormEvent) => {
