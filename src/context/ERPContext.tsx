@@ -106,7 +106,7 @@ interface ERPContextType {
   updateCompanyInfo: (info: Partial<CompanyInfo>) => void;
 
   // Product Actions
-  addProduct: (product: Omit<Product, 'id' | 'code' | 'kgPerPallet'>) => Product;
+  addProduct: (product: Omit<Product, 'id' | 'code' | 'kgPerPallet'> & { code?: string }) => Promise<Product>;
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => void;
   syncBLPricesWithProducts: () => void;
@@ -554,65 +554,38 @@ export const ERPProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ============================================================
   // PRODUCT ACTIONS
   // ============================================================
-  // Category-based SKU prefix generator
-  const getCategorySkuPrefix = (category?: string): string => {
-    switch (category) {
-      case 'Fruits Secs': return 'PRD-SEC-';
-      case 'Huiles & Condiments': return 'PRD-OIL-';
-      case 'Autres Produits Alimentaires': return 'PRD-ALM-';
-      case 'Dattes Locales':
-      case 'Dattes Importées':
-      default:
-        return 'PRD-DAT-';
-    }
-  };
-
-  const generateNextProductCode = (category?: string): string => {
-    const prefix = getCategorySkuPrefix(category);
-    let maxNum = 0;
-    products.forEach(p => {
-      if (p.code && p.code.startsWith(prefix)) {
-        const match = p.code.substring(prefix.length).match(/^(\d+)/);
-        if (match) {
-          const num = parseInt(match[1], 10);
-          if (!isNaN(num) && num > maxNum) maxNum = num;
-        }
-      }
-    });
-    return `${prefix}${String(maxNum + 1).padStart(3, '0')}`;
-  };
-
-  const addProduct = (productData: Omit<Product, 'id' | 'code' | 'kgPerPallet'>): Product => {
-    // 1. Check normalized equivalent
+  const addProduct = async (
+    productData: Omit<Product, 'id' | 'code' | 'kgPerPallet'> & { code?: string }
+  ): Promise<Product> => {
+    // Keep the existing exact-name safeguard, but let PostgreSQL own the SKU.
     const normName = normalizeProductName(productData.name);
     const existing = products.find(p => normalizeProductName(p.name) === normName);
-    if (existing) {
-      return existing;
-    }
+    if (existing) return existing;
 
-    const code = generateNextProductCode(productData.category);
     const kgPerCarton = Number(productData.kgPerCarton) || 5;
     const cartonsPerPallet = Number(productData.cartonsPerPallet) || 100;
-    const kgPerPallet = (productData.kgPerCarton && productData.cartonsPerPallet)
-      ? (kgPerCarton * cartonsPerPallet)
-      : (productData.kgPerCarton ? kgPerCarton * 100 : 500);
+    const kgPerPallet = kgPerCarton * cartonsPerPallet;
 
-    const id = `prd-${Date.now()}`;
-
-    const newPrd: Product = {
+    const payload: Partial<Product> = {
       ...productData,
-      id,
-      code,
+      code: productData.code,
       kgPerCarton,
       cartonsPerPallet,
       kgPerPallet,
     };
 
-    setProducts(prev => [newPrd, ...prev]);
+    const savedProduct = await api.createProduct(payload);
 
-    api.createProduct(newPrd).catch(err => console.error('Error saving product to PostgreSQL:', err));
+    setProducts(prev => {
+      const withoutSame = prev.filter(p => p.id !== savedProduct.id && p.code !== savedProduct.code);
+      return [savedProduct, ...withoutSame];
+    });
 
-    return newPrd;
+    try {
+      localStorage.setItem('erp_products', JSON.stringify([savedProduct, ...products.filter(p => p.id !== savedProduct.id && p.code !== savedProduct.code)]));
+    } catch (e) {}
+
+    return savedProduct;
   };
 
   const updateProduct = async (arg1: string | (Partial<Product> & { id: string }), arg2?: Partial<Product>) => {
@@ -1887,7 +1860,7 @@ const defaultFallbackContext: ERPContextType = {
   purchaseInvoices: [],
   companyInfo: INITIAL_COMPANY_INFO,
   updateCompanyInfo: () => {},
-  addProduct: () => ({ id: '', code: '', name: '', category: 'Dattes Locales', origin: '', sellingPriceHT: 0, unitCostHT: 0, vatRate: 0.2, kgPerCarton: 5, cartonsPerPallet: 100, kgPerPallet: 500, minStockAlertKg: 500, description: '' }),
+  addProduct: async () => ({ id: '', code: '', name: '', category: 'Dattes Locales', origin: '', sellingPriceHT: 0, unitCostHT: 0, vatRate: 0.2, kgPerCarton: 5, cartonsPerPallet: 100, kgPerPallet: 500, minStockAlertKg: 500, description: '' }),
   updateProduct: async () => {},
   deleteProduct: () => {},
   syncBLPricesWithProducts: () => {},
