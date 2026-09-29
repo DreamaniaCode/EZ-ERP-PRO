@@ -168,6 +168,16 @@ const ensureProductCodeInfrastructure = async () => {
       "usedAt" TIMESTAMPTZ NULL
     )
   `);
+
+  // Preserve every code that already exists in the catalogue so it can never
+  // be issued again later, even after the corresponding product is deleted.
+  await prisma.$executeRawUnsafe(`
+    INSERT INTO "product_code_registry" ("code", "usedAt")
+    SELECT "code", NOW()
+    FROM "products"
+    WHERE "code" IS NOT NULL AND "code" <> ''
+    ON CONFLICT ("code") DO NOTHING
+  `);
 };
 
 const reserveNextProductCode = async (): Promise<string> => {
