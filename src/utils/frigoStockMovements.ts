@@ -176,6 +176,7 @@ export function compileUnifiedFrigoMovements(params: {
   const {
     frigos,
     products,
+    stocks,
     deliveryNotes,
     purchaseInvoices,
     inventoryCounts,
