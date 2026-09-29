@@ -31,7 +31,8 @@ import {
   Building2,
   SlidersHorizontal,
   X,
-  Scissors
+  Scissors,
+  PackageX
 } from 'lucide-react';
 
 interface ProductsListProps {
@@ -60,7 +61,8 @@ export const ProductsList: React.FC<ProductsListProps> = ({
     addProduct, 
     updateProduct, 
     deleteProduct, 
-    transferStock, 
+    transferStock,
+    clearStocks,
     syncBLPricesWithProducts,
     mergeProducts,
     recalculateAndSyncAllStocks
@@ -218,6 +220,36 @@ export const ProductsList: React.FC<ProductsListProps> = ({
       
     if (window.confirm(warningMsg)) {
       deleteProduct(prd.id);
+    }
+  };
+
+  const handleClearProductStock = async (prd: Product) => {
+    const selectedFrigo = selectedFrigoFilter !== 'ALL'
+      ? frigos.find(f => f.id === selectedFrigoFilter)
+      : null;
+    const scopeLabel = selectedFrigo
+      ? `le frigo "${selectedFrigo.name}"`
+      : 'TOUS les frigos';
+    const currentDisplayedKg = productStocks.find(p => p.productId === prd.id)?.totalStockKg || 0;
+
+    const confirmed = window.confirm(
+      `⚠️ VIDER LE STOCK DU PRODUIT\n\n` +
+      `${prd.code} - "${prd.name}"\n` +
+      `Stock affiché : ${currentDisplayedKg.toLocaleString()} Kg\n` +
+      `Périmètre : ${scopeLabel}\n\n` +
+      `Le produit restera dans le catalogue, mais son stock sera remis à 0 Kg / 0 palette.\n\nContinuer ?`
+    );
+    if (!confirmed) return;
+
+    try {
+      await clearStocks(
+        selectedFrigoFilter === 'ALL' ? undefined : selectedFrigoFilter,
+        prd.id
+      );
+      alert(`✓ Stock de "${prd.name}" remis à 0 Kg dans ${scopeLabel}.`);
+    } catch (e) {
+      console.error('Error clearing product stock:', e);
+      alert('Erreur lors de la remise à zéro du stock.');
     }
   };
 
@@ -875,7 +907,7 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                           </button>
                         )}
 
-                        {/* Edit Button */}
+                        {/* Edit / reset / delete actions */}
                         {currentUser?.role !== 'RESPONSABLE_FRIGO' && rawProduct && (
                           <>
                             <button
@@ -884,6 +916,14 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                               className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded transition cursor-pointer"
                             >
                               <Edit className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              onClick={() => handleClearProductStock(rawProduct)}
+                              title={selectedFrigoFilter === 'ALL' ? 'Vider le stock de ce produit dans tous les frigos' : 'Vider le stock de ce produit dans le frigo sélectionné'}
+                              className="p-1.5 text-gray-500 hover:text-orange-700 hover:bg-orange-50 rounded transition cursor-pointer"
+                            >
+                              <PackageX className="w-3.5 h-3.5" />
                             </button>
 
                             <button
@@ -1059,6 +1099,15 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                       >
                         <Edit className="w-4 h-4 text-amber-700" />
                         <span>Modifier</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleClearProductStock(rawProduct)}
+                        className="flex-1 py-2 bg-orange-50 hover:bg-orange-100 text-orange-900 border border-orange-300 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer touch-manipulation"
+                        title="Vider le stock"
+                      >
+                        <PackageX className="w-4 h-4 text-orange-700" />
+                        <span>Vider</span>
                       </button>
 
                       <button
