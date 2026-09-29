@@ -253,6 +253,43 @@ export const ProductsList: React.FC<ProductsListProps> = ({
     }
   };
 
+  const handleClearSelectedProducts = async () => {
+    if (selectedProductIds.length === 0) return;
+
+    const selectedFrigo = selectedFrigoFilter !== 'ALL'
+      ? frigos.find(f => f.id === selectedFrigoFilter)
+      : null;
+    const scopeLabel = selectedFrigo
+      ? `le frigo "${selectedFrigo.name}"`
+      : 'tous les frigos';
+
+    const selectedNames = selectedProductIds
+      .map(id => products.find(p => p.id === id)?.name)
+      .filter(Boolean);
+
+    const confirmed = window.confirm(
+      `⚠️ METTRE LE STOCK À ZÉRO\n\n` +
+      `${selectedProductIds.length} produit(s) seront remis à 0 Kg dans ${scopeLabel}.\n` +
+      `${selectedNames.slice(0, 5).join(', ')}${selectedNames.length > 5 ? '…' : ''}\n\n` +
+      `Les produits resteront dans le catalogue. Continuer ?`
+    );
+    if (!confirmed) return;
+
+    try {
+      for (const productId of selectedProductIds) {
+        await clearStocks(
+          selectedFrigoFilter === 'ALL' ? undefined : selectedFrigoFilter,
+          productId
+        );
+      }
+      setSelectedProductIds([]);
+      alert(`✓ ${selectedProductIds.length} produit(s) remis à 0 Kg dans ${scopeLabel}.`);
+    } catch (e) {
+      console.error('Error clearing selected product stocks:', e);
+      alert('Erreur lors de la remise à zéro des stocks sélectionnés.');
+    }
+  };
+
   const handleTransferSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (transferData.sourceFrigoId === transferData.targetFrigoId) {
@@ -708,10 +745,19 @@ export const ProductsList: React.FC<ProductsListProps> = ({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowTransferModal(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 shadow-xs cursor-pointer animate-pulse"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 shadow-xs cursor-pointer"
               >
                 <ArrowRightLeft className="w-3.5 h-3.5" />
                 Transfert ({selectedProductIds.length})
+              </button>
+
+              <button
+                onClick={handleClearSelectedProducts}
+                className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-lg font-black flex items-center gap-1.5 shadow-sm cursor-pointer"
+                title={selectedFrigoFilter === 'ALL' ? 'Mettre à zéro ces produits dans tous les frigos' : 'Mettre à zéro ces produits dans le frigo sélectionné'}
+              >
+                <PackageX className="w-3.5 h-3.5" />
+                Mettre stock à zéro ({selectedProductIds.length})
               </button>
 
               {selectedProductIds.length >= 2 && (
@@ -907,7 +953,19 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                           </button>
                         )}
 
-                        {/* Edit / reset / delete actions */}
+                        {/* Stock reset is intentionally visible for every role */}
+                        {rawProduct && (
+                          <button
+                            onClick={() => handleClearProductStock(rawProduct)}
+                            title={selectedFrigoFilter === 'ALL' ? 'Mettre ce produit à 0 Kg dans tous les frigos' : 'Mettre ce produit à 0 Kg dans le frigo sélectionné'}
+                            className="px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 rounded-md transition cursor-pointer font-black text-[10px] inline-flex items-center gap-1"
+                          >
+                            <PackageX className="w-3.5 h-3.5" />
+                            <span>Mettre à 0</span>
+                          </button>
+                        )}
+
+                        {/* Edit / delete restricted actions */}
                         {currentUser?.role !== 'RESPONSABLE_FRIGO' && rawProduct && (
                           <>
                             <button
@@ -916,14 +974,6 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                               className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded transition cursor-pointer"
                             >
                               <Edit className="w-3.5 h-3.5" />
-                            </button>
-
-                            <button
-                              onClick={() => handleClearProductStock(rawProduct)}
-                              title={selectedFrigoFilter === 'ALL' ? 'Vider le stock de ce produit dans tous les frigos' : 'Vider le stock de ce produit dans le frigo sélectionné'}
-                              className="p-1.5 text-gray-500 hover:text-orange-700 hover:bg-orange-50 rounded transition cursor-pointer"
-                            >
-                              <PackageX className="w-3.5 h-3.5" />
                             </button>
 
                             <button
@@ -1091,6 +1141,17 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                     </button>
                   )}
 
+                  {rawProduct && (
+                    <button
+                      onClick={() => handleClearProductStock(rawProduct)}
+                      className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white border border-red-700 text-xs font-black rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer touch-manipulation"
+                      title="Mettre le stock à zéro"
+                    >
+                      <PackageX className="w-4 h-4" />
+                      <span>Mettre à 0</span>
+                    </button>
+                  )}
+
                   {currentUser?.role !== 'RESPONSABLE_FRIGO' && rawProduct && (
                     <>
                       <button
@@ -1099,15 +1160,6 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                       >
                         <Edit className="w-4 h-4 text-amber-700" />
                         <span>Modifier</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleClearProductStock(rawProduct)}
-                        className="flex-1 py-2 bg-orange-50 hover:bg-orange-100 text-orange-900 border border-orange-300 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer touch-manipulation"
-                        title="Vider le stock"
-                      >
-                        <PackageX className="w-4 h-4 text-orange-700" />
-                        <span>Vider</span>
                       </button>
 
                       <button
