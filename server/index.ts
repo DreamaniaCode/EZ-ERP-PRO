@@ -147,6 +147,103 @@ app.put('/api/company-info', async (req, res) => {
 // ============================================================
 // PRODUCTS
 // ============================================================
+// Product codes use a PostgreSQL sequence + permanent registry.
+// The registry is intentionally never cleaned when a product is deleted:
+// once a code has been issued/reserved, it can never be issued again.
+const ensureProductCodeInfrastructure = async () => {
+  await prisma.$executeRawUnsafe(`
+    CREATE SEQUENCE IF NOT EXISTS "product_code_seq"
+    AS BIGINT
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "product_code_registry" (
+      "code" TEXT PRIMARY KEY,
+      "reservedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      "usedAt" TIMESTAMPTZ NULL
+    )
+  `);
+};
+
+const reserveNextProductCode = async (): Promise<string> => {
+  await ensureProductCodeInfrastructure();
+
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const rows = await prisma.$queryRawUnsafe<Array<{ value: string }>>(
+      `SELECT nextval('product_code_seq')::text AS value`
+    );
+    const sequenceValue = rows?.[0]?.value;
+    if (!sequenceValue) throw new Error('Impossible de générer le prochain code produit.');
+
+    const code = `PRD-${String(sequenceValue).padStart(8, '0')}`;
+
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "product_code_registry" ("code") VALUES ($1)`,
+        code
+      );
+    } catch {
+      // A registry collision can only happen with pre-existing infrastructure.
+      // Consume another sequence number rather than ever reusing a code.
+      continue;
+    }
+
+    const existingProduct = await prisma.product.findUnique({ where: { code } });
+    if (existingProduct) {
+      // Keep the registry row forever and move on to a fresh number.
+      continue;
+    }
+
+    return code;
+  }
+
+  throw new Error('Impossible de réserver un code produit unique après plusieurs tentatives.');
+};
+
+const claimReservedProductCode = async (requestedCode?: string): Promise<string> => {
+  await ensureProductCodeInfrastructure();
+
+  if (requestedCode && /^PRD-\d{8}$/.test(requestedCode)) {
+    const claimed = await prisma.$queryRawUnsafe<Array<{ code: string }>>(
+      `
+        UPDATE "product_code_registry"
+        SET "usedAt" = NOW()
+        WHERE "code" = $1 AND "usedAt" IS NULL
+        RETURNING "code"
+      `,
+      requestedCode
+    );
+
+    if (claimed.length > 0) {
+      const exists = await prisma.product.findUnique({ where: { code: requestedCode } });
+      if (!exists) return requestedCode;
+    }
+  }
+
+  // Missing, invalid, already-used or conflicting requested code:
+  // reserve a completely new one and claim it immediately.
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const freshCode = await reserveNextProductCode();
+    const claimed = await prisma.$queryRawUnsafe<Array<{ code: string }>>(
+      `
+        UPDATE "product_code_registry"
+        SET "usedAt" = NOW()
+        WHERE "code" = $1 AND "usedAt" IS NULL
+        RETURNING "code"
+      `,
+      freshCode
+    );
+    if (claimed.length > 0) return freshCode;
+  }
+
+  throw new Error('Impossible d\'attribuer un code produit unique.');
+};
+
 app.get('/api/products', async (req, res) => {
   try {
     const products = await prisma.product.findMany({ orderBy: { name: 'asc' } });
@@ -156,20 +253,62 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+app.get('/api/products/next-code', async (_req, res) => {
+  try {
+    const code = await reserveNextProductCode();
+    res.json({ code });
+  } catch (error: any) {
+    console.error('Error reserving product code:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/products', async (req, res) => {
   try {
-    const product = await prisma.product.create({ data: req.body });
+    const { id, code: requestedCode, createdAt, updatedAt, ...bodyData } = req.body || {};
+    const code = await claimReservedProductCode(
+      typeof requestedCode === 'string' ? requestedCode.trim() : undefined
+    );
+
+    const kgPerCarton = Number(bodyData.kgPerCarton) || 1;
+    const cartonsPerPallet = Number(bodyData.cartonsPerPallet) || 1;
+
+    const cleanData: any = {
+      code,
+      name: String(bodyData.name || '').trim(),
+      category: String(bodyData.category || 'Autres Produits Alimentaires'),
+      origin: String(bodyData.origin || ''),
+      sellingPriceHT: Number(bodyData.sellingPriceHT) || 0,
+      unitCostHT: Number(bodyData.unitCostHT) || 0,
+      vatRate: Number(bodyData.vatRate) || 0.20,
+      kgPerCarton,
+      cartonsPerPallet,
+      kgPerPallet: Number(bodyData.kgPerPallet) || (kgPerCarton * cartonsPerPallet),
+      minStockAlertKg: Number(bodyData.minStockAlertKg) || 0,
+      description: String(bodyData.description || ''),
+      imageUrl: String(bodyData.imageUrl || ''),
+    };
+    if (id) cleanData.id = id;
+
+    if (!cleanData.name) {
+      return res.status(400).json({ error: 'La désignation du produit est obligatoire.' });
+    }
+
+    const product = await prisma.product.create({ data: cleanData });
     res.json(product);
   } catch (error: any) {
+    console.error('Error creating product:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 app.put('/api/products/:id', async (req, res) => {
   try {
+    // Product code is immutable after creation.
+    const { id, code, createdAt, updatedAt, ...bodyData } = req.body || {};
     const product = await prisma.product.update({
       where: { id: req.params.id },
-      data: req.body,
+      data: bodyData,
     });
     res.json(product);
   } catch (error: any) {
