@@ -394,6 +394,35 @@ app.post('/api/products/merge', async (req, res) => {
 // ============================================================
 app.get('/api/frigos', async (req, res) => {
   try {
+    // One-time self-heal for the legacy default warehouse label.
+    // The physical warehouse is Skhirat; older seed data incorrectly named it Ain Rabat.
+    const legacyName = 'Entrepôt Ain Rabat (Principal)';
+    const correctedName = 'Entrepôt Skhirat (Principal)';
+
+    const legacyFrigos = await prisma.coldStorageFrigo.findMany({
+      where: { name: legacyName },
+      select: { id: true }
+    });
+
+    if (legacyFrigos.length > 0) {
+      const legacyIds = legacyFrigos.map(f => f.id);
+
+      await prisma.$transaction([
+        prisma.coldStorageFrigo.updateMany({
+          where: { id: { in: legacyIds } },
+          data: { name: correctedName, location: 'Skhirat' }
+        }),
+        prisma.productStockMovement.updateMany({
+          where: { frigoId: { in: legacyIds }, frigoName: legacyName },
+          data: { frigoName: correctedName }
+        }),
+        prisma.deliveryNoteBL.updateMany({
+          where: { frigoId: { in: legacyIds }, frigoName: legacyName },
+          data: { frigoName: correctedName }
+        })
+      ]);
+    }
+
     const frigos = await prisma.coldStorageFrigo.findMany({ orderBy: { code: 'asc' } });
     res.json(frigos);
   } catch (error: any) {
